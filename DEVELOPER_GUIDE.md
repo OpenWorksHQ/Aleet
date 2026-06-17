@@ -154,32 +154,19 @@ From the monorepo root:
 npm run dev
 ```
 
-Turborepo starts all apps concurrently:
+This uses **concurrently** to start all three apps via npm workspaces (reliable on Windows). Turborepo is still used for `build`, `lint`, and `start`.
 
+| App           | URL                            | Dev command (internal)              |
+| ------------- | ------------------------------ | ----------------------------------- |
+| Backend       | `http://localhost:5000`        | `nodemon --no-stdin src/server.js`  |
+| Frontend      | `http://localhost:3001`        | `next dev -p 3001`                  |
+| Driver Portal | `http://localhost:3002`        | `next dev --webpack -p 3002`        |
 
-| App           | URL                                       | Dev command (internal)       |
-| ------------- | ----------------------------------------- | ---------------------------- |
-| Backend       | `http://localhost:<PORT>` (set in `.env`) | `nodemon src/server.js`      |
-| Frontend      | `http://localhost:3001`                   | `next dev -p 3001`           |
-| Driver Portal | `http://localhost:3002`                   | `next dev --webpack -p 3002` |
-
+> Optional: `npm run dev:turbo` runs dev via Turborepo. On Windows this can fail when spawning all apps at once — use `npm run dev` instead.
 
 ### Run a single app
 
-Use Turborepo's `--filter` flag from the root:
-
-```bash
-# Backend only
-npx turbo run dev --filter=swift-haven-backend
-
-# Frontend only
-npx turbo run dev --filter=aleet-frontend
-
-# Driver portal only
-npx turbo run dev --filter=driver-aleet-frontend
-```
-
-Or use npm workspaces directly:
+Use npm workspaces from the root:
 
 ```bash
 # Backend only
@@ -462,6 +449,45 @@ Make sure all three are running when doing full-stack integration testing.
 ---
 
 ## Troubleshooting
+
+### Backend shows `localhost:undefined`
+
+Your `apps/backend/.env` is missing `PORT`. Add it:
+
+```
+PORT=5000
+```
+
+The backend defaults to `5000` if `PORT` is not set, but you should always define it explicitly. This must match `NEXT_PUBLIC_API_URL` in the frontend and driver `.env.local` files (e.g. `http://localhost:5000`).
+
+Copy from the example file if needed:
+
+```bash
+cp apps/backend/.env.example apps/backend/.env
+# then fill in your real values
+```
+
+### `npm run dev` fails immediately (all 3 apps)
+
+**Cause 1 — Ports already in use:** If you already ran an app individually, stop it before running `npm run dev`:
+
+```bash
+# Windows — find and kill processes on dev ports
+netstat -ano | findstr ":5000 :3001 :3002"
+taskkill /PID <pid> /F
+```
+
+**Cause 2 — Missing env files:** Each app needs its env file before starting:
+
+```bash
+cp apps/backend/.env.example apps/backend/.env
+cp apps/frontend/.env.example apps/frontend/.env.local
+cp apps/driver-portal/.env.example apps/driver-portal/.env.local
+```
+
+### Backend crashes on start (`Neither apiKey nor config.authenticator provided`)
+
+Your `apps/backend/.env` is empty or missing required keys like `STRIPE_SECRET_KEY`. Copy values from a team lead or your old standalone repo.
 
 ### `npm install` fails or packages are missing
 

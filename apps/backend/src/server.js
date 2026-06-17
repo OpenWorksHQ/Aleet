@@ -87,7 +87,7 @@ setInterval(() => {
 // Start server — wrap in http.createServer so Socket.IO can attach to the
 // same port. AQD presence (driver online/offline) runs over the /drivers
 // namespace; see src/sockets/.
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 5000;
 const httpServer = http.createServer(app);
 initSockets(httpServer);
 
