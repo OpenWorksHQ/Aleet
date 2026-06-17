@@ -41,7 +41,7 @@ Three previously separate GitHub repositories were merged into a single **Turbor
 | `package.json`       | npm workspaces config + root scripts (`dev`, `build`, `lint`, `start`) |
 | `turbo.json`         | Turborepo pipeline — runs tasks across all apps                        |
 | `package-lock.json`  | Single lockfile for the entire workspace                               |
-| `.github/workflows/` | Path-based deploy workflows (one per app)                              |
+| `.github/workflows/` | Backend EC2 deploy workflow (`deploy-backend.yml`)                       |
 
 
 Each app keeps its **own** `package.json`, scripts, and `.env` files. Nothing inside `apps/`* was rewritten — only relocated under the monorepo.
@@ -58,9 +58,7 @@ aleet-monorepo/
 │   └── driver-portal/     # Driver/admin Next.js app    → port 3002
 ├── .github/
 │   └── workflows/
-│       ├── deploy-backend.yml
-│       ├── deploy-frontend.yml
-│       └── deploy-driver-portal.yml
+│       └── deploy-backend.yml
 ├── package.json           # Root workspace config
 ├── turbo.json             # Turborepo task pipeline
 ├── package-lock.json
@@ -87,11 +85,11 @@ The monorepo tracks each original repo as a named remote so you can push/pull su
 These are the **integration branches** each app uses. Always branch off these when starting new work.
 
 
-| App                                      | Core Branch | Deploy Target                                      |
-| ---------------------------------------- | ----------- | -------------------------------------------------- |
-| **Backend** (`apps/backend`)             | `dev`       | Self-hosted server via PM2 (`aleet-backend`)       |
-| **Frontend** (`apps/frontend`)           | `main`      | Self-hosted server via PM2 (`aleet-frontend`)      |
-| **Driver Portal** (`apps/driver-portal`) | `main`      | Self-hosted server via PM2 (`aleet-driver-portal`) |
+| App                                      | Core Branch | Deploy Target                                                                 |
+| ---------------------------------------- | ----------- | ----------------------------------------------------------------------------- |
+| **Backend** (`apps/backend`)             | `dev`       | AWS EC2 via GitHub Actions + PM2 (`aleet-backend`)                            |
+| **Frontend** (`apps/frontend`)           | `main`      | [Vercel](https://vercel.com) — root directory `apps/frontend`                 |
+| **Driver Portal** (`apps/driver-portal`) | `main`      | [Vercel](https://vercel.com) — root directory `apps/driver-portal`            |
 
 
 > **Note:** The monorepo itself currently uses `master` as its default branch. The subtree remotes above still point to each app's original core branch (`dev` for backend, `main` for both frontends).
@@ -265,7 +263,7 @@ git push -u origin feat/dispatch-tier-rules
 
 ### 7. Open a Pull Request
 
-Open a PR targeting `master` in the monorepo. The path-based CI workflows will only run deploy jobs for the app folder(s) you changed.
+Open a PR targeting `master` in the monorepo. After merge, Vercel redeploys changed frontends automatically; the backend EC2 workflow runs only when `apps/backend` (or root lockfile) changes.
 
 ### 8. After merge — sync back to the standalone repo (optional)
 
@@ -386,23 +384,44 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
 
 ## CI/CD & Deployments
 
-Three separate GitHub Actions workflows live in `.github/workflows/`. Each workflow is **path-filtered** — it only runs when files in its app folder change.
+### Frontend apps — Vercel
+
+The customer frontend and driver portal deploy automatically through **Vercel** when changes are pushed to the connected branch. Each Vercel project points at the monorepo with its own root directory:
 
 
-| Workflow                   | Triggers on             | Deploys                           |
-| -------------------------- | ----------------------- | --------------------------------- |
-| `deploy-backend.yml`       | `apps/backend/`**       | PM2 process `aleet-backend`       |
-| `deploy-frontend.yml`      | `apps/frontend/**`      | PM2 process `aleet-frontend`      |
-| `deploy-driver-portal.yml` | `apps/driver-portal/**` | PM2 process `aleet-driver-portal` |
+| App           | Vercel root directory | Production domain (example) |
+| ------------- | --------------------- | --------------------------- |
+| Frontend      | `apps/frontend`       | `https://aleet.app`         |
+| Driver Portal | `apps/driver-portal`  | `https://portal.aleet.app`  |
 
 
-All workflows run on **self-hosted** runners and trigger on push to `main` or `master`.
+**Vercel environment variables** must be set in each project's dashboard (never committed to git). See [Environment Variables](#environment-variables) for the required keys.
+
+**Recommended Vercel settings for the monorepo:**
+
+- Node.js 20
+- Build command: `npm run build` (default)
+- If install fails, set install command to: `cd ../.. && npm ci`
+
+### Backend — AWS EC2
+
+The backend deploys to **AWS EC2** via `.github/workflows/deploy-backend.yml`. A **self-hosted GitHub Actions runner** must be installed on the EC2 instance. On push to `main` or `master`, the workflow:
+
+1. Checks out the monorepo
+2. Writes `apps/backend/.env` from GitHub Actions secrets/vars
+3. Installs backend workspace dependencies (`npm ci --workspace=swift-haven-backend`)
+4. Restarts the `aleet-backend` PM2 process
+
+| Workflow             | Triggers on                                      | Deploys                     |
+| -------------------- | ------------------------------------------------ | --------------------------- |
+| `deploy-backend.yml` | `apps/backend/**`, root `package.json` / lockfile | PM2 process `aleet-backend` on EC2 |
 
 **What this means for developers:**
 
-- Changing only `apps/frontend` will **not** trigger a backend deploy.
-- Changing root `package.json` or `turbo.json` alone will **not** trigger any app deploy.
-- Changing a workflow file (e.g. `deploy-backend.yml`) will trigger that app's deploy.
+- Frontend and driver portal changes deploy via Vercel — no GitHub Actions workflow runs for those apps.
+- Changing only `apps/frontend` or `apps/driver-portal` will **not** trigger a backend deploy.
+- Changing `apps/backend` will trigger an EC2 deploy via the self-hosted runner.
+- Changing root `package.json` or `package-lock.json` will also trigger a backend redeploy (shared workspace deps).
 
 ---
 
