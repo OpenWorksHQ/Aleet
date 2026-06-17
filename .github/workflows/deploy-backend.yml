@@ -1,0 +1,77 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "apps/backend/**"
+      - ".github/workflows/deploy-backend.yml"
+
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: apps/backend/package-lock.json
+
+      - name: Generate .env
+        run: |
+          cat > $GITHUB_WORKSPACE/apps/backend/.env << 'EOF'
+          # ─── Server ───────────────────────────────────────────────────
+          PORT=${{ vars.PORT }}
+          APP_BASE_URL=${{ vars.APP_BASE_URL }}
+
+          # ─── MongoDB ──────────────────────────────────────────────────
+          MONGODB_URI=${{ secrets.MONGODB_URI }}
+
+          # ─── JWT ──────────────────────────────────────────────────────
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+
+          # ─── Stripe ───────────────────────────────────────────────────
+          STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          CURRENCY=${{ vars.CURRENCY }}
+
+          # ─── Twilio ───────────────────────────────────────────────────
+          TWILIO_ACCOUNT_SID=${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN=${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_MESSAGING_SERVICE_SID=${{ secrets.TWILIO_MESSAGING_SERVICE_SID }}
+          TWILIO_PHONE_NUMBER=${{ vars.TWILIO_PHONE_NUMBER }}
+
+          # ─── Checkr ───────────────────────────────────────────────────
+          CHECKR_BASE_URL=${{ vars.CHECKR_BASE_URL }}
+          CHECKR_API_KEY=${{ secrets.CHECKR_API_KEY }}
+          CHECKR_DASHBOARD_BASE=${{ vars.CHECKR_DASHBOARD_BASE }}
+
+          # ─── AWS S3 ───────────────────────────────────────────────────
+          AWS_REGION=${{ vars.AWS_REGION }}
+          AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_S3_BUCKET=${{ vars.AWS_S3_BUCKET }}
+
+          # ─── Google Maps ──────────────────────────────────────────────
+          GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}
+
+          # ─── Email ────────────────────────────────────────────────────
+          GMAIL_USER=${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD=${{ secrets.GMAIL_APP_PASSWORD }}
+
+          FRONTEND_URL=${{ vars.FRONTEND_URL }}
+          EOF
+
+      - name: Install dependencies
+        run: npm install --omit=dev
+        working-directory: apps/backend
+
+      - name: Restart app with PM2
+        run: pm2 restart aleet-backend || pm2 start $GITHUB_WORKSPACE/apps/backend/src/server.js --name aleet-backend

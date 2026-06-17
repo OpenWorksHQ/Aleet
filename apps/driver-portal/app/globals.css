@@ -1,0 +1,218 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ── Light theme (default) ─────────────────────────────────────── */
+:root {
+  --page-bg: #f5f5f5;
+  --card-bg: #ffffff;
+  --gold: #bca066;
+  --gold-from: #bca066;
+  --gold-to: #998252;
+  --border-color: #e8e8e8;
+  --muted: #6b6b6b;
+  --text: #1a1a1a;
+}
+
+/* ── Dark theme ────────────────────────────────────────────────── */
+.dark {
+  --page-bg: #020c09;
+  --card-bg: #040c0b;
+  --gold: #c9a84c;
+  --gold-from: #bca066;
+  --gold-to: #998252;
+  --border-color: #1e2b2a;
+  --muted: #838883;
+  --text: #d4c9a8;
+}
+
+@theme inline {
+  --color-page-bg: var(--page-bg);
+  --color-card-bg: var(--card-bg);
+  --color-gold: var(--gold);
+  --color-gold-from: var(--gold-from);
+  --color-gold-to: var(--gold-to);
+  --color-border: var(--border-color);
+  --color-muted: var(--muted);
+  --color-text: var(--text);
+  --font-sans: var(--font-karla);
+}
+
+body {
+  background: var(--page-bg);
+  color: var(--text);
+  font-family: var(--font-karla), "Karla", sans-serif;
+}
+
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+
+/* ── react-phone-number-input ──────────────────────────────────── */
+
+/* Base library reset (replaces style.css) */
+.PhoneInput {
+  display: flex;
+  align-items: center;
+}
+
+.PhoneInputCountry {
+  position: relative;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+}
+
+.PhoneInputCountrySelect {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  z-index: 1;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.PhoneInputCountrySelectArrow {
+  display: block;
+  content: "";
+  width: 0.3em;
+  height: 0.3em;
+  margin-left: 0.35em;
+  border-style: solid;
+  border-color: inherit;
+  border-top-width: 0;
+  border-bottom-width: 1px;
+  border-left-width: 0;
+  border-right-width: 1px;
+  transform: rotate(45deg);
+  opacity: 0.45;
+}
+
+.PhoneInputCountryIcon {
+  width: 1.24em;
+  height: 1em;
+}
+
+.PhoneInputCountryIcon--border {
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+
+.PhoneInputCountryIconImg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.PhoneInputInternationalIconPhone {
+  opacity: 0.8;
+}
+
+.PhoneInputInternationalIconGlobe {
+  opacity: 0.65;
+}
+
+.PhoneInputInput {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Our theme for .phone-input-wrapper ────────────────────────── */
+.phone-input-wrapper {
+  display: flex;
+  align-items: center;
+  height: 50px;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-color);
+  background: var(--page-bg);
+  transition: border-color 0.15s;
+}
+
+@media (min-width: 640px) {
+  .phone-input-wrapper {
+    height: 56px;
+  }
+}
+
+.phone-input-wrapper:focus-within {
+  border-color: color-mix(in srgb, var(--gold) 50%, transparent);
+}
+
+.phone-input-wrapper .PhoneInputCountry {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  padding: 0 10px 0 12px;
+  border-right: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.phone-input-wrapper .PhoneInputCountryIcon {
+  width: 24px;
+  height: 16px;
+  border-radius: 2px;
+  overflow: hidden;
+  box-shadow: none;
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.phone-input-wrapper .PhoneInputCountryIcon--border {
+  box-shadow: none;
+  background: transparent;
+}
+
+.phone-input-wrapper .PhoneInputCountryIconImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.phone-input-wrapper .PhoneInputCountrySelectArrow {
+  width: 5px;
+  height: 5px;
+  border-color: var(--muted);
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+  opacity: 1;
+  margin-left: 4px;
+  margin-top: -2px;
+}
+
+.phone-input-wrapper .PhoneInputCountrySelect {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  z-index: 1;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* number input */
+.phone-input-wrapper .PhoneInputInput {
+  flex: 1;
+  height: 100%;
+  background: transparent;
+  padding: 0 12px;
+  font-size: 15px;
+  color: var(--text);
+  outline: none;
+  border: none;
+}
+
+.phone-input-wrapper .PhoneInputInput::placeholder {
+  color: var(--muted);
+}

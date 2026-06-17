@@ -1,0 +1,46 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "apps/frontend/**"
+      - ".github/workflows/deploy-frontend.yml"
+
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: apps/frontend/package-lock.json
+
+      - name: Generate .env.local
+        run: |
+          cat > $GITHUB_WORKSPACE/apps/frontend/.env.local << 'EOF'
+          NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_SOCKET_URL=${{ vars.NEXT_PUBLIC_SOCKET_URL }}
+          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+          EOF
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: apps/frontend
+
+      - name: Build
+        run: npm run build
+        working-directory: apps/frontend
+
+      - name: Restart app with PM2
+        run: pm2 restart aleet-frontend || pm2 start npm --name aleet-frontend -- start
+        working-directory: apps/frontend
