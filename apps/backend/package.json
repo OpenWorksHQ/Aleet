@@ -12,7 +12,10 @@
     "seed:users": "node src/seeders/index.js seed:users",
     "seed:clear": "node src/seeders/index.js clear",
     "seed:clear:admin": "node src/seeders/index.js clear:admin",
-    "seed:reset": "node src/seeders/index.js reset"
+    "seed:reset": "node src/seeders/index.js reset",
+    "seed:sac-aqd": "node src/seeders/sacAqdTestSeeder.js seed",
+    "seed:sac-aqd:revert": "node src/seeders/sacAqdTestSeeder.js revert",
+    "seed:reset-driver-passwords": "node src/seeders/resetTestDriverPasswords.js"
   },
   "keywords": [],
   "author": "",

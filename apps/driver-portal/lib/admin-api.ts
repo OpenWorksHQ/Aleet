@@ -989,6 +989,18 @@ export async function fetchAllRegions(token: string): Promise<ApiRegion[]> {
   return json.data as ApiRegion[];
 }
 
+/** GET /api/regions/all — client-safe (reads token from cookie). */
+export async function fetchAllRegionsClient(): Promise<ApiRegion[]> {
+  const res = await fetch(`${BASE_URL}/api/regions/all`, {
+    headers: getAuthHeaders(),
+    cache: "no-store",
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false)
+    throw new Error(json.message ?? "Failed to fetch regions");
+  return json.data as ApiRegion[];
+}
+
 /** POST /api/regions/ — client-safe */
 export async function createRegionClient(body: {
   name: string;

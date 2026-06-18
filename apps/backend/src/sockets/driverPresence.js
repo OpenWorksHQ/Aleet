@@ -84,10 +84,22 @@ function registerDriverPresence(io, socket) {
             console.error('[presence] markOnline failed:', userId, e?.message || e);
         });
 
-    // Refresh lastSeenAt on any inbound event the driver app emits.
+    // Refresh lastSeenAt on any inbound application-level event the driver
+    // app emits (e.g. keep-alive pings sent by the client every 2 min).
     socket.onAny(() => {
         touchLastSeen(userId).catch(() => { /* ignore */ });
     });
+
+    // Refresh lastSeenAt on Engine.IO heartbeat pongs. socket.onAny() only
+    // catches named application events — it misses the transport-level
+    // ping/pong that Socket.IO uses to detect dead connections. Without this,
+    // an idle driver (app open, no clicks) will have their lastSeenAt go stale
+    // after 5 min and the presence sweeper will incorrectly mark them offline.
+    if (socket.conn) {
+        socket.conn.on('heartbeat', () => {
+            touchLastSeen(userId).catch(() => { /* ignore */ });
+        });
+    }
 
     socket.on('disconnect', (reason) => {
         markOffline(userId)

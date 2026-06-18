@@ -6,12 +6,15 @@
  * block the booking BEFORE the user reaches the final submit.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { combineDateAndTime } from "@/lib/booking-constraints";
 import { getSameDayStatus, type SameDayStatus } from "@/lib/api/regions";
 
 /** Pickup within this window of "now" counts as same-day (matches backend). */
 const SAME_DAY_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/** Re-check same-day availability every 60 s while the wizard is open on a same-day pickup. */
+const POLL_INTERVAL_MS = 60 * 1000;
 
 /** True when the chosen pickup falls inside the same-day (24h) window. */
 export function isSameDayPickup(
@@ -80,14 +83,19 @@ export function useSameDayAvailability(
   const endDate = window?.endDate;
   const key = `${regionId ?? ""}|${startDate ?? ""}|${endDate ?? ""}`;
 
+  // Keep a stable ref to the fetch function so the polling interval can call
+  // the latest version without being listed as a dependency (avoids restarting
+  // the interval every render).
+  const fetchRef = useRef<() => void>(() => {});
+
   useEffect(() => {
     if (!applicable || !regionId) return;
 
     let cancelled = false;
 
-    // Small debounce — region/date/window can change in quick succession.
-    const timer = setTimeout(() => {
-      getSameDayStatus(regionId, { startDate, endDate })
+    // Core fetch — shared by the initial debounced load and the polling interval.
+    function doFetch() {
+      getSameDayStatus(regionId!, { startDate, endDate })
         .then((res) => {
           if (!cancelled) setResolved({ key, status: res.data ?? null });
         })
@@ -95,11 +103,21 @@ export function useSameDayAvailability(
           // Fail open — record a null status so we stop showing "loading".
           if (!cancelled) setResolved({ key, status: null });
         });
-    }, 400);
+    }
+
+    fetchRef.current = doFetch;
+
+    // Small debounce on first load — region/date/window can change quickly.
+    const debounce = setTimeout(doFetch, 400);
+
+    // Polling — re-check every 60 s so the UI stays accurate while the
+    // customer reads the form. Driver availability can change at any time.
+    const poll = setInterval(() => fetchRef.current(), POLL_INTERVAL_MS);
 
     return () => {
       cancelled = true;
-      clearTimeout(timer);
+      clearTimeout(debounce);
+      clearInterval(poll);
     };
   }, [applicable, regionId, startDate, endDate, key]);
 

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import type { Region } from "./region-types";
-import { deleteRegionClient, updateRegionClient } from "@/lib/admin-api";
+import { deleteRegionClient, updateRegionClient, fetchAllRegionsClient } from "@/lib/admin-api";
+import { onDriverPresence } from "@/lib/admin-socket";
 import { AddRegionModal } from "./add-region-modal";
 import { ConfirmModal } from "@/app/components/ui/confirm-modal";
 
@@ -19,6 +20,29 @@ export function RegionsList({ initialRegions }: Props) {
     const [editingRegion, setEditingRegion] = useState<Region | null>(null);
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
     const [isPending, startTransition] = useTransition();
+
+    // Re-fetch the full region list (with live AQD/sameDay) whenever any
+    // driver goes online or offline. Debounced by 2 s so a burst of
+    // connect/disconnect events (e.g. multiple drivers logging in at once)
+    // only triggers a single fetch.
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    useEffect(() => {
+        const unsubscribe = onDriverPresence(() => {
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+            debounceRef.current = setTimeout(async () => {
+                try {
+                    const fresh = await fetchAllRegionsClient();
+                    setRegions(fresh);
+                } catch {
+                    // Silently ignore — stale data is better than a crash.
+                }
+            }, 2000);
+        });
+        return () => {
+            unsubscribe();
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+        };
+    }, []);
 
     const activeCount = regions.filter((r) => r.isActive).length;
     const inactiveCount = regions.filter((r) => !r.isActive).length;

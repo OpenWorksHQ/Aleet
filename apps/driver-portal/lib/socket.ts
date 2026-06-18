@@ -16,6 +16,10 @@ const SOCKET_URL =
 
 let socket: Socket | null = null;
 let foregroundListenersBound = false;
+let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+
+/** Interval between keep-alive pings sent to the backend (ms). */
+const HEARTBEAT_INTERVAL_MS = 2 * 60 * 1000;
 
 function readAuthToken(): string {
     if (typeof document === "undefined") return "";
@@ -90,10 +94,12 @@ export function connectDriverSocket(): Socket | null {
     socket.on("connect", () => {
         // Server marks isOnline=true on connect — no client action needed.
         console.log("[socket] driver connected:", socket?.id);
+        startHeartbeat();
     });
 
     socket.on("disconnect", (reason) => {
         console.log("[socket] driver disconnected:", reason);
+        stopHeartbeat();
     });
 
     socket.on("connect_error", (err) => {
@@ -106,8 +112,32 @@ export function connectDriverSocket(): Socket | null {
     return socket;
 }
 
+/**
+ * Start the application-level keep-alive interval.
+ * Emits `driver:heartbeat` every 2 min so the backend's `socket.onAny()`
+ * handler bumps `lastSeenAt` even when the driver is idle (no UI interaction).
+ * This is a belt-and-suspenders complement to the Engine.IO heartbeat listener
+ * added on the server side.
+ */
+function startHeartbeat() {
+    if (heartbeatInterval) return;
+    heartbeatInterval = setInterval(() => {
+        if (socket?.connected) {
+            socket.emit('driver:heartbeat');
+        }
+    }, HEARTBEAT_INTERVAL_MS);
+}
+
+function stopHeartbeat() {
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+    }
+}
+
 /** Disconnect and clear the singleton. Called on logout. */
 export function disconnectDriverSocket() {
+    stopHeartbeat();
     if (socket) {
         socket.disconnect();
         socket = null;
