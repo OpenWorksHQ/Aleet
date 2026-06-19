@@ -13,6 +13,12 @@ connectDB();
 
 const app = express();
 
+const { errorHandler, notFound } = require('./middleware/errorHandler');
+const { corsMiddleware } = require('./middleware/cors');
+
+// CORS first — required for Vercel → ngrok/local API and browser preflight.
+app.use(corsMiddleware);
+
 app.get('/health', (req, res) => res.status(200).json({ status: 'Aleet Backend is running' }));
 
 // Import routes
@@ -32,8 +38,6 @@ const payoutRoutes = require('./routes/payoutRoutes');
 const regionRoutes = require('./routes/regionRoutes');
 const PaymentsController = require('./controllers/payments.controller');
 
-const { errorHandler, notFound } = require('./middleware/errorHandler');
-
 // Raw-body routes MUST come before express.json() so the body stream is not consumed
 app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), PaymentsController.webhook);
 app.post('/checkr/webhooks/checkr', express.raw({ type: '*/*' }), require('./controllers/checkrController').webhook);
@@ -41,15 +45,6 @@ app.post('/checkr/webhooks/checkr', express.raw({ type: '*/*' }), require('./con
 // Middlewares
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// CORS
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  if (req.method === 'OPTIONS') return res.sendStatus(200);
-  next();
-});
 
 // Static files
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));

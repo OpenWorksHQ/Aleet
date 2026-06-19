@@ -85,6 +85,9 @@ export function connectDriverSocket(): Socket | null {
 
     socket = io(`${SOCKET_URL}/drivers`, {
         auth: { token },
+        ...(SOCKET_URL.includes("ngrok")
+            ? { extraHeaders: { "ngrok-skip-browser-warning": "true" } }
+            : {}),
         transports: ["websocket", "polling"],
         reconnection: true,
         reconnectionDelay: 1000,
