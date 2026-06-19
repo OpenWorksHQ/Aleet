@@ -8,6 +8,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useUserStore } from "@/lib/user-store";
+import { withNgrokHeaders } from "@/lib/ngrok-headers";
 
 // ── Progress Overview ─────────────────────────────────────────────
 const ALL_STEPS: { key: string; label: string; icon: React.ReactNode }[] = [
@@ -335,7 +336,7 @@ export function OnboardingForm() {
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/update-profile`, {
                 method: "PUT",
-                headers: { Authorization: `Bearer ${token}` },
+                headers: withNgrokHeaders({ Authorization: `Bearer ${token}` }),
                 body: form,
             });
             const json = await res.json();
@@ -382,7 +383,7 @@ export function OnboardingForm() {
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/submit-revision`, {
                 method: "POST",
-                headers: { Authorization: `Bearer ${token}` },
+                headers: withNgrokHeaders({ Authorization: `Bearer ${token}` }),
             });
             const json = await res.json();
             if (!res.ok) throw new Error(json.message ?? "Submission failed");

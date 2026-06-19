@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useUserStore } from "@/lib/user-store";
+import { withNgrokHeaders } from "@/lib/ngrok-headers";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 const COOKIE_OPTS = "path=/; max-age=604800; SameSite=Lax";
@@ -30,7 +31,7 @@ export function DriverStatusSync() {
         const sync = async () => {
             try {
                 const res = await fetch(`${BASE_URL}/api/users/profile`, {
-                    headers: { Authorization: `Bearer ${token}` },
+                    headers: withNgrokHeaders({ Authorization: `Bearer ${token}` }),
                     cache: "no-store",
                 });
                 if (!res.ok) return;

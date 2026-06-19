@@ -9,6 +9,7 @@ import {
     updateMyRegions,
     type Region,
 } from "@/lib/regions-api";
+import { withNgrokHeaders } from "@/lib/ngrok-headers";
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
     return <label className="mb-1.5 block text-xs font-medium text-muted">{children}</label>;
@@ -44,7 +45,7 @@ function ServiceRegionsCard() {
                 const [regions, profileRes] = await Promise.all([
                     fetchActiveRegions(),
                     fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/profile`, {
-                        headers: { Authorization: `Bearer ${token ?? ""}` },
+                        headers: withNgrokHeaders({ Authorization: `Bearer ${token ?? ""}` }),
                         cache: "no-store",
                     }).then((r) => r.json()),
                 ]);
@@ -275,9 +276,9 @@ export function DriverProfilePage() {
 
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/contact-info`, {
                 method: "PATCH",
-                headers: {
+                headers: withNgrokHeaders({
                     Authorization: `Bearer ${token}`,
-                },
+                }),
                 body: form,
             });
             const json = await res.json();

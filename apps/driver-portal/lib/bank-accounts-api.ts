@@ -1,4 +1,5 @@
 import type { DriverPayoutMethod } from "@/lib/driver-dashboard-earnings-api";
+import { withNgrokHeaders } from "@/lib/ngrok-headers";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
@@ -147,10 +148,10 @@ export async function fetchStripeStatusClient(): Promise<StripeStatusResponse> {
   }
 
   const res = await fetch(`${BASE_URL}/api/bank-accounts/stripe/status`, {
-    headers: {
+    headers: withNgrokHeaders({
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
-    },
+    }),
     cache: "no-store",
   });
 
@@ -169,10 +170,10 @@ export async function connectStripeClient(): Promise<StripeConnectResponse> {
 
   const res = await fetch(`${BASE_URL}/api/bank-accounts/stripe/connect`, {
     method: "POST",
-    headers: {
+    headers: withNgrokHeaders({
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
-    },
+    }),
   });
 
   const data = await parseResponse<{
@@ -194,10 +195,10 @@ export async function listPayoutMethodsClient(): Promise<DriverPayoutMethod[]> {
   if (!BASE_URL || !token) return [];
 
   const res = await fetch(`${BASE_URL}/api/bank-accounts`, {
-    headers: {
+    headers: withNgrokHeaders({
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
-    },
+    }),
     cache: "no-store",
   });
 
@@ -221,10 +222,10 @@ export async function createPayoutMethodClient(
 
   const res = await fetch(`${BASE_URL}/api/bank-accounts`, {
     method: "POST",
-    headers: {
+    headers: withNgrokHeaders({
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
-    },
+    }),
     body: JSON.stringify(body),
   });
 
@@ -240,10 +241,10 @@ export async function setPrimaryPayoutMethodClient(id: string): Promise<void> {
 
   const res = await fetch(`${BASE_URL}/api/bank-accounts/${id}/set-primary`, {
     method: "PATCH",
-    headers: {
+    headers: withNgrokHeaders({
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
-    },
+    }),
   });
 
   await parseResponse<unknown>(res, "Failed to set primary payout method");
@@ -257,10 +258,10 @@ export async function deletePayoutMethodClient(id: string): Promise<void> {
 
   const res = await fetch(`${BASE_URL}/api/bank-accounts/${id}`, {
     method: "DELETE",
-    headers: {
+    headers: withNgrokHeaders({
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
-    },
+    }),
   });
 
   await parseResponse<unknown>(res, "Failed to delete payout method");

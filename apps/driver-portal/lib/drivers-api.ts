@@ -1,3 +1,5 @@
+import { withNgrokHeaders } from "@/lib/ngrok-headers";
+
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 export interface ApiCheckr {
@@ -71,10 +73,10 @@ export async function fetchAdminDrivers(
   if (params?.limit) url.searchParams.set("limit", String(params.limit));
 
   const res = await fetch(url.toString(), {
-    headers: {
+    headers: withNgrokHeaders({
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
-    },
+    }),
     cache: "no-store",
   });
 
@@ -106,10 +108,10 @@ export async function approveDriver(driverId: string): Promise<void> {
 
   const res = await fetch(`${BASE_URL}/api/admin/drivers/approve`, {
     method: "PATCH",
-    headers: {
+    headers: withNgrokHeaders({
       Authorization: `Bearer ${token ?? ""}`,
       "Content-Type": "application/json",
-    },
+    }),
     body: JSON.stringify({ driverId }),
   });
 
@@ -132,10 +134,10 @@ function getClientToken(): string {
 export async function rejectDriver(driverId: string): Promise<void> {
   const res = await fetch(`${BASE_URL}/api/admin/drivers/reject`, {
     method: "PATCH",
-    headers: {
+    headers: withNgrokHeaders({
       Authorization: `Bearer ${getClientToken()}`,
       "Content-Type": "application/json",
-    },
+    }),
     body: JSON.stringify({ driverId }),
   });
   const json = await res.json();
@@ -151,10 +153,10 @@ export async function requestRevision(
 ): Promise<void> {
   const res = await fetch(`${BASE_URL}/api/admin/drivers/request-revision`, {
     method: "PATCH",
-    headers: {
+    headers: withNgrokHeaders({
       Authorization: `Bearer ${getClientToken()}`,
       "Content-Type": "application/json",
-    },
+    }),
     body: JSON.stringify({ driverId, notes }),
   });
   const json = await res.json();
@@ -165,10 +167,10 @@ export async function requestRevision(
 
 /** GET /api/admin/drivers (list) and find by id — call from Client Components */
 export async function fetchAdminDriverById(driverId: string): Promise<ApiDriver> {
-  const headers = {
+  const headers = withNgrokHeaders({
     Authorization: `Bearer ${getClientToken()}`,
     "Content-Type": "application/json",
-  };
+  });
 
   const listRes = await fetch(`${BASE_URL}/api/admin/drivers?limit=200`, {
     headers,
@@ -193,10 +195,10 @@ export async function simulateClearBackgroundCheck(driverId: string): Promise<vo
     `${BASE_URL}/checkr/admin/drivers/${driverId}/simulate-clear`,
     {
       method: "POST",
-      headers: {
+      headers: withNgrokHeaders({
         Authorization: `Bearer ${getClientToken()}`,
         "Content-Type": "application/json",
-      },
+      }),
     },
   );
   const json = await res.json().catch(() => ({}));
@@ -224,10 +226,10 @@ export async function updateDriverRegionsAdmin(
 ): Promise<ApiDriver> {
   const res = await fetch(`${BASE_URL}/api/admin/drivers/${driverId}/regions`, {
     method: "PUT",
-    headers: {
+    headers: withNgrokHeaders({
       Authorization: `Bearer ${getClientToken()}`,
       "Content-Type": "application/json",
-    },
+    }),
     body: JSON.stringify(body),
   });
   const json = await res.json();
@@ -240,10 +242,10 @@ export async function updateDriverRegionsAdmin(
 /** GET /api/vehicle-types — call from Server Components */
 export async function fetchVehicleTypes(token: string): Promise<VehicleType[]> {
   const res = await fetch(`${BASE_URL}/api/vehicle-types`, {
-    headers: {
+    headers: withNgrokHeaders({
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
-    },
+    }),
     cache: "no-store",
   });
   const json = await res.json();

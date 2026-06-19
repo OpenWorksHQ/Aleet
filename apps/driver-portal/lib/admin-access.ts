@@ -1,3 +1,5 @@
+import { withNgrokHeaders } from "@/lib/ngrok-headers";
+
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 export type AdminPermission =
@@ -89,7 +91,7 @@ export async function fetchAdminPermissions(
   if (!token || !BASE_URL) return [];
 
   const res = await fetch(`${BASE_URL}/api/users/profile`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: withNgrokHeaders({ Authorization: `Bearer ${token}` }),
     cache: "no-store",
   });
 
@@ -106,7 +108,7 @@ export async function fetchCurrentUserProfile(
   }
 
   const res = await fetch(`${BASE_URL}/api/users/profile`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: withNgrokHeaders({ Authorization: `Bearer ${token}` }),
     cache: "no-store",
   });
 

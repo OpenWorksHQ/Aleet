@@ -14,6 +14,7 @@ import {
     updateDriverRegionsAdmin,
 } from "@/lib/drivers-api";
 import { fetchActiveRegions, type Region } from "@/lib/regions-api";
+import { withNgrokHeaders } from "@/lib/ngrok-headers";
 import { mapApiDriver, type Driver } from "./driver-types";
 import { StatusBadge, TierBadge } from "./driver-badges";
 import { PhotoPreview } from "@/app/components/ui/photo-preview";
@@ -79,7 +80,7 @@ function UploadForHireLicenseModal({
         try {
             const res = await fetch(
                 `${process.env.NEXT_PUBLIC_API_URL}/api/admin/drivers/${driverId}/aleet-license`,
-                { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form },
+                { method: "POST", headers: withNgrokHeaders({ Authorization: `Bearer ${token}` }), body: form },
             );
             const json = await res.json();
             if (!res.ok) throw new Error(json.message ?? "Upload failed");

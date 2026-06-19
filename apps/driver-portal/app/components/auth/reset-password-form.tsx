@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Input } from "../ui";
 import { Loader2, Eye, EyeOff, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import { withNgrokHeaders } from "@/lib/ngrok-headers";
 
 export function ResetPasswordForm() {
     const searchParams = useSearchParams();
@@ -32,7 +33,7 @@ export function ResetPasswordForm() {
                 `${process.env.NEXT_PUBLIC_API_URL}/api/auth/password/reset`,
                 {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: withNgrokHeaders({ "Content-Type": "application/json" }),
                     body: JSON.stringify({ token, password }),
                 }
             );

@@ -1,3 +1,5 @@
+import { withNgrokHeaders } from "@/lib/ngrok-headers";
+
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 export type DriverTripsTab = "available" | "mine" | "history";
@@ -167,10 +169,10 @@ export async function fetchDriverDashboardTrips(
   const url = `${BASE_URL}/api/dashboard/driver/trips${qs ? `?${qs}` : ""}`;
 
   const res = await fetch(url, {
-    headers: {
+    headers: withNgrokHeaders({
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
-    },
+    }),
     cache: "no-store",
   });
 
@@ -194,10 +196,10 @@ export async function fetchDriverDashboardTripsClient(
   const url = `${BASE_URL}/api/dashboard/driver/trips${qs ? `?${qs}` : ""}`;
 
   const res = await fetch(url, {
-    headers: {
+    headers: withNgrokHeaders({
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
-    },
+    }),
     cache: "no-store",
     signal,
   });
@@ -223,10 +225,10 @@ export async function acceptTripClient(bookingId: string): Promise<void> {
 
   const res = await fetch(`${BASE_URL}/api/bookings/accept`, {
     method: "POST",
-    headers: {
+    headers: withNgrokHeaders({
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
-    },
+    }),
     body: JSON.stringify({ bookingId, action: "accept" }),
   });
   const json = await res.json().catch(() => ({}));
@@ -249,10 +251,10 @@ export async function cancelTripClient(
 
   const res = await fetch(`${BASE_URL}/api/bookings/driver-cancel`, {
     method: "POST",
-    headers: {
+    headers: withNgrokHeaders({
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
-    },
+    }),
     body: JSON.stringify({ bookingId, ...(reason ? { reason } : {}) }),
   });
   const json = await res.json().catch(() => ({}));
