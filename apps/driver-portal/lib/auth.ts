@@ -1,3 +1,5 @@
+import { withNgrokHeaders } from "@/lib/ngrok-headers";
+
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 export interface LoginResult {
@@ -19,7 +21,7 @@ export interface ProfileResult {
 
 export async function fetchUserProfile(token: string): Promise<ProfileResult> {
   const res = await fetch(`${BASE_URL}/api/users/profile`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: withNgrokHeaders({ Authorization: `Bearer ${token}` }),
     cache: "no-store",
   });
 
@@ -39,7 +41,7 @@ export async function loginWithIdentifier(
 ): Promise<LoginResult> {
   const res = await fetch(`${BASE_URL}/api/auth/login`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: withNgrokHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ identifier, password, expectedRole: "driver" }),
   });
 

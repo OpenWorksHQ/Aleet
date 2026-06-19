@@ -1,3 +1,5 @@
+import { withNgrokHeaders } from "@/lib/ngrok-headers";
+
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 console.log("API Base URL, process.env.NEXT_PUBLIC_API_URL:", BASE_URL);
 
@@ -32,11 +34,11 @@ export async function apiFetch<T = undefined>(
 ): Promise<ApiResponse<T>> {
   const res = await fetch(`${BASE_URL}/api${path}`, {
     ...init,
-    headers: {
+    headers: withNgrokHeaders({
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
-    },
+    }),
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 

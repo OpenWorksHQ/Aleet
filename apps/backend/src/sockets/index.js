@@ -1,6 +1,7 @@
 const { Server } = require('socket.io');
 const socketAuth = require('../middleware/socketAuth');
 const { registerDriverPresence } = require('./driverPresence');
+const { getSocketCorsConfig } = require('../middleware/cors');
 
 /**
  * Initialize the Socket.IO server on top of an existing HTTP server.
@@ -18,11 +19,7 @@ const { registerDriverPresence } = require('./driverPresence');
  */
 function initSockets(httpServer) {
     const io = new Server(httpServer, {
-        cors: {
-            origin: '*',
-            methods: ['GET', 'POST'],
-            credentials: false,
-        },
+        cors: getSocketCorsConfig(),
     });
 
     const drivers = io.of('/drivers');

@@ -1,4 +1,5 @@
 import type { AdminPermission } from "@/lib/admin-access";
+import { withNgrokHeaders } from "@/lib/ngrok-headers";
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 function getAuthHeaders(): HeadersInit {
@@ -12,10 +13,10 @@ function getAuthHeaders(): HeadersInit {
           ?.split("=")[1]
       : undefined;
 
-  return {
+  return withNgrokHeaders({
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
+  });
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
