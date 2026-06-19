@@ -1,3 +1,5 @@
+import { withNgrokHeaders } from "@/lib/ngrok-headers";
+
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 export interface Region {
@@ -12,7 +14,10 @@ export interface Region {
  * Used by the booking wizard and the driver-side region picker.
  */
 export async function fetchActiveRegions(): Promise<Region[]> {
-  const res = await fetch(`${BASE_URL}/api/regions`, { cache: "no-store" });
+  const res = await fetch(`${BASE_URL}/api/regions`, {
+    cache: "no-store",
+    headers: withNgrokHeaders(),
+  });
   const json = await res.json();
   if (!res.ok || json.success === false) {
     throw new Error(json.message ?? "Failed to fetch regions");
@@ -35,10 +40,10 @@ export async function updateMyRegions(
 ): Promise<{ regions: string[]; serveAllRegions: boolean }> {
   const res = await fetch(`${BASE_URL}/api/users/me/regions`, {
     method: "PUT",
-    headers: {
+    headers: withNgrokHeaders({
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
-    },
+    }),
     body: JSON.stringify(body),
   });
   const json = await res.json();

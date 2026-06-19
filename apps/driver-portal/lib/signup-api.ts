@@ -1,3 +1,5 @@
+import { withNgrokHeaders } from "@/lib/ngrok-headers";
+
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 export interface VehicleType {
@@ -10,6 +12,7 @@ export interface VehicleType {
 export async function fetchVehicleTypes(): Promise<VehicleType[]> {
   const res = await fetch(`${BASE_URL}/api/vehicle-types`, {
     cache: "no-store",
+    headers: withNgrokHeaders(),
   });
   const json = await res.json();
   if (!res.ok || json.success === false) return [];
@@ -30,7 +33,7 @@ export async function signupStart(body: {
 }): Promise<{ driverToken: string }> {
   const res = await fetch(`${BASE_URL}/api/auth/driver/signup/start`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: withNgrokHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(body),
   });
   const json = await res.json();
@@ -65,6 +68,7 @@ export async function signupDocuments(data: {
 
   const res = await fetch(`${BASE_URL}/api/auth/driver/signup/documents`, {
     method: "POST",
+    headers: withNgrokHeaders(),
     body: form,
   });
   const json = await res.json();
@@ -91,6 +95,7 @@ export async function signupComplete(data: {
 
   const res = await fetch(`${BASE_URL}/api/auth/driver/signup/complete`, {
     method: "POST",
+    headers: withNgrokHeaders(),
     body: form,
   });
   const json = await res.json();

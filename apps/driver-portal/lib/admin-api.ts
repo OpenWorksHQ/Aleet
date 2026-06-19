@@ -978,10 +978,10 @@ export interface ApiRegion {
 /** GET /api/regions/all — server-safe (admin: all regions incl. inactive) */
 export async function fetchAllRegions(token: string): Promise<ApiRegion[]> {
   const res = await fetch(`${BASE_URL}/api/regions/all`, {
-    headers: {
+    headers: withNgrokHeaders({
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
-    },
+    }),
     cache: "no-store",
   });
   const json = await res.json();

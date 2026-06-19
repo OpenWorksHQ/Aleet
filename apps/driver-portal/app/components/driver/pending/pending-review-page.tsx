@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { AleetLogo } from "@/app/components/ui/aleet-logo";
+import { withNgrokHeaders } from "@/lib/ngrok-headers";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 const POLL_INTERVAL_MS = 15_000;
@@ -44,7 +45,7 @@ export function PendingReviewPage() {
             if (!token) return;
             try {
                 const res = await fetch(`${BASE_URL}/api/users/profile`, {
-                    headers: { Authorization: `Bearer ${token}` },
+                    headers: withNgrokHeaders({ Authorization: `Bearer ${token}` }),
                     cache: "no-store",
                 });
                 if (!res.ok) return;

@@ -1,3 +1,5 @@
+import { withNgrokHeaders } from "@/lib/ngrok-headers";
+
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 export interface DriverEarningsTopStats {
@@ -167,10 +169,10 @@ export async function fetchDriverDashboardEarnings(
   if (!BASE_URL || !token) return EMPTY_DRIVER_DASHBOARD_EARNINGS_DATA;
 
   const res = await fetch(`${BASE_URL}/api/dashboard/driver/earnings`, {
-    headers: {
+    headers: withNgrokHeaders({
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
-    },
+    }),
     cache: "no-store",
   });
 

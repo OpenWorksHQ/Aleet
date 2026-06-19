@@ -1,3 +1,5 @@
+import { withNgrokHeaders } from "@/lib/ngrok-headers";
+
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 export type DriverDashboardUrgency = "low" | "due_soon" | "overdue";
@@ -112,10 +114,10 @@ export async function fetchDriverDashboard(
   if (!BASE_URL || !token) return EMPTY_DASHBOARD;
 
   const res = await fetch(`${BASE_URL}/api/dashboard/driver`, {
-    headers: {
+    headers: withNgrokHeaders({
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
-    },
+    }),
     cache: "no-store",
   });
 
