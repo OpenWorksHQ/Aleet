@@ -1,73 +1,46 @@
 /**
  * Driver presence for AQD / admin UI.
  *
- * AQD counts a driver while their portal SESSION is active (isOnline=true),
- * not while a WebSocket is connected or a heartbeat arrived in the last N minutes.
- * Mobile backgrounding suspends JS — that is still a logged-in session.
+ * AQD uses `presenceUntil` — a sliding expiry timestamp, NOT a boolean that
+ * stays true until logout. Mobile browsers rarely fire pagehide when the app
+ * is swiped away, so we cannot rely on client "offline" beacons alone.
  *
- * - Login / connect / heartbeat → isOnline=true, bump lastSeenAt
- * - Explicit logout (HTTP)       → isOnline=false immediately (drops from AQD)
- * - Browser tab closed (client)  → isOnline=false immediately (pagehide beacon)
- * - Socket gone, no heartbeat    → isOnline=false after DISCONNECT_OFFLINE_MS
- *   (catches browser killed without pagehide; cancelled by background heartbeat)
- * - Sweeper (45 min backup)      → abandoned sessions with no signals at all
+ *   Foreground heartbeat  → presenceUntil = now + 90s  (browser close → AQD drops within ~90s)
+ *   Background heartbeat  → presenceUntil = now + 45min (WhatsApp switch → stays in AQD)
+ *   Explicit logout       → presenceUntil cleared immediately
+ *   Page-close beacon     → presenceUntil cleared immediately (best-effort)
  */
 
 const User = require('../models/User');
 const { getIo } = require('../sockets/ioHolder');
 
-/** For admin UI only — "active in the last few minutes". NOT used for AQD. */
+/** Admin UI "recently active" hint. */
 const PRESENCE_FRESHNESS_MS = 5 * 60 * 1000;
 
-/** After last socket drops: mark offline unless a heartbeat arrives (browser close). */
-const DISCONNECT_OFFLINE_MS = 2 * 60 * 1000;
+/** Tab open in foreground — short TTL so killed browsers fall out of AQD quickly. */
+const FOREGROUND_PRESENCE_MS = 60 * 1000;
 
-/** Abandoned sessions — safety net when all client signals fail. */
-const SESSION_ABANDON_MS = 45 * 60 * 1000;
+/** App backgrounded (WhatsApp etc.) — long TTL while session is still open. */
+const BACKGROUND_PRESENCE_MS = 45 * 60 * 1000;
 
-/** @type {Map<string, NodeJS.Timeout>} */
-const pendingDisconnectOffline = new Map();
+/** Sweeper backup for orphaned rows. */
+const SESSION_ABANDON_MS = BACKGROUND_PRESENCE_MS;
 
-function cancelPendingDisconnectOffline(userId) {
-  const key = String(userId);
-  const timer = pendingDisconnectOffline.get(key);
-  if (timer) {
-    clearTimeout(timer);
-    pendingDisconnectOffline.delete(key);
-  }
-}
+const QUALIFIED_FILTER = {
+  role: 'driver',
+  'driver.status': 'approved',
+  'driver.tier': { $in: ['Diamond', 'Pro'] },
+};
 
-/** Schedule offline when socket is gone — skipped if a heartbeat arrived recently
- * (app-switch hidden ping). Cancelled by reconnect or HTTP heartbeat. */
-async function scheduleDisconnectOffline(userId) {
-  cancelPendingDisconnectOffline(userId);
-  const key = String(userId);
-
-  const user = await User.findById(userId).select('driver.lastSeenAt').lean();
-  const lastSeen = user?.driver?.lastSeenAt;
-  if (lastSeen && Date.now() - new Date(lastSeen).getTime() < 60 * 1000) {
-    // Recent hidden/visible heartbeat — app background, not browser close.
-    return;
-  }
-
-  const timer = setTimeout(() => {
-    pendingDisconnectOffline.delete(key);
-    markOfflineImmediate(userId).catch((e) => {
-      console.error('[presence] disconnect-offline failed:', userId, e?.message || e);
-    });
-  }, DISCONNECT_OFFLINE_MS);
-  pendingDisconnectOffline.set(key, timer);
-}
-
-/** True when the driver had recent app activity (admin "last seen" hint). */
 function isPresenceFresh(lastSeenAt) {
   if (!lastSeenAt) return false;
   return new Date(lastSeenAt).getTime() >= Date.now() - PRESENCE_FRESHNESS_MS;
 }
 
-/** AQD / admin "online" — active driver-portal session. */
-function isSessionOnline(isOnline) {
-  return isOnline === true;
+/** True when the driver's portal session is active for AQD. */
+function isPresenceActive(presenceUntil) {
+  if (!presenceUntil) return false;
+  return new Date(presenceUntil).getTime() >= Date.now();
 }
 
 function broadcastPresence(payload) {
@@ -80,41 +53,55 @@ function broadcastPresence(payload) {
   }
 }
 
-async function markOnline(userId) {
-  return User.findOneAndUpdate(
-    {
-      _id: userId,
-      role: 'driver',
-      'driver.status': 'approved',
-      'driver.tier': { $in: ['Diamond', 'Pro'] },
-    },
-    { $set: { 'driver.isOnline': true, 'driver.lastSeenAt': new Date() } },
-    { new: true, projection: { 'driver.isOnline': 1, 'driver.lastSeenAt': 1 } },
-  ).lean();
+function ttlMs(background) {
+  return background ? BACKGROUND_PRESENCE_MS : FOREGROUND_PRESENCE_MS;
 }
 
-/** Bump lastSeenAt; keeps isOnline=true for an active session. */
-async function touchLastSeen(userId) {
+async function extendPresence(userId, background = false) {
   const now = new Date();
+  const presenceUntil = new Date(now.getTime() + ttlMs(background));
+
   await User.updateOne(
+    { _id: userId, ...QUALIFIED_FILTER },
     {
-      _id: userId,
-      role: 'driver',
-      'driver.status': 'approved',
-      'driver.tier': { $in: ['Diamond', 'Pro'] },
+      $set: {
+        'driver.isOnline': true,
+        'driver.lastSeenAt': now,
+        'driver.presenceUntil': presenceUntil,
+      },
     },
-    { $set: { 'driver.isOnline': true, 'driver.lastSeenAt': now } },
   );
+
+  return { now, presenceUntil };
+}
+
+async function markOnline(userId) {
+  const { now, presenceUntil } = await extendPresence(userId, false);
+  return {
+    driver: {
+      isOnline: true,
+      lastSeenAt: now,
+      presenceUntil,
+    },
+  };
+}
+
+async function touchLastSeen(userId, background = false) {
+  const { now } = await extendPresence(userId, background);
   return now;
 }
 
-/** Explicit logout or tab close — remove from AQD immediately. */
 async function markOfflineImmediate(userId) {
-  cancelPendingDisconnectOffline(userId);
   const doc = await User.findOneAndUpdate(
     { _id: userId, role: 'driver' },
-    { $set: { 'driver.isOnline': false, 'driver.lastSeenAt': null } },
-    { new: true, projection: { 'driver.isOnline': 1, 'driver.lastSeenAt': 1 } },
+    {
+      $set: {
+        'driver.isOnline': false,
+        'driver.lastSeenAt': null,
+        'driver.presenceUntil': null,
+      },
+    },
+    { new: true, projection: { 'driver.isOnline': 1, 'driver.lastSeenAt': 1, 'driver.presenceUntil': 1 } },
   ).lean();
 
   broadcastPresence({
@@ -126,25 +113,23 @@ async function markOfflineImmediate(userId) {
   return doc;
 }
 
-async function recordHeartbeat(userId) {
-  cancelPendingDisconnectOffline(userId);
-  const lastSeenAt = await touchLastSeen(userId);
+async function recordHeartbeat(userId, background = false) {
+  const { now, presenceUntil } = await extendPresence(userId, background);
   broadcastPresence({
     userId: String(userId),
     isOnline: true,
-    lastSeenAt: lastSeenAt.toISOString(),
+    lastSeenAt: now.toISOString(),
   });
-  return lastSeenAt;
+  return { lastSeenAt: now, presenceUntil };
 }
 
 async function recordConnect(userId) {
-  cancelPendingDisconnectOffline(userId);
   const doc = await markOnline(userId);
   if (doc) {
     broadcastPresence({
       userId: String(userId),
       isOnline: true,
-      lastSeenAt: doc.driver?.lastSeenAt?.toISOString?.() || new Date().toISOString(),
+      lastSeenAt: doc.driver.lastSeenAt?.toISOString?.() || new Date().toISOString(),
     });
   }
   return doc;
@@ -152,16 +137,15 @@ async function recordConnect(userId) {
 
 module.exports = {
   PRESENCE_FRESHNESS_MS,
-  DISCONNECT_OFFLINE_MS,
+  FOREGROUND_PRESENCE_MS,
+  BACKGROUND_PRESENCE_MS,
   SESSION_ABANDON_MS,
   isPresenceFresh,
-  isSessionOnline,
+  isPresenceActive,
   broadcastPresence,
   markOnline,
   touchLastSeen,
   markOfflineImmediate,
   recordHeartbeat,
   recordConnect,
-  cancelPendingDisconnectOffline,
-  scheduleDisconnectOffline,
 };

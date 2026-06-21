@@ -425,10 +425,12 @@ const presenceHeartbeat = asyncHandler(async (req, res) => {
   if (req.user.role !== 'driver') {
     return sendError(res, 403, 'Drivers only');
   }
+  const background = req.body?.background === true;
   const { recordHeartbeat } = require('../services/presenceService');
-  const lastSeenAt = await recordHeartbeat(req.user.id);
+  const result = await recordHeartbeat(req.user.id, background);
   return sendSuccess(res, 200, 'Presence updated', {
-    lastSeenAt: lastSeenAt.toISOString(),
+    lastSeenAt: result.lastSeenAt.toISOString(),
+    presenceUntil: result.presenceUntil.toISOString(),
   });
 });
 
