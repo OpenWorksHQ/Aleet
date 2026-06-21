@@ -13,6 +13,7 @@ const SOCKET_URL =
     "";
 
 let socket: Socket | null = null;
+let foregroundListenersBound = false;
 
 function readAuthToken(): string {
     if (typeof document === "undefined") return "";
@@ -30,6 +31,29 @@ export type DriverPresenceEvent = {
     lastSeenAt: string | null;
 };
 
+function ensureAdminConnected() {
+    if (!socket) {
+        connectAdminSocket();
+        return;
+    }
+    if (!socket.connected) {
+        console.log("[admin-socket] page active, reconnecting…");
+        socket.connect();
+    }
+}
+
+function bindAdminForegroundListeners() {
+    if (foregroundListenersBound || typeof window === "undefined") return;
+    foregroundListenersBound = true;
+
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") ensureAdminConnected();
+    });
+    window.addEventListener("focus", ensureAdminConnected);
+    window.addEventListener("online", ensureAdminConnected);
+    window.addEventListener("pageshow", ensureAdminConnected);
+}
+
 /** Connect to the /admin namespace. Idempotent — repeated calls reuse the same socket. */
 export function connectAdminSocket(): Socket | null {
     if (typeof window === "undefined") return null;
@@ -37,6 +61,12 @@ export function connectAdminSocket(): Socket | null {
 
     const token = readAuthToken();
     if (!token) return null;
+
+    if (socket && !socket.connected) {
+        socket.connect();
+        bindAdminForegroundListeners();
+        return socket;
+    }
 
     socket = io(`${SOCKET_URL}/admin`, {
         auth: { token },
@@ -61,6 +91,7 @@ export function connectAdminSocket(): Socket | null {
         console.warn("[admin-socket] connect error:", err.message);
     });
 
+    bindAdminForegroundListeners();
     return socket;
 }
 

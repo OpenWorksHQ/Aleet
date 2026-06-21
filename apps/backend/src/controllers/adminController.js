@@ -287,6 +287,8 @@ const toggleDriverStatus = async (req, res) => {
 
 
 
+const { isPresenceFresh } = require('../services/presenceService');
+
 const maskSSN = (ssn) => {
   if (!ssn) return null;
   const digits = String(ssn).replace(/\D/g, '');
@@ -315,7 +317,7 @@ const formatDriverForAdmin = (driver) => ({
     regions: Array.isArray(driver.driver?.regions) ? driver.driver.regions : [],
     serveAllRegions: driver.driver?.serveAllRegions !== false,
     revisionNotes: driver.driver?.revisionNotes || null,
-    isOnline: !!driver.driver?.isOnline,
+    isOnline: isPresenceFresh(driver.driver?.lastSeenAt),
     lastSeenAt: driver.driver?.lastSeenAt || null,
     checkr: driver.driver?.checkr
       ? {

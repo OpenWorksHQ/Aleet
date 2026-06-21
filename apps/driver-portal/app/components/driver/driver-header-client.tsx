@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { useTheme } from "@/app/components/theme-provider";
 import { useUserStore } from "@/lib/user-store";
 import { disconnectDriverSocket } from "@/lib/socket";
+import { sendPresenceOffline } from "@/lib/presence-api";
 
 const STATUS_LABEL: Record<string, string> = {
     active: "Active",
@@ -282,7 +283,12 @@ export function DriverHeaderClient() {
                         </div>
                         {/* Logout */}
                         <button
-                            onClick={() => { disconnectDriverSocket(); clearAuthCookies(); window.location.href = "/login"; }}
+                            onClick={async () => {
+                                await sendPresenceOffline();
+                                disconnectDriverSocket();
+                                clearAuthCookies();
+                                window.location.href = "/login";
+                            }}
                             aria-label="Sign out"
                             className="ml-1 text-muted hover:text-gold transition-colors"
                         >

@@ -241,7 +241,6 @@ async function countAqd(regionId) {
     role: 'driver',
     'driver.status': 'approved',
     'driver.tier': { $in: ['Diamond', 'Pro'] },
-    'driver.isOnline': true,
     'driver.lastSeenAt': { $gte: freshness },
     $or: [
       { 'driver.serveAllRegions': { $ne: false } },

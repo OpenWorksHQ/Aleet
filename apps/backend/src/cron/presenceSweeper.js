@@ -1,20 +1,13 @@
 const User = require('../models/User');
 
 /**
- * Presence sweeper — safety net for crashed sockets, killed processes,
- * and any scenario where a socket's 'disconnect' event never fired.
- *
- * Flips any driver to isOnline=false if their lastSeenAt is older than
- * STALE_THRESHOLD_MS. Socket.IO emits a pong every ~25s while the
- * connection is healthy (which bumps lastSeenAt via the onAny handler
- * in driverPresence.js), so a 5-minute staleness window is generous.
- *
- * Invoked from server.js on a 2-minute setInterval.
+ * Presence sweeper — clears isOnline for drivers whose lastSeenAt is stale.
+ * AQD already excludes stale lastSeenAt; this keeps the admin UI flag accurate.
  */
-const STALE_THRESHOLD_MS = 5 * 60 * 1000;
+const { PRESENCE_FRESHNESS_MS } = require('../services/presenceService');
 
 async function runPresenceSweep() {
-    const cutoff = new Date(Date.now() - STALE_THRESHOLD_MS);
+    const cutoff = new Date(Date.now() - PRESENCE_FRESHNESS_MS);
     const result = await User.updateMany(
         {
             role: 'driver',
@@ -32,4 +25,4 @@ async function runPresenceSweep() {
     return result.modifiedCount;
 }
 
-module.exports = { runPresenceSweep, STALE_THRESHOLD_MS };
+module.exports = { runPresenceSweep, STALE_THRESHOLD_MS: PRESENCE_FRESHNESS_MS };

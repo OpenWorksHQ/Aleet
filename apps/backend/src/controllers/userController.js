@@ -418,6 +418,30 @@ const updateMyRegions = asyncHandler(async (req, res) => {
   }
 });
 
+// POST /api/users/me/presence/heartbeat — driver session keep-alive (HTTP).
+// Used alongside the socket heartbeat; survives brief mobile background better
+// than relying on WebSocket alone.
+const presenceHeartbeat = asyncHandler(async (req, res) => {
+  if (req.user.role !== 'driver') {
+    return sendError(res, 403, 'Drivers only');
+  }
+  const { recordHeartbeat } = require('../services/presenceService');
+  const lastSeenAt = await recordHeartbeat(req.user.id);
+  return sendSuccess(res, 200, 'Presence updated', {
+    lastSeenAt: lastSeenAt.toISOString(),
+  });
+});
+
+// POST /api/users/me/presence/offline — explicit logout; drops from AQD immediately.
+const presenceOffline = asyncHandler(async (req, res) => {
+  if (req.user.role !== 'driver') {
+    return sendError(res, 403, 'Drivers only');
+  }
+  const { markOfflineImmediate } = require('../services/presenceService');
+  await markOfflineImmediate(req.user.id);
+  return sendSuccess(res, 200, 'Marked offline');
+});
+
 module.exports = {
   signupStart,
   signupVerify,
@@ -433,4 +457,6 @@ module.exports = {
   checkUser,
   deleteAccount,
   updateMyRegions,
+  presenceHeartbeat,
+  presenceOffline,
 };

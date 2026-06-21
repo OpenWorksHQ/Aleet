@@ -2,13 +2,14 @@ const { Server } = require('socket.io');
 const socketAuth = require('../middleware/socketAuth');
 const { registerDriverPresence } = require('./driverPresence');
 const { getSocketCorsConfig } = require('../middleware/cors');
+const { setIo } = require('./ioHolder');
 
 /**
  * Initialize the Socket.IO server on top of an existing HTTP server.
  *
  * Namespaces:
- *  - /drivers — driver-app connections. Connecting flips isOnline=true,
- *               disconnecting flips it back. See driverPresence.js.
+ *  - /drivers — driver-app connections. Connect/heartbeat bump lastSeenAt.
+ *               Disconnect does not clear presence (see presenceService.js).
  *  - /admin   — admin-app connections. Receives `driver:presence` events
  *               broadcast by driverPresence so the admin UI updates in
  *               real time without polling.
@@ -21,6 +22,7 @@ function initSockets(httpServer) {
     const io = new Server(httpServer, {
         cors: getSocketCorsConfig(),
     });
+    setIo(io);
 
     const drivers = io.of('/drivers');
     drivers.use(socketAuth);
