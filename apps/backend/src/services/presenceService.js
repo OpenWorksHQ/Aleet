@@ -1,24 +1,34 @@
 /**
  * Driver presence for AQD / admin UI.
  *
- * AQD counts a driver when lastSeenAt is fresh (within 5 min) — NOT when a
- * WebSocket happens to be connected. Mobile OS backgrounding drops sockets
- * without meaning the driver logged out.
+ * AQD counts a driver while their portal SESSION is active (isOnline=true),
+ * not while a WebSocket is connected or a heartbeat arrived in the last N minutes.
+ * Mobile backgrounding suspends JS — that is still a logged-in session.
  *
- * - Heartbeat (HTTP or socket) → bump lastSeenAt
- * - Explicit logout (HTTP)     → clear lastSeenAt immediately (drops from AQD)
- * - Socket disconnect          → no DB change (not a logout)
- * - Sweeper                    → clears stale isOnline flag only
+ * - Login / connect / heartbeat → isOnline=true, bump lastSeenAt
+ * - Explicit logout (HTTP)       → isOnline=false immediately (drops from AQD)
+ * - Socket disconnect           → no change (not a logout)
+ * - Sweeper (24h safety net)    → only if tab closed without logout for a full day
  */
 
 const User = require('../models/User');
 const { getIo } = require('../sockets/ioHolder');
 
+/** For admin UI only — "active in the last few minutes". NOT used for AQD. */
 const PRESENCE_FRESHNESS_MS = 5 * 60 * 1000;
 
+/** Abandoned sessions (browser killed, no logout) — safety net only. */
+const SESSION_ABANDON_MS = 24 * 60 * 60 * 1000;
+
+/** True when the driver had recent app activity (admin "last seen" hint). */
 function isPresenceFresh(lastSeenAt) {
   if (!lastSeenAt) return false;
   return new Date(lastSeenAt).getTime() >= Date.now() - PRESENCE_FRESHNESS_MS;
+}
+
+/** AQD / admin "online" — logged-in session, cleared only on logout (+ 24h sweeper). */
+function isSessionOnline(isOnline) {
+  return isOnline === true;
 }
 
 function broadcastPresence(payload) {
@@ -44,7 +54,7 @@ async function markOnline(userId) {
   ).lean();
 }
 
-/** Bump freshness — keeps driver in AQD while the app session is alive. */
+/** Bump lastSeenAt; keeps isOnline=true for an active session. */
 async function touchLastSeen(userId) {
   const now = new Date();
   await User.updateOne(
@@ -100,7 +110,9 @@ async function recordConnect(userId) {
 
 module.exports = {
   PRESENCE_FRESHNESS_MS,
+  SESSION_ABANDON_MS,
   isPresenceFresh,
+  isSessionOnline,
   broadcastPresence,
   markOnline,
   touchLastSeen,
