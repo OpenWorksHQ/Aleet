@@ -1,13 +1,14 @@
 const User = require('../models/User');
 
 /**
- * Presence sweeper — clears isOnline for drivers whose lastSeenAt is stale.
- * AQD already excludes stale lastSeenAt; this keeps the admin UI flag accurate.
+ * Safety net for sessions abandoned without logout (browser killed, etc.).
+ * Normal backgrounding (10–20+ min) does NOT clear isOnline — only explicit
+ * logout or 24h with zero heartbeats.
  */
-const { PRESENCE_FRESHNESS_MS } = require('../services/presenceService');
+const { SESSION_ABANDON_MS } = require('../services/presenceService');
 
 async function runPresenceSweep() {
-    const cutoff = new Date(Date.now() - PRESENCE_FRESHNESS_MS);
+    const cutoff = new Date(Date.now() - SESSION_ABANDON_MS);
     const result = await User.updateMany(
         {
             role: 'driver',
@@ -17,12 +18,12 @@ async function runPresenceSweep() {
                 { 'driver.lastSeenAt': null },
             ],
         },
-        { $set: { 'driver.isOnline': false } }
+        { $set: { 'driver.isOnline': false } },
     );
     if (result.modifiedCount > 0) {
-        console.log(`[presence-sweeper] flipped ${result.modifiedCount} stale drivers offline`);
+        console.log(`[presence-sweeper] flipped ${result.modifiedCount} abandoned sessions offline`);
     }
     return result.modifiedCount;
 }
 
-module.exports = { runPresenceSweep, STALE_THRESHOLD_MS: PRESENCE_FRESHNESS_MS };
+module.exports = { runPresenceSweep, SESSION_ABANDON_MS };

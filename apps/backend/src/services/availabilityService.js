@@ -7,11 +7,10 @@
 //     AQD - RB - CL >= MCT
 //
 //   AQD = Active Qualified Drivers  — approved Diamond + approved Pro who
-//                                     serve the region AND have a fresh
-//                                     lastSeenAt (socket/heartbeat within 5 min).
-//                                     Mobile backgrounding may drop the socket
-//                                     briefly; freshness — not a live socket —
-//                                     is what counts.
+//                                     serve the region AND have an active
+//                                     driver-portal session (isOnline=true).
+//                                     Session ends on explicit logout, not
+//                                     when the mobile app is backgrounded.
 //   RB  = Reserved Buffer          — 25% of AQD, rounded up, minimum 2
 //   CL  = Committed Load           — distinct drivers already assigned to
 //                                     active bookings whose trip window
@@ -31,7 +30,6 @@ const Region = require('../models/Region');
 const TierSettings = require('../models/TierSettings');
 
 const SAME_DAY_WINDOW_MS = 24 * 60 * 60 * 1000; // pickup within 24h = same-day
-const PRESENCE_FRESHNESS_MS = 5 * 60 * 1000;    // driver lastSeenAt must be within 5 min
 
 /** Load same-day formula config from TierSettings, with safe defaults. */
 async function loadSameDayConfig() {
@@ -43,14 +41,13 @@ async function loadSameDayConfig() {
   };
 }
 
-// AQD = approved Diamond/Pro drivers serving this region with a fresh
-// lastSeenAt (heartbeat/socket activity within PRESENCE_FRESHNESS_MS).
+// AQD = approved Diamond/Pro, serves region, logged-in session (isOnline).
 function qualifiedDriverFilter(regionId) {
   return {
     role: 'driver',
     'driver.status': 'approved',
     'driver.tier': { $in: ['Diamond', 'Pro'] },
-    'driver.lastSeenAt': { $gte: new Date(Date.now() - PRESENCE_FRESHNESS_MS) },
+    'driver.isOnline': true,
     $or: [
       { 'driver.serveAllRegions': { $ne: false } },
       { 'driver.regions': regionId },

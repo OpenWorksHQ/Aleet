@@ -101,9 +101,8 @@ const userSchema = new mongoose.Schema(
       cancellationCount: { type: Number, default: 0 },
       lastCancellationAt: { type: Date, default: null },
 
-      // Socket-driven presence — populated by sockets/driverPresence.js.
-      // AQD counts drivers with a fresh lastSeenAt (≈5 min). isOnline is
-      // a UI hint; brief mobile socket drops must not instantly zero AQD.
+      // Driver portal session — isOnline=true while logged in; cleared on logout.
+      // lastSeenAt tracks recent activity for admin display only.
       isOnline: { type: Boolean, default: false },
       lastSeenAt: { type: Date, default: null },
       hasForHireLicense: { type: Boolean, default: false },
