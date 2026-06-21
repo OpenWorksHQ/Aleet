@@ -7,8 +7,10 @@
  *
  * - Login / connect / heartbeat → isOnline=true, bump lastSeenAt
  * - Explicit logout (HTTP)       → isOnline=false immediately (drops from AQD)
- * - Socket disconnect           → no change (not a logout)
- * - Sweeper (24h safety net)    → only if tab closed without logout for a full day
+ * - Browser tab closed (client)  → isOnline=false immediately (pagehide beacon)
+ * - Socket gone, no heartbeat    → isOnline=false after DISCONNECT_OFFLINE_MS
+ *   (catches browser killed without pagehide; cancelled by background heartbeat)
+ * - Sweeper (45 min backup)      → abandoned sessions with no signals at all
  */
 
 const User = require('../models/User');
@@ -17,8 +19,45 @@ const { getIo } = require('../sockets/ioHolder');
 /** For admin UI only — "active in the last few minutes". NOT used for AQD. */
 const PRESENCE_FRESHNESS_MS = 5 * 60 * 1000;
 
-/** Abandoned sessions (browser killed, no logout) — safety net only. */
-const SESSION_ABANDON_MS = 24 * 60 * 60 * 1000;
+/** After last socket drops: mark offline unless a heartbeat arrives (browser close). */
+const DISCONNECT_OFFLINE_MS = 2 * 60 * 1000;
+
+/** Abandoned sessions — safety net when all client signals fail. */
+const SESSION_ABANDON_MS = 45 * 60 * 1000;
+
+/** @type {Map<string, NodeJS.Timeout>} */
+const pendingDisconnectOffline = new Map();
+
+function cancelPendingDisconnectOffline(userId) {
+  const key = String(userId);
+  const timer = pendingDisconnectOffline.get(key);
+  if (timer) {
+    clearTimeout(timer);
+    pendingDisconnectOffline.delete(key);
+  }
+}
+
+/** Schedule offline when socket is gone — skipped if a heartbeat arrived recently
+ * (app-switch hidden ping). Cancelled by reconnect or HTTP heartbeat. */
+async function scheduleDisconnectOffline(userId) {
+  cancelPendingDisconnectOffline(userId);
+  const key = String(userId);
+
+  const user = await User.findById(userId).select('driver.lastSeenAt').lean();
+  const lastSeen = user?.driver?.lastSeenAt;
+  if (lastSeen && Date.now() - new Date(lastSeen).getTime() < 60 * 1000) {
+    // Recent hidden/visible heartbeat — app background, not browser close.
+    return;
+  }
+
+  const timer = setTimeout(() => {
+    pendingDisconnectOffline.delete(key);
+    markOfflineImmediate(userId).catch((e) => {
+      console.error('[presence] disconnect-offline failed:', userId, e?.message || e);
+    });
+  }, DISCONNECT_OFFLINE_MS);
+  pendingDisconnectOffline.set(key, timer);
+}
 
 /** True when the driver had recent app activity (admin "last seen" hint). */
 function isPresenceFresh(lastSeenAt) {
@@ -26,7 +65,7 @@ function isPresenceFresh(lastSeenAt) {
   return new Date(lastSeenAt).getTime() >= Date.now() - PRESENCE_FRESHNESS_MS;
 }
 
-/** AQD / admin "online" — logged-in session, cleared only on logout (+ 24h sweeper). */
+/** AQD / admin "online" — active driver-portal session. */
 function isSessionOnline(isOnline) {
   return isOnline === true;
 }
@@ -69,8 +108,9 @@ async function touchLastSeen(userId) {
   return now;
 }
 
-/** Explicit logout — remove from AQD immediately. */
+/** Explicit logout or tab close — remove from AQD immediately. */
 async function markOfflineImmediate(userId) {
+  cancelPendingDisconnectOffline(userId);
   const doc = await User.findOneAndUpdate(
     { _id: userId, role: 'driver' },
     { $set: { 'driver.isOnline': false, 'driver.lastSeenAt': null } },
@@ -87,6 +127,7 @@ async function markOfflineImmediate(userId) {
 }
 
 async function recordHeartbeat(userId) {
+  cancelPendingDisconnectOffline(userId);
   const lastSeenAt = await touchLastSeen(userId);
   broadcastPresence({
     userId: String(userId),
@@ -97,6 +138,7 @@ async function recordHeartbeat(userId) {
 }
 
 async function recordConnect(userId) {
+  cancelPendingDisconnectOffline(userId);
   const doc = await markOnline(userId);
   if (doc) {
     broadcastPresence({
@@ -110,6 +152,7 @@ async function recordConnect(userId) {
 
 module.exports = {
   PRESENCE_FRESHNESS_MS,
+  DISCONNECT_OFFLINE_MS,
   SESSION_ABANDON_MS,
   isPresenceFresh,
   isSessionOnline,
@@ -119,4 +162,6 @@ module.exports = {
   markOfflineImmediate,
   recordHeartbeat,
   recordConnect,
+  cancelPendingDisconnectOffline,
+  scheduleDisconnectOffline,
 };

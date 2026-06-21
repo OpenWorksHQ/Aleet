@@ -26,7 +26,7 @@ export async function sendPresenceHeartbeat(): Promise<void> {
   });
 }
 
-/** POST /api/users/me/presence/offline — explicit logout; drops from AQD immediately. */
+/** POST /api/users/me/presence/offline — logout or browser tab closed; drops from AQD. */
 export async function sendPresenceOffline(): Promise<void> {
   const token = readAuthToken();
   if (!BASE_URL || !token) return;
@@ -37,5 +37,23 @@ export async function sendPresenceOffline(): Promise<void> {
     keepalive: true,
   }).catch(() => {
     /* best-effort before cookie clear */
+  });
+}
+
+/**
+ * Best-effort offline signal when the tab/browser is closing.
+ * Uses fetch keepalive (supports Authorization). Do NOT call on visibility
+ * hidden — that is app background (WhatsApp), not logout.
+ */
+export function sendPresenceOfflineOnPageClose(): void {
+  const token = readAuthToken();
+  if (!BASE_URL || !token) return;
+
+  fetch(`${BASE_URL}/api/users/me/presence/offline`, {
+    method: "POST",
+    headers: withNgrokHeaders({ Authorization: `Bearer ${token}` }),
+    keepalive: true,
+  }).catch(() => {
+    /* page is unloading — best effort only */
   });
 }

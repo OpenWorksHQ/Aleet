@@ -86,7 +86,7 @@ const PORT = process.env.PORT || 5000;
 const httpServer = http.createServer(app);
 initSockets(httpServer);
 
-// Presence sweeper — safety net for sessions abandoned without logout (24h).
+// Presence sweeper — backup for sessions with no client signals for 45 min.
 const { runPresenceSweep } = require('./cron/presenceSweeper');
 setInterval(() => {
   runPresenceSweep().catch((e) => {

@@ -2,17 +2,40 @@ const {
   recordConnect,
   recordHeartbeat,
   touchLastSeen,
+  scheduleDisconnectOffline,
+  cancelPendingDisconnectOffline,
 } = require('../services/presenceService');
+
+/** @type {Map<string, number>} userId → active /drivers socket count */
+const activeSockets = new Map();
+
+function incrementSockets(userId) {
+  const key = String(userId);
+  const next = (activeSockets.get(key) || 0) + 1;
+  activeSockets.set(key, next);
+  return next;
+}
+
+function decrementSockets(userId) {
+  const key = String(userId);
+  const next = Math.max(0, (activeSockets.get(key) || 0) - 1);
+  if (next === 0) activeSockets.delete(key);
+  else activeSockets.set(key, next);
+  return next;
+}
 
 /**
  * Socket handlers for /drivers.
  *
- * Socket connect + heartbeat bump lastSeenAt (AQD signal).
- * Socket disconnect is NOT logout — mobile background drops sockets constantly;
- * we do not change presence in the DB on disconnect.
+ * Connect + heartbeat keep the session alive. Disconnect starts a short timer
+ * (cancelled by background HTTP heartbeat or reconnect). Browser tab close
+ * also sends an explicit offline beacon from the client.
  */
 function registerDriverPresence(_io, socket) {
   const userId = socket.userId;
+
+  cancelPendingDisconnectOffline(userId);
+  incrementSockets(userId);
 
   recordConnect(userId).catch((e) => {
     console.error('[presence] recordConnect failed:', userId, e?.message || e);
@@ -34,7 +57,16 @@ function registerDriverPresence(_io, socket) {
   }
 
   socket.on('disconnect', (reason) => {
-    console.log(`[presence] socket disconnected for ${userId} (${reason}); presence unchanged`);
+    const remaining = decrementSockets(userId);
+    if (remaining === 0) {
+      scheduleDisconnectOffline(userId).catch((e) => {
+        console.error('[presence] scheduleDisconnectOffline failed:', userId, e?.message || e);
+      });
+    }
+    console.log(
+      `[presence] socket disconnected for ${userId} (${reason}); ` +
+      `${remaining} socket(s) left; offline in ~2min unless heartbeat/reconnect`,
+    );
   });
 }
 

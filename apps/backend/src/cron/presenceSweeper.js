@@ -1,9 +1,8 @@
 const User = require('../models/User');
 
 /**
- * Safety net for sessions abandoned without logout (browser killed, etc.).
- * Normal backgrounding (10–20+ min) does NOT clear isOnline — only explicit
- * logout or 24h with zero heartbeats.
+ * Safety net for sessions abandoned without logout (browser killed, no pagehide).
+ * Normal tab close uses pagehide offline (~immediate) or a 2 min disconnect timer.
  */
 const { SESSION_ABANDON_MS } = require('../services/presenceService');
 

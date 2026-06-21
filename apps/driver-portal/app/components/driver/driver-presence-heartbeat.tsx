@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect } from "react";
-import { sendPresenceHeartbeat } from "@/lib/presence-api";
+import { sendPresenceHeartbeat, sendPresenceOfflineOnPageClose } from "@/lib/presence-api";
 
 /** HTTP keep-alive for AQD — independent of WebSocket state. */
 const HEARTBEAT_INTERVAL_MS = 60 * 1000;
 
 /**
- * Sends POST /api/users/me/presence/heartbeat every 60 s while the driver
- * portal tab is open. Keeps lastSeenAt fresh for admin display. AQD uses
- * isOnline (session), not heartbeat timing — backgrounded drivers stay counted.
+ * Sends POST /api/users/me/presence/heartbeat every 60 s while visible.
+ * On app background (visibility hidden) sends one heartbeat — keeps session
+ * alive while switching to WhatsApp. On tab/browser close (pagehide) sends
+ * offline so AQD drops even without tapping Logout.
  */
 export function DriverPresenceHeartbeat() {
   useEffect(() => {
@@ -34,11 +35,20 @@ export function DriverPresenceHeartbeat() {
     window.addEventListener("focus", onVisible);
     window.addEventListener("online", onVisible);
 
+    const onPageHide = (event: PageTransitionEvent) => {
+      // persisted=true → page in bfcache (back button) — driver may return
+      if (!event.persisted) {
+        sendPresenceOfflineOnPageClose();
+      }
+    };
+    window.addEventListener("pagehide", onPageHide);
+
     return () => {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onHidden);
       window.removeEventListener("focus", onVisible);
       window.removeEventListener("online", onVisible);
+      window.removeEventListener("pagehide", onPageHide);
     };
   }, []);
 
