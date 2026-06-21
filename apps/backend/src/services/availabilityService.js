@@ -7,9 +7,11 @@
 //     AQD - RB - CL >= MCT
 //
 //   AQD = Active Qualified Drivers  — approved Diamond + approved Pro who
-//                                     serve the region AND are currently
-//                                     online (active socket connection,
-//                                     lastSeenAt within the last 5 min)
+//                                     serve the region AND have a fresh
+//                                     lastSeenAt (socket/heartbeat within 5 min).
+//                                     Mobile backgrounding may drop the socket
+//                                     briefly; freshness — not a live socket —
+//                                     is what counts.
 //   RB  = Reserved Buffer          — 25% of AQD, rounded up, minimum 2
 //   CL  = Committed Load           — distinct drivers already assigned to
 //                                     active bookings whose trip window
@@ -41,17 +43,13 @@ async function loadSameDayConfig() {
   };
 }
 
-// Mongo filter for Active Qualified Drivers serving a region.
-// AQD = approved Diamond/Pro drivers serving this region AND currently
-// online (socket connected, lastSeenAt within PRESENCE_FRESHNESS_MS).
-// Region binding is default-open: a driver serves everywhere unless
-// serveAllRegions is explicitly false with a restricted regions list.
+// AQD = approved Diamond/Pro drivers serving this region with a fresh
+// lastSeenAt (heartbeat/socket activity within PRESENCE_FRESHNESS_MS).
 function qualifiedDriverFilter(regionId) {
   return {
     role: 'driver',
     'driver.status': 'approved',
     'driver.tier': { $in: ['Diamond', 'Pro'] },
-    'driver.isOnline': true,
     'driver.lastSeenAt': { $gte: new Date(Date.now() - PRESENCE_FRESHNESS_MS) },
     $or: [
       { 'driver.serveAllRegions': { $ne: false } },

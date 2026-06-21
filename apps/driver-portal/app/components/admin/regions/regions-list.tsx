@@ -23,24 +23,33 @@ export function RegionsList({ initialRegions }: Props) {
 
     // Re-fetch the full region list (with live AQD/sameDay) whenever any
     // driver goes online or offline. Debounced by 2 s so a burst of
-    // connect/disconnect events (e.g. multiple drivers logging in at once)
-    // only triggers a single fetch.
+    // connect/disconnect events only triggers a single fetch.
+    // Also poll every 60 s so admins on other devices/browsers see updates
+    // even if their admin socket missed a broadcast.
+    const POLL_INTERVAL_MS = 60 * 1000;
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    async function refreshRegions() {
+        try {
+            const fresh = await fetchAllRegionsClient();
+            setRegions(fresh);
+        } catch {
+            // Silently ignore — stale data is better than a crash.
+        }
+    }
+
     useEffect(() => {
         const unsubscribe = onDriverPresence(() => {
             if (debounceRef.current) clearTimeout(debounceRef.current);
-            debounceRef.current = setTimeout(async () => {
-                try {
-                    const fresh = await fetchAllRegionsClient();
-                    setRegions(fresh);
-                } catch {
-                    // Silently ignore — stale data is better than a crash.
-                }
-            }, 2000);
+            debounceRef.current = setTimeout(refreshRegions, 2000);
         });
+
+        const poll = setInterval(refreshRegions, POLL_INTERVAL_MS);
+
         return () => {
             unsubscribe();
             if (debounceRef.current) clearTimeout(debounceRef.current);
+            clearInterval(poll);
         };
     }, []);
 

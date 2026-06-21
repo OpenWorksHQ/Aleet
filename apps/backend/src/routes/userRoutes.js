@@ -6,6 +6,8 @@ const {
   submitRevision,
   deleteAccount,
   updateMyRegions,
+  presenceHeartbeat,
+  presenceOffline,
 } = require('../controllers/userController');
 const { uploadDriverDocuments, uploadAvatar, handleUploadError } = require('../utils/multer');
 const authenticateJWT = require('../middleware/authMiddleware');
@@ -29,6 +31,9 @@ router.delete('/delete-account', authenticateJWT, deleteAccount);
 // Driver self-service: update the regions this driver is willing to serve.
 // Default-open semantics: empty regions + serveAllRegions=true means everywhere.
 router.put('/me/regions', authenticateJWT, updateMyRegions);
+
+router.post('/me/presence/heartbeat', authenticateJWT, presenceHeartbeat);
+router.post('/me/presence/offline', authenticateJWT, presenceOffline);
 
 
 module.exports = router;

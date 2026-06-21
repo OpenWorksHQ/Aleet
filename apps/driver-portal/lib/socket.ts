@@ -19,7 +19,7 @@ let foregroundListenersBound = false;
 let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 
 /** Interval between keep-alive pings sent to the backend (ms). */
-const HEARTBEAT_INTERVAL_MS = 2 * 60 * 1000;
+const HEARTBEAT_INTERVAL_MS = 60 * 1000;
 
 function readAuthToken(): string {
     if (typeof document === "undefined") return "";
@@ -58,7 +58,15 @@ function bindForegroundListeners() {
     foregroundListenersBound = true;
 
     document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === "visible") ensureConnected();
+        if (document.visibilityState === "visible") {
+            ensureConnected();
+        } else if (document.visibilityState === "hidden") {
+            // Mobile OS may freeze the page seconds later — ping now so
+            // lastSeenAt stays fresh through brief app switches (WhatsApp etc).
+            if (socket?.connected) {
+                socket.emit("driver:heartbeat");
+            }
+        }
     });
     window.addEventListener("focus", ensureConnected);
     window.addEventListener("online", ensureConnected);
@@ -117,10 +125,9 @@ export function connectDriverSocket(): Socket | null {
 
 /**
  * Start the application-level keep-alive interval.
- * Emits `driver:heartbeat` every 2 min so the backend's `socket.onAny()`
- * handler bumps `lastSeenAt` even when the driver is idle (no UI interaction).
- * This is a belt-and-suspenders complement to the Engine.IO heartbeat listener
- * added on the server side.
+ * Emits `driver:heartbeat` every 60 s so the backend bumps `lastSeenAt`
+ * even when the driver is idle. Also emits once when the page is hidden
+ * (mobile app switch) before the OS suspends the socket.
  */
 function startHeartbeat() {
     if (heartbeatInterval) return;
