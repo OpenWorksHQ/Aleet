@@ -101,10 +101,11 @@ const userSchema = new mongoose.Schema(
       cancellationCount: { type: Number, default: 0 },
       lastCancellationAt: { type: Date, default: null },
 
-      // Driver portal session — isOnline=true while logged in; cleared on logout.
-      // lastSeenAt tracks recent activity for admin display only.
+      // Driver portal session — presenceUntil controls AQD (sliding expiry).
+      // Cleared on logout; foreground ~90s TTL, background ~45min TTL.
       isOnline: { type: Boolean, default: false },
       lastSeenAt: { type: Date, default: null },
+      presenceUntil: { type: Date, default: null },
       hasForHireLicense: { type: Boolean, default: false },
       hasOwnVehicle: { type: Boolean, default: false },
       authorizeBackgroundCheck: { type: Boolean, default: false },

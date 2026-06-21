@@ -12,21 +12,30 @@ function readAuthToken(): string {
   );
 }
 
-/** POST /api/users/me/presence/heartbeat — bumps lastSeenAt (AQD signal). */
-export async function sendPresenceHeartbeat(): Promise<void> {
+type HeartbeatOptions = {
+  /** True when the tab is backgrounded (app switch) — extends server TTL to ~45 min. */
+  background?: boolean;
+};
+
+/** POST /api/users/me/presence/heartbeat — extends presenceUntil on the server. */
+export async function sendPresenceHeartbeat(options: HeartbeatOptions = {}): Promise<void> {
   const token = readAuthToken();
   if (!BASE_URL || !token) return;
 
   await fetch(`${BASE_URL}/api/users/me/presence/heartbeat`, {
     method: "POST",
-    headers: withNgrokHeaders({ Authorization: `Bearer ${token}` }),
+    headers: withNgrokHeaders({
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    }),
+    body: JSON.stringify({ background: options.background === true }),
     keepalive: true,
   }).catch(() => {
-    /* ignore — next interval or reconnect will retry */
+    /* ignore — next interval will retry */
   });
 }
 
-/** POST /api/users/me/presence/offline — logout or browser tab closed; drops from AQD. */
+/** POST /api/users/me/presence/offline — explicit logout. */
 export async function sendPresenceOffline(): Promise<void> {
   const token = readAuthToken();
   if (!BASE_URL || !token) return;
@@ -36,24 +45,30 @@ export async function sendPresenceOffline(): Promise<void> {
     headers: withNgrokHeaders({ Authorization: `Bearer ${token}` }),
     keepalive: true,
   }).catch(() => {
-    /* best-effort before cookie clear */
+    /* best-effort */
   });
 }
 
 /**
- * Best-effort offline signal when the tab/browser is closing.
- * Uses fetch keepalive (supports Authorization). Do NOT call on visibility
- * hidden — that is app background (WhatsApp), not logout.
+ * Best-effort offline when the tab/browser closes.
+ * Uses sendBeacon (works on mobile Safari/Chrome unload) + fetch keepalive fallback.
+ * Never call on visibility:hidden alone — that is app background, not close.
  */
 export function sendPresenceOfflineOnPageClose(): void {
   const token = readAuthToken();
   if (!BASE_URL || !token) return;
 
-  fetch(`${BASE_URL}/api/users/me/presence/offline`, {
+  const url = `${BASE_URL}/api/users/me/presence/offline?token=${encodeURIComponent(token)}`;
+
+  if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+    navigator.sendBeacon(url, new Blob([], { type: "text/plain" }));
+  }
+
+  fetch(url, {
     method: "POST",
     headers: withNgrokHeaders({ Authorization: `Bearer ${token}` }),
     keepalive: true,
   }).catch(() => {
-    /* page is unloading — best effort only */
+    /* page unloading */
   });
 }

@@ -7,10 +7,10 @@
 //     AQD - RB - CL >= MCT
 //
 //   AQD = Active Qualified Drivers  — approved Diamond + approved Pro who
-//                                     serve the region AND have an active
-//                                     driver-portal session (isOnline=true).
-//                                     Session ends on explicit logout, not
-//                                     when the mobile app is backgrounded.
+//                                     serve the region AND have presenceUntil
+//                                     in the future (sliding session expiry).
+//                                     Foreground heartbeats extend ~90s;
+//                                     background (app switch) extends ~45min.
 //   RB  = Reserved Buffer          — 25% of AQD, rounded up, minimum 2
 //   CL  = Committed Load           — distinct drivers already assigned to
 //                                     active bookings whose trip window
@@ -41,13 +41,13 @@ async function loadSameDayConfig() {
   };
 }
 
-// AQD = approved Diamond/Pro, serves region, logged-in session (isOnline).
+// AQD = approved Diamond/Pro, serves region, active presenceUntil.
 function qualifiedDriverFilter(regionId) {
   return {
     role: 'driver',
     'driver.status': 'approved',
     'driver.tier': { $in: ['Diamond', 'Pro'] },
-    'driver.isOnline': true,
+    'driver.presenceUntil': { $gte: new Date() },
     $or: [
       { 'driver.serveAllRegions': { $ne: false } },
       { 'driver.regions': regionId },
