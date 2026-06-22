@@ -23,6 +23,7 @@ interface UserState {
   profile: UserProfile | null;
   isLoading: boolean;
   setProfile: (profile: UserProfile) => void;
+  setAvailabilityStatus: (status: string) => void;
   clearProfile: () => void;
   setLoading: (loading: boolean) => void;
 }
@@ -31,6 +32,10 @@ export const useUserStore = create<UserState>((set) => ({
   profile: null,
   isLoading: true,
   setProfile: (profile) => set({ profile, isLoading: false }),
+  setAvailabilityStatus: (availabilityStatus) =>
+    set((s) =>
+      s.profile ? { profile: { ...s.profile, availabilityStatus } } : s,
+    ),
   clearProfile: () => set({ profile: null, isLoading: false }),
   setLoading: (isLoading) => set({ isLoading }),
 }));

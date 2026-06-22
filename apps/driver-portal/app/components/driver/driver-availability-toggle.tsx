@@ -9,15 +9,47 @@ import {
 } from "@/lib/availability-api";
 import { useUserStore } from "@/lib/user-store";
 
-const OPTIONS: { value: AvailabilityStatus; label: string; hint: string }[] = [
-  { value: "off", label: "Off", hint: "Not counted in coverage" },
-  { value: "available", label: "Available", hint: "Ready for same-day trips" },
-  { value: "on_call", label: "On-Call", hint: "Standby — counts toward coverage" },
+const OPTIONS: {
+  value: AvailabilityStatus;
+  label: string;
+  hint: string;
+}[] = [
+  {
+    value: "off",
+    label: "Off",
+    hint: "Not counted toward same-day coverage",
+  },
+  {
+    value: "available",
+    label: "Available",
+    hint: "Ready for same-day trips",
+  },
+  {
+    value: "on_call",
+    label: "On-Call",
+    hint: "On standby — counts toward coverage",
+  },
 ];
 
-export function DriverAvailabilityToggle() {
+const STATUS_HINT: Record<AvailabilityStatus, string> = {
+  off: "You are not counted in regional coverage.",
+  available: "You are active and counted toward same-day coverage.",
+  on_call: "You are on standby and counted toward same-day coverage.",
+};
+
+/** Module-level sync for heartbeat hook. */
+let activeAvailability: AvailabilityStatus = "off";
+export function getActiveAvailabilityStatus(): AvailabilityStatus {
+  return activeAvailability;
+}
+export function setActiveAvailabilityStatus(status: AvailabilityStatus) {
+  activeAvailability = status;
+}
+
+function useDriverAvailability() {
   const driverStatus = useUserStore((s) => s.profile?.driverStatus ?? "");
   const tier = useUserStore((s) => s.profile?.tier ?? "");
+  const setStoreStatus = useUserStore((s) => s.setAvailabilityStatus);
   const [status, setStatus] = useState<AvailabilityStatus>("off");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -25,17 +57,28 @@ export function DriverAvailabilityToggle() {
   const canToggle =
     driverStatus === "approved" && (tier === "Pro" || tier === "Diamond");
 
+  const applyStatus = useCallback(
+    (next: AvailabilityStatus) => {
+      setStatus(next);
+      setActiveAvailabilityStatus(next);
+      setStoreStatus(next);
+    },
+    [setStoreStatus],
+  );
+
   const load = useCallback(async () => {
     if (!canToggle) {
       setLoading(false);
+      applyStatus("off");
       return;
     }
     const data = await fetchMyAvailability();
-    if (data?.status) setStatus(data.status);
+    applyStatus(data?.status ?? "off");
     setLoading(false);
-  }, [canToggle]);
+  }, [canToggle, applyStatus]);
 
   useEffect(() => {
+    setLoading(true);
     load();
   }, [load]);
 
@@ -43,45 +86,105 @@ export function DriverAvailabilityToggle() {
     if (!canToggle || saving || next === status) return;
     setSaving(true);
     const data = await updateMyAvailability(next);
-    if (data?.status) {
-      setStatus(data.status);
-      setActiveAvailabilityStatus(data.status);
-    }
+    if (data?.status) applyStatus(data.status);
     setSaving(false);
   }
+
+  return { canToggle, status, loading, saving, onSelect };
+}
+
+function SegmentButton({
+  opt,
+  active,
+  disabled,
+  onSelect,
+}: {
+  opt: (typeof OPTIONS)[number];
+  active: boolean;
+  disabled: boolean;
+  onSelect: (v: AvailabilityStatus) => void;
+}) {
+  const isOff = opt.value === "off";
+
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      aria-pressed={active}
+      aria-label={`Set status to ${opt.label}`}
+      onClick={() => onSelect(opt.value)}
+      className={cn(
+        "flex flex-1 flex-col items-center justify-center gap-1 rounded-lg font-medium transition-all",
+        "min-h-[48px] touch-manipulation select-none sm:min-h-[44px] sm:flex-row sm:gap-1.5",
+        "px-2 py-2.5 text-xs sm:px-3 sm:py-3 sm:text-sm",
+        active
+          ? isOff
+            ? "bg-muted/25 text-muted shadow-sm ring-1 ring-border"
+            : "bg-emerald-500/20 text-emerald-400 shadow-sm ring-1 ring-emerald-500/40"
+          : "text-muted active:bg-border/40 hover:bg-border/30 hover:text-text",
+        disabled && "pointer-events-none opacity-60",
+      )}
+    >
+      <span
+        className={cn(
+          "h-2 w-2 shrink-0 rounded-full",
+          active
+            ? isOff
+              ? "bg-muted"
+              : "bg-emerald-400 animate-pulse"
+            : "bg-transparent",
+        )}
+        aria-hidden
+      />
+      <span className="truncate leading-tight">{opt.label}</span>
+    </button>
+  );
+}
+
+/**
+ * Full-width availability control — always visible below the header.
+ * Optimised for mobile touch (48px min height) and desktop.
+ */
+export function DriverAvailabilityBar() {
+  const { canToggle, status, loading, saving, onSelect } = useDriverAvailability();
 
   if (!canToggle) return null;
 
   return (
-    <div className="hidden sm:flex items-center gap-1 rounded-lg border border-border bg-card-bg/50 p-1">
-      {OPTIONS.map((opt) => (
-        <button
-          key={opt.value}
-          type="button"
-          disabled={loading || saving}
-          title={opt.hint}
-          onClick={() => onSelect(opt.value)}
-          className={cn(
-            "rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
-            status === opt.value
-              ? opt.value === "off"
-                ? "bg-muted/20 text-muted"
-                : "bg-emerald-500/15 text-emerald-400"
-              : "text-muted hover:text-text hover:bg-border/30",
+    <div className="sticky top-0 z-40 shrink-0 border-b border-border bg-card-bg/95 backdrop-blur-sm px-3 py-3 sm:px-6">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted sm:text-xs">
+              Coverage status
+            </p>
+            <p className="mt-0.5 text-[11px] leading-snug text-muted/80 sm:text-xs">
+              {loading ? "Loading…" : STATUS_HINT[status]}
+            </p>
+          </div>
+          {status !== "off" && !loading && (
+            <span className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-400">
+              Live
+            </span>
           )}
+        </div>
+
+        <div
+          className="grid grid-cols-3 gap-1.5 rounded-xl border border-border bg-page-bg/80 p-1.5 sm:gap-2 sm:p-2"
+          role="group"
+          aria-label="Driver availability status"
         >
-          {opt.label}
-        </button>
-      ))}
+          {OPTIONS.map((opt) => (
+            <SegmentButton
+              key={opt.value}
+              opt={opt}
+              active={status === opt.value}
+              disabled={loading || saving}
+              onSelect={onSelect}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
-}
-
-/** Export current status for heartbeat hook (module-level sync). */
-let activeAvailability: AvailabilityStatus = "off";
-export function getActiveAvailabilityStatus(): AvailabilityStatus {
-  return activeAvailability;
-}
-export function setActiveAvailabilityStatus(status: AvailabilityStatus) {
-  activeAvailability = status;
 }
