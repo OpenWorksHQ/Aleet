@@ -29,10 +29,11 @@ export interface ApiDriverDetails {
   revisionNotes: string | null;
   regions?: string[];
   serveAllRegions?: boolean;
-  /** Set true while the driver's socket is connected. Counts toward AQD. */
+  /** Counts toward same-day coverage (AQD) when available + fresh heartbeat. */
   isOnline?: boolean;
-  /** Last socket activity / pong — used for "active 2 min ago" relative time. */
   lastSeenAt?: string | null;
+  availabilityStatus?: string;
+  lastHeartbeatAt?: string | null;
 }
 
 export interface ApiDriver {
@@ -235,6 +236,33 @@ export async function updateDriverRegionsAdmin(
   const json = await res.json();
   if (!res.ok || json.success === false) {
     throw new Error(json.message ?? "Failed to update driver regions");
+  }
+  return json.data as ApiDriver;
+}
+
+export interface UpdateDriverAdminPayload {
+  driverId: string;
+  driverStatus?: string;
+  tier?: string;
+  availabilityStatus?: string;
+  backgroundCheck?: boolean;
+}
+
+/** PATCH /api/admin/toggleDriverStatus — tier, account status, availability */
+export async function updateDriverAdmin(
+  payload: UpdateDriverAdminPayload,
+): Promise<ApiDriver> {
+  const res = await fetch(`${BASE_URL}/api/admin/toggleDriverStatus`, {
+    method: "PATCH",
+    headers: withNgrokHeaders({
+      Authorization: `Bearer ${getClientToken()}`,
+      "Content-Type": "application/json",
+    }),
+    body: JSON.stringify(payload),
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    throw new Error(json.message ?? "Failed to update driver");
   }
   return json.data as ApiDriver;
 }

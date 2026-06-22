@@ -17,6 +17,7 @@ import { fetchActiveRegions, type Region } from "@/lib/regions-api";
 import { withNgrokHeaders } from "@/lib/ngrok-headers";
 import { mapApiDriver, type Driver } from "./driver-types";
 import { StatusBadge, TierBadge } from "./driver-badges";
+import { AdminDriverControls } from "./admin-driver-controls";
 import { PhotoPreview } from "@/app/components/ui/photo-preview";
 import { Upload, X } from "lucide-react";
 
@@ -439,6 +440,8 @@ export function DriverDetailModal({ driver, onClose, onUpdate }: Props) {
                                 </div>
                             </div>
                         )}
+
+                        <AdminDriverControls driver={driver} onUpdate={onUpdate} />
 
                         {/* Contact info */}
                         <div>

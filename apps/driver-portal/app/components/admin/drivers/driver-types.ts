@@ -12,7 +12,9 @@ export type DriverStatus =
   | "rejected"
   | "needs_revision"
   | "revision_complete";
-export type DriverTier = string;
+export type DriverTier = "S-Level" | "Pro" | "Diamond" | string;
+
+export type DriverAvailability = "off" | "available" | "on_call";
 
 export type Driver = {
   id: string;
@@ -42,6 +44,7 @@ export type Driver = {
   revisionNotes: string | null;
   regions: string[];
   serveAllRegions: boolean;
+  availabilityStatus: DriverAvailability;
   isOnline: boolean;
   lastSeenAt: string | null;
 };
@@ -109,7 +112,8 @@ export function mapApiDriver(
     revisionNotes: d.driver.revisionNotes ?? null,
     regions: Array.isArray(d.driver.regions) ? d.driver.regions : [],
     serveAllRegions: d.driver.serveAllRegions !== false,
+    availabilityStatus: (d.driver.availabilityStatus ?? "off") as DriverAvailability,
     isOnline: !!d.driver.isOnline,
-    lastSeenAt: d.driver.lastSeenAt ?? null,
+    lastSeenAt: d.driver.lastHeartbeatAt ?? d.driver.lastSeenAt ?? null,
   };
 }

@@ -14,6 +14,9 @@ const statusMap: Record<DriverStatus, { label: string; cls: string }> = {
 };
 
 const knownTiers: Record<string, { label: string; cls: string }> = {
+    "s-level": { label: "S-Level", cls: "bg-blue-500/15 text-blue-400" },
+    pro: { label: "Pro", cls: "bg-emerald-500/15 text-emerald-400" },
+    diamond: { label: "Diamond", cls: "bg-purple-500/15 text-purple-400" },
     standard: { label: "Standard", cls: "bg-border/60 text-muted" },
     elite: { label: "Elite", cls: "bg-gold/15 text-gold" },
     premium: { label: "Premium", cls: "bg-purple-500/15 text-purple-400" },
@@ -38,11 +41,6 @@ export function TierBadge({ tier }: { tier: string }) {
     );
 }
 
-/**
- * Live socket-presence indicator. Green dot when the driver's app has an
- * open Socket.IO connection; gray when offline. Mirrors the AQD filter
- * the backend uses on the /drivers namespace.
- */
 function formatRelative(iso: string): string {
     const ms = Date.now() - new Date(iso).getTime();
     if (!Number.isFinite(ms) || ms < 0) return "just now";
@@ -55,20 +53,34 @@ function formatRelative(iso: string): string {
     return `${d}d ago`;
 }
 
+/** Whether the driver counts toward same-day coverage (AQD). */
 export function OnlineBadge({ isOnline, lastSeenAt }: { isOnline: boolean; lastSeenAt: string | null }) {
     if (isOnline) {
         return (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-400">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Online
+                Available · AQD
             </span>
         );
     }
     return (
         <span className="inline-flex items-center gap-1.5 rounded-full bg-border/40 px-2 py-0.5 text-[11px] font-medium text-muted">
             <span className="h-1.5 w-1.5 rounded-full bg-muted" />
-            {lastSeenAt ? `Offline · ${formatRelative(lastSeenAt)}` : "Offline"}
+            {lastSeenAt ? `Unavailable · ${formatRelative(lastSeenAt)}` : "Unavailable"}
         </span>
     );
 }
 
+export function AvailabilityBadge({ status }: { status: string }) {
+    const on = status === "available" || status === "on_call";
+    return (
+        <span
+            className={cn(
+                "rounded-full px-2 py-0.5 text-[11px] font-medium",
+                on ? "bg-emerald-500/10 text-emerald-400" : "bg-border/40 text-muted",
+            )}
+        >
+            {on ? "Available" : "Unavailable"}
+        </span>
+    );
+}
