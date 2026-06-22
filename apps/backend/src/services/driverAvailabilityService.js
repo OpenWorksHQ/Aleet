@@ -14,8 +14,11 @@ const User = require('../models/User');
 const { getIo } = require('../sockets/ioHolder');
 
 const HEARTBEAT_INACTIVITY_MS = 30 * 60 * 1000;
-const AQD_STATUSES = ['available', 'on_call'];
-const ALL_STATUSES = ['off', ...AQD_STATUSES];
+/** Statuses where the driver is actively available (heartbeats run). */
+const ACTIVE_AVAILABILITY_STATUSES = ['available', 'on_call'];
+/** Statuses that count toward AQD (Pro/Diamond only — tier filter is separate). */
+const AQD_STATUSES = ACTIVE_AVAILABILITY_STATUSES;
+const ALL_STATUSES = ['off', ...ACTIVE_AVAILABILITY_STATUSES];
 
 const QUALIFIED_FILTER = {
   role: 'driver',
@@ -70,6 +73,7 @@ async function getAvailability(userId) {
 
   return {
     status: user.driver?.availabilityStatus || 'off',
+    tier: user.driver?.tier || null,
     updatedAt: user.driver?.availabilityUpdatedAt?.toISOString?.() || null,
     lastHeartbeatAt: user.driver?.lastHeartbeatAt?.toISOString?.() || null,
     countsForAqd: isAqdEligible(user),
@@ -97,11 +101,6 @@ async function setAvailability(userId, status) {
       err.statusCode = 403;
       throw err;
     }
-    if (!['Pro', 'Diamond'].includes(user.driver?.tier)) {
-      const err = new Error('Only Pro and Diamond drivers count toward same-day coverage');
-      err.statusCode = 403;
-      throw err;
-    }
   }
 
   const now = new Date();
@@ -117,20 +116,28 @@ async function setAvailability(userId, status) {
     { $set: Object.fromEntries(Object.entries(fields).map(([k, v]) => [`driver.${k}`, v])) },
   );
 
-  broadcastAvailability(userId, fields);
+  const updatedUser = await User.findById(userId)
+    .select('driver.tier driver.availabilityStatus driver.lastHeartbeatAt')
+    .lean();
+
+  broadcastAvailability(userId, {
+    ...fields,
+    tier: updatedUser?.driver?.tier,
+  });
 
   return {
     status,
+    tier: updatedUser?.driver?.tier || null,
     updatedAt: now.toISOString(),
     lastHeartbeatAt: fields.lastHeartbeatAt?.toISOString?.() || null,
-    countsForAqd: status !== 'off',
+    countsForAqd: isAqdEligible(updatedUser),
   };
 }
 
 async function recordHeartbeat(userId) {
   const now = new Date();
   const result = await User.updateOne(
-    { _id: userId, role: 'driver', 'driver.availabilityStatus': { $in: AQD_STATUSES } },
+    { _id: userId, role: 'driver', 'driver.availabilityStatus': { $in: ACTIVE_AVAILABILITY_STATUSES } },
     { $set: { 'driver.lastHeartbeatAt': now, 'driver.isOnline': true } },
   );
 
@@ -157,7 +164,7 @@ async function sweepStaleAvailability() {
   const result = await User.updateMany(
     {
       role: 'driver',
-      'driver.availabilityStatus': { $in: AQD_STATUSES },
+      'driver.availabilityStatus': { $in: ACTIVE_AVAILABILITY_STATUSES },
       $or: [
         { 'driver.lastHeartbeatAt': { $lt: cutoff } },
         { 'driver.lastHeartbeatAt': null },
@@ -180,6 +187,7 @@ async function sweepStaleAvailability() {
 
 module.exports = {
   HEARTBEAT_INACTIVITY_MS,
+  ACTIVE_AVAILABILITY_STATUSES,
   AQD_STATUSES,
   ALL_STATUSES,
   isAqdEligible,

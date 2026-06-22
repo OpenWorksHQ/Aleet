@@ -9,33 +9,29 @@ import {
 } from "@/lib/availability-api";
 import { useUserStore } from "@/lib/user-store";
 
-const OPTIONS: {
-  value: AvailabilityStatus;
-  label: string;
-  hint: string;
-}[] = [
-  {
-    value: "off",
-    label: "Off",
-    hint: "Not counted toward same-day coverage",
-  },
-  {
-    value: "available",
-    label: "Available",
-    hint: "Ready for same-day trips",
-  },
-  {
-    value: "on_call",
-    label: "On-Call",
-    hint: "On standby — counts toward coverage",
-  },
+type UiStatus = "off" | "available";
+
+const OPTIONS: { value: UiStatus; label: string }[] = [
+  { value: "off", label: "Unavailable" },
+  { value: "available", label: "Available" },
 ];
 
-const STATUS_HINT: Record<AvailabilityStatus, string> = {
-  off: "You are not counted in regional coverage.",
-  available: "You are active and counted toward same-day coverage.",
-  on_call: "You are on standby and counted toward same-day coverage.",
-};
+function toUiStatus(status: AvailabilityStatus): UiStatus {
+  return status === "off" ? "off" : "available";
+}
+
+function statusHint(uiStatus: UiStatus, tier: string): string {
+  if (uiStatus === "off") {
+    return "You are unavailable and will not receive new trip offers.";
+  }
+  if (tier === "S-Level") {
+    return "You are available for S-Level trips (company vehicle).";
+  }
+  if (tier === "Pro" || tier === "Diamond") {
+    return "You are available for trips and count toward same-day regional coverage.";
+  }
+  return "You are available for trips in your tier.";
+}
 
 /** Module-level sync for heartbeat hook. */
 let activeAvailability: AvailabilityStatus = "off";
@@ -50,18 +46,18 @@ function useDriverAvailability() {
   const driverStatus = useUserStore((s) => s.profile?.driverStatus ?? "");
   const tier = useUserStore((s) => s.profile?.tier ?? "");
   const setStoreStatus = useUserStore((s) => s.setAvailabilityStatus);
-  const [status, setStatus] = useState<AvailabilityStatus>("off");
+  const [status, setStatus] = useState<UiStatus>("off");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const canToggle =
-    driverStatus === "approved" && (tier === "Pro" || tier === "Diamond");
+  const canToggle = driverStatus === "approved";
 
   const applyStatus = useCallback(
     (next: AvailabilityStatus) => {
-      setStatus(next);
-      setActiveAvailabilityStatus(next);
-      setStoreStatus(next);
+      const ui = toUiStatus(next);
+      setStatus(ui);
+      setActiveAvailabilityStatus(next === "off" ? "off" : "available");
+      setStoreStatus(next === "off" ? "off" : "available");
     },
     [setStoreStatus],
   );
@@ -82,7 +78,7 @@ function useDriverAvailability() {
     load();
   }, [load]);
 
-  async function onSelect(next: AvailabilityStatus) {
+  async function onSelect(next: UiStatus) {
     if (!canToggle || saving || next === status) return;
     setSaving(true);
     const data = await updateMyAvailability(next);
@@ -90,7 +86,7 @@ function useDriverAvailability() {
     setSaving(false);
   }
 
-  return { canToggle, status, loading, saving, onSelect };
+  return { canToggle, status, tier, loading, saving, onSelect };
 }
 
 function SegmentButton({
@@ -102,7 +98,7 @@ function SegmentButton({
   opt: (typeof OPTIONS)[number];
   active: boolean;
   disabled: boolean;
-  onSelect: (v: AvailabilityStatus) => void;
+  onSelect: (v: UiStatus) => void;
 }) {
   const isOff = opt.value === "off";
 
@@ -116,7 +112,7 @@ function SegmentButton({
       className={cn(
         "flex flex-1 flex-col items-center justify-center gap-1 rounded-lg font-medium transition-all",
         "min-h-[48px] touch-manipulation select-none sm:min-h-[44px] sm:flex-row sm:gap-1.5",
-        "px-2 py-2.5 text-xs sm:px-3 sm:py-3 sm:text-sm",
+        "px-3 py-2.5 text-sm sm:px-4 sm:py-3",
         active
           ? isOff
             ? "bg-muted/25 text-muted shadow-sm ring-1 ring-border"
@@ -142,11 +138,11 @@ function SegmentButton({
 }
 
 /**
- * Full-width availability control — always visible below the header.
- * Optimised for mobile touch (48px min height) and desktop.
+ * Availability control for all approved drivers (S-Level, Pro, Diamond).
  */
 export function DriverAvailabilityBar() {
-  const { canToggle, status, loading, saving, onSelect } = useDriverAvailability();
+  const { canToggle, status, tier, loading, saving, onSelect } =
+    useDriverAvailability();
 
   if (!canToggle) return null;
 
@@ -156,13 +152,18 @@ export function DriverAvailabilityBar() {
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted sm:text-xs">
-              Coverage status
+              Availability
+              {tier ? (
+                <span className="ml-1.5 font-normal normal-case text-muted/70">
+                  · {tier}
+                </span>
+              ) : null}
             </p>
             <p className="mt-0.5 text-[11px] leading-snug text-muted/80 sm:text-xs">
-              {loading ? "Loading…" : STATUS_HINT[status]}
+              {loading ? "Loading…" : statusHint(status, tier)}
             </p>
           </div>
-          {status !== "off" && !loading && (
+          {status === "available" && !loading && (
             <span className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-400">
               Live
             </span>
@@ -170,9 +171,9 @@ export function DriverAvailabilityBar() {
         </div>
 
         <div
-          className="grid grid-cols-3 gap-1.5 rounded-xl border border-border bg-page-bg/80 p-1.5 sm:gap-2 sm:p-2"
+          className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-page-bg/80 p-1.5 sm:p-2"
           role="group"
-          aria-label="Driver availability status"
+          aria-label="Driver availability"
         >
           {OPTIONS.map((opt) => (
             <SegmentButton

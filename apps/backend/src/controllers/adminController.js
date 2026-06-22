@@ -229,7 +229,7 @@ const unassignDriverFromBooking = async (req, res) => {
 // Admin function to activate/deactivate a driver
 const toggleDriverStatus = async (req, res) => {
   try {
-    const { driverId, status, driverStatus, backgroundCheck } = req.body;
+    const { driverId, status, driverStatus, backgroundCheck, tier, availabilityStatus } = req.body;
     // status        → boolean (true = active, false = deactivated) — legacy field
     // driverStatus  → 'pending_review' | 'active' | 'suspended'
     // backgroundCheck → boolean
@@ -271,14 +271,23 @@ const toggleDriverStatus = async (req, res) => {
       driver.driver.backgroundCheck = backgroundCheck;
     }
 
+    const allowedTiers = ['S-Level', 'Pro', 'Diamond'];
+    if (tier && allowedTiers.includes(tier)) {
+      driver.driver.tier = tier;
+    }
+
     await driver.save();
 
-    return sendSuccess(res, 200, 'Driver status updated successfully', {
-      name: driver.name,
-      email: driver.email,
-      driverStatus: driver.driver.status,
-      backgroundCheck: driver.driver.backgroundCheck,
-    });
+    const { ALL_STATUSES, setAvailability } = require('../services/driverAvailabilityService');
+    if (availabilityStatus && ALL_STATUSES.includes(availabilityStatus)) {
+      if (driver.driver.status === 'approved' || availabilityStatus === 'off') {
+        await setAvailability(driverId, availabilityStatus);
+      }
+    }
+
+    const fresh = await User.findById(driverId);
+
+    return sendSuccess(res, 200, 'Driver status updated successfully', formatDriverForAdmin(fresh));
   } catch (error) {
     console.error('Toggle Driver Status Error:', error);
     return sendError(res, 500, error.message || 'Failed to update driver status');
