@@ -56,8 +56,9 @@ async function setPresence(userId, mode = 'foreground') {
   const presenceUntil = new Date(now.getTime() + ttlMs(mode));
   const presenceMode = mode === 'background' ? 'background' : 'foreground';
 
-  await User.updateOne(
-    { _id: userId, ...QUALIFIED_FILTER },
+  // Skip if driver was explicitly marked offline (browser close / logout).
+  const result = await User.updateOne(
+    { _id: userId, ...QUALIFIED_FILTER, 'driver.isOnline': { $ne: false } },
     {
       $set: {
         'driver.isOnline': true,
@@ -68,11 +69,27 @@ async function setPresence(userId, mode = 'foreground') {
     },
   );
 
+  if (result.matchedCount === 0) return null;
+
   return { now, presenceUntil, presenceMode };
 }
 
 async function markOnline(userId) {
-  const { now, presenceUntil } = await setPresence(userId, 'foreground');
+  const now = new Date();
+  const presenceUntil = new Date(now.getTime() + ttlMs('foreground'));
+
+  await User.updateOne(
+    { _id: userId, ...QUALIFIED_FILTER },
+    {
+      $set: {
+        'driver.isOnline': true,
+        'driver.lastSeenAt': now,
+        'driver.presenceUntil': presenceUntil,
+        'driver.presenceMode': 'foreground',
+      },
+    },
+  );
+
   return {
     driver: {
       isOnline: true,
@@ -106,7 +123,9 @@ async function markOfflineImmediate(userId) {
 }
 
 async function recordHeartbeat(userId) {
-  const { now, presenceUntil } = await setPresence(userId, 'foreground');
+  const updated = await setPresence(userId, 'foreground');
+  if (!updated) return null;
+  const { now, presenceUntil } = updated;
   broadcastPresence({
     userId: String(userId),
     isOnline: true,
@@ -116,7 +135,9 @@ async function recordHeartbeat(userId) {
 }
 
 async function recordBackground(userId) {
-  const { now, presenceUntil } = await setPresence(userId, 'background');
+  const updated = await setPresence(userId, 'background');
+  if (!updated) return null;
+  const { now, presenceUntil } = updated;
   broadcastPresence({
     userId: String(userId),
     isOnline: true,
@@ -136,6 +157,7 @@ async function recordDisconnect(userId) {
       .lean();
 
     if (!user || user.role !== 'driver') return;
+    if (!user.driver?.presenceUntil && user.driver?.isOnline === false) return;
 
     const now = Date.now();
     const currentUntil = user.driver?.presenceUntil

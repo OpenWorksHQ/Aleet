@@ -48,7 +48,7 @@ export async function sendPresenceBackground(): Promise<void> {
   });
 }
 
-/** POST /api/users/me/presence/offline — explicit logout only. */
+/** POST /api/users/me/presence/offline — explicit logout. */
 export async function sendPresenceOffline(): Promise<void> {
   const token = readAuthToken();
   if (!BASE_URL || !token) return;
@@ -59,5 +59,28 @@ export async function sendPresenceOffline(): Promise<void> {
     keepalive: true,
   }).catch(() => {
     /* best-effort */
+  });
+}
+
+/**
+ * Best-effort offline when the browser/tab is closing (not app switch).
+ * sendBeacon survives page unload on iOS Safari / Chrome.
+ */
+export function sendPresenceOfflineOnPageClose(): void {
+  const token = readAuthToken();
+  if (!BASE_URL || !token) return;
+
+  const url = `${BASE_URL}/api/users/me/presence/offline?token=${encodeURIComponent(token)}`;
+
+  if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+    navigator.sendBeacon(url, new Blob([], { type: "text/plain" }));
+  }
+
+  fetch(url, {
+    method: "POST",
+    headers: withNgrokHeaders({ Authorization: `Bearer ${token}` }),
+    keepalive: true,
+  }).catch(() => {
+    /* page unloading */
   });
 }

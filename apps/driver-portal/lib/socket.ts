@@ -2,13 +2,17 @@
 //
 //   connect            → backend marks driver online
 //   driver:heartbeat   → foreground keep-alive (tab visible)
-//   driver:background  → mobile screen switch — 5 min AQD grace
+//   driver:background  → mobile app switch — 5 min AQD grace (delayed)
+//   pagehide / freeze  → immediate offline (browser close, not app switch)
 //   disconnect         → short grace (desktop) or keep 5 min TTL (mobile background)
 //
 // Explicit logout calls sendPresenceOffline() + disconnectDriverSocket().
 
 import { io, type Socket } from "socket.io-client";
-import { sendPresenceBackground } from "@/lib/presence-api";
+import {
+    sendPresenceBackground,
+    sendPresenceOfflineOnPageClose,
+} from "@/lib/presence-api";
 
 const SOCKET_URL =
     process.env.NEXT_PUBLIC_SOCKET_URL ||
@@ -18,9 +22,17 @@ const SOCKET_URL =
 let socket: Socket | null = null;
 let foregroundListenersBound = false;
 let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+let backgroundTimer: ReturnType<typeof setTimeout> | null = null;
+let closing = false;
 
 /** Foreground heartbeat — must be less than server FOREGROUND_PRESENCE_MS (60s). */
 const HEARTBEAT_INTERVAL_MS = 30 * 1000;
+
+/**
+ * Wait before granting 5min background TTL so browser-close (pagehide) can
+ * fire first and send immediate offline. App switch never fires pagehide.
+ */
+const MOBILE_BACKGROUND_DELAY_MS = 2 * 1000;
 
 function readAuthToken(): string {
     if (typeof document === "undefined") return "";
@@ -49,7 +61,34 @@ function emitBackground() {
     }
 }
 
+function clearBackgroundTimer() {
+    if (backgroundTimer) {
+        clearTimeout(backgroundTimer);
+        backgroundTimer = null;
+    }
+}
+
+function scheduleMobileBackground() {
+    clearBackgroundTimer();
+    backgroundTimer = setTimeout(() => {
+        backgroundTimer = null;
+        if (closing || document.visibilityState !== "hidden") return;
+        emitBackground();
+        sendPresenceBackground();
+    }, MOBILE_BACKGROUND_DELAY_MS);
+}
+
+function handlePageClose() {
+    closing = true;
+    clearBackgroundTimer();
+    sendPresenceOfflineOnPageClose();
+    if (socket?.connected) {
+        socket.disconnect();
+    }
+}
+
 function ensureConnected() {
+    if (closing) return;
     if (!socket) {
         connectDriverSocket();
         return;
@@ -68,21 +107,38 @@ function bindForegroundListeners() {
 
     document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "visible") {
+            closing = false;
+            clearBackgroundTimer();
             ensureConnected();
             emitHeartbeat();
-        } else if (mobile) {
-            // App switch / screen off — 5 min grace via socket + HTTP fallback.
-            emitBackground();
-            sendPresenceBackground();
+        } else if (mobile && !closing) {
+            // App switch only — browser close uses pagehide/freeze instead.
+            scheduleMobileBackground();
         }
     });
 
+    window.addEventListener("pagehide", (event: PageTransitionEvent) => {
+        if (event.persisted) return;
+        handlePageClose();
+    });
+
+    // iOS Safari may fire freeze when swiping browser away from app switcher.
+    if (mobile) {
+        document.addEventListener("freeze", () => {
+            if (!closing) handlePageClose();
+        });
+    }
+
     window.addEventListener("focus", () => {
-        ensureConnected();
-        emitHeartbeat();
+        if (!closing) {
+            ensureConnected();
+            emitHeartbeat();
+        }
     });
     window.addEventListener("online", ensureConnected);
     window.addEventListener("pageshow", () => {
+        closing = false;
+        clearBackgroundTimer();
         ensureConnected();
         emitHeartbeat();
     });
@@ -94,6 +150,8 @@ export function connectDriverSocket(): Socket | null {
 
     const token = readAuthToken();
     if (!token) return null;
+
+    closing = false;
 
     if (socket && !socket.connected) {
         socket.connect();
@@ -136,6 +194,7 @@ function startHeartbeat() {
     heartbeatInterval = setInterval(() => {
         if (
             socket?.connected &&
+            !closing &&
             typeof document !== "undefined" &&
             document.visibilityState === "visible"
         ) {
@@ -152,6 +211,8 @@ function stopHeartbeat() {
 }
 
 export function disconnectDriverSocket() {
+    closing = true;
+    clearBackgroundTimer();
     stopHeartbeat();
     if (socket) {
         socket.disconnect();

@@ -428,6 +428,9 @@ const presenceHeartbeat = asyncHandler(async (req, res) => {
   const result = background
     ? await recordBackground(req.user.id)
     : await recordHeartbeat(req.user.id);
+  if (!result) {
+    return sendSuccess(res, 200, 'Presence ignored (offline)');
+  }
   return sendSuccess(res, 200, 'Presence updated', {
     lastSeenAt: result.lastSeenAt.toISOString(),
     presenceUntil: result.presenceUntil.toISOString(),
