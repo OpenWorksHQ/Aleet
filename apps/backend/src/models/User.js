@@ -106,6 +106,7 @@ const userSchema = new mongoose.Schema(
       isOnline: { type: Boolean, default: false },
       lastSeenAt: { type: Date, default: null },
       presenceUntil: { type: Date, default: null },
+      presenceMode: { type: String, enum: ['foreground', 'background'], default: null },
       hasForHireLicense: { type: Boolean, default: false },
       hasOwnVehicle: { type: Boolean, default: false },
       authorizeBackgroundCheck: { type: Boolean, default: false },
