@@ -6,6 +6,7 @@ export type AvailabilityStatus = "off" | "available" | "on_call";
 
 export interface AvailabilityState {
   status: AvailabilityStatus;
+  tier: string | null;
   updatedAt: string | null;
   lastHeartbeatAt: string | null;
   countsForAqd: boolean;
