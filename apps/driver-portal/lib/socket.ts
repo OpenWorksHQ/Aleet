@@ -1,13 +1,14 @@
-// Driver-app Socket.IO client.
+// Driver-app Socket.IO client — primary presence signal for AQD.
 //
-// The connection itself is the presence signal: connect → backend marks
-// driver online; disconnect → backend marks offline (real-time). There is
-// no Go Online/Offline toggle.
+//   connect            → backend marks driver online
+//   driver:heartbeat   → foreground keep-alive (tab visible)
+//   driver:background  → mobile screen switch — 5 min AQD grace
+//   disconnect         → short grace (desktop) or keep 5 min TTL (mobile background)
 //
-// The backend reads the JWT from `handshake.auth.token`; we read the same
-// token from the `auth_token` cookie that the login flow sets.
+// Explicit logout calls sendPresenceOffline() + disconnectDriverSocket().
 
 import { io, type Socket } from "socket.io-client";
+import { sendPresenceBackground } from "@/lib/presence-api";
 
 const SOCKET_URL =
     process.env.NEXT_PUBLIC_SOCKET_URL ||
@@ -18,8 +19,8 @@ let socket: Socket | null = null;
 let foregroundListenersBound = false;
 let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 
-/** Interval between keep-alive pings sent to the backend (ms). */
-const HEARTBEAT_INTERVAL_MS = 60 * 1000;
+/** Foreground heartbeat — must be less than server FOREGROUND_PRESENCE_MS (60s). */
+const HEARTBEAT_INTERVAL_MS = 30 * 1000;
 
 function readAuthToken(): string {
     if (typeof document === "undefined") return "";
@@ -31,15 +32,25 @@ function readAuthToken(): string {
     );
 }
 
-/**
- * Make sure the socket is live. Called when the page returns to the
- * foreground (mobile background → foreground, tab refocus, network back).
- * Browsers freeze the socket while the page is hidden; Socket.IO's built-in
- * reconnect logic doesn't always detect the freeze, so we poke it manually.
- */
+function isMobileDevice(): boolean {
+    if (typeof navigator === "undefined") return false;
+    return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+}
+
+function emitHeartbeat() {
+    if (socket?.connected) {
+        socket.emit("driver:heartbeat");
+    }
+}
+
+function emitBackground() {
+    if (socket?.connected) {
+        socket.emit("driver:background");
+    }
+}
+
 function ensureConnected() {
     if (!socket) {
-        // Singleton was never created or got cleared — reinit.
         connectDriverSocket();
         return;
     }
@@ -49,33 +60,34 @@ function ensureConnected() {
     }
 }
 
-/**
- * Bind one-time listeners that re-attach the socket whenever the driver
- * returns to the app: tab visible again, window focused, network back.
- */
 function bindForegroundListeners() {
     if (foregroundListenersBound || typeof window === "undefined") return;
     foregroundListenersBound = true;
 
+    const mobile = isMobileDevice();
+
     document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "visible") {
             ensureConnected();
-        } else if (document.visibilityState === "hidden") {
-            // Mobile OS may freeze the page seconds later — ping now so
-            // lastSeenAt stays fresh through brief app switches (WhatsApp etc).
-            if (socket?.connected) {
-                socket.emit("driver:heartbeat");
-            }
+            emitHeartbeat();
+        } else if (mobile) {
+            // App switch / screen off — 5 min grace via socket + HTTP fallback.
+            emitBackground();
+            sendPresenceBackground();
         }
     });
-    window.addEventListener("focus", ensureConnected);
+
+    window.addEventListener("focus", () => {
+        ensureConnected();
+        emitHeartbeat();
+    });
     window.addEventListener("online", ensureConnected);
-    // pageshow fires when the page is restored from the bfcache (mobile
-    // Safari). That's the moment the user came back without a full reload.
-    window.addEventListener("pageshow", ensureConnected);
+    window.addEventListener("pageshow", () => {
+        ensureConnected();
+        emitHeartbeat();
+    });
 }
 
-/** Connect to the /drivers namespace. Idempotent — repeated calls reuse the same socket. */
 export function connectDriverSocket(): Socket | null {
     if (typeof window === "undefined") return null;
     if (socket && socket.connected) return socket;
@@ -83,8 +95,6 @@ export function connectDriverSocket(): Socket | null {
     const token = readAuthToken();
     if (!token) return null;
 
-    // Stale-but-not-cleared socket: just reconnect it. Avoids creating a
-    // duplicate connection server-side.
     if (socket && !socket.connected) {
         socket.connect();
         bindForegroundListeners();
@@ -103,8 +113,8 @@ export function connectDriverSocket(): Socket | null {
     });
 
     socket.on("connect", () => {
-        // Server marks isOnline=true on connect — no client action needed.
         console.log("[socket] driver connected:", socket?.id);
+        emitHeartbeat();
         startHeartbeat();
     });
 
@@ -114,8 +124,6 @@ export function connectDriverSocket(): Socket | null {
     });
 
     socket.on("connect_error", (err) => {
-        // Most common reason: stale/expired token. The auth middleware
-        // rejects and the socket won't auto-retry forever.
         console.warn("[socket] connect error:", err.message);
     });
 
@@ -123,17 +131,15 @@ export function connectDriverSocket(): Socket | null {
     return socket;
 }
 
-/**
- * Start the application-level keep-alive interval.
- * Emits `driver:heartbeat` every 60 s so the backend bumps `lastSeenAt`
- * even when the driver is idle. Also emits once when the page is hidden
- * (mobile app switch) before the OS suspends the socket.
- */
 function startHeartbeat() {
     if (heartbeatInterval) return;
     heartbeatInterval = setInterval(() => {
-        if (socket?.connected) {
-            socket.emit('driver:heartbeat');
+        if (
+            socket?.connected &&
+            typeof document !== "undefined" &&
+            document.visibilityState === "visible"
+        ) {
+            socket.emit("driver:heartbeat");
         }
     }, HEARTBEAT_INTERVAL_MS);
 }
@@ -145,7 +151,6 @@ function stopHeartbeat() {
     }
 }
 
-/** Disconnect and clear the singleton. Called on logout. */
 export function disconnectDriverSocket() {
     stopHeartbeat();
     if (socket) {
@@ -154,7 +159,6 @@ export function disconnectDriverSocket() {
     }
 }
 
-/** Current socket — null if not connected. Useful for debugging only. */
 export function getDriverSocket(): Socket | null {
     return socket;
 }

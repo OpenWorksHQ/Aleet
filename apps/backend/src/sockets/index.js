@@ -8,8 +8,8 @@ const { setIo } = require('./ioHolder');
  * Initialize the Socket.IO server on top of an existing HTTP server.
  *
  * Namespaces:
- *  - /drivers — driver-app connections. Connect/heartbeat bump lastSeenAt.
- *               Disconnect does not clear presence (see presenceService.js).
+ *  - /drivers — driver-app connections. Connect/heartbeat/background drive
+ *               presenceUntil. Disconnect applies a short grace period.
  *  - /admin   — admin-app connections. Receives `driver:presence` events
  *               broadcast by driverPresence so the admin UI updates in
  *               real time without polling.

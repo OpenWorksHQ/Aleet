@@ -26,7 +26,7 @@ export function RegionsList({ initialRegions }: Props) {
     // connect/disconnect events only triggers a single fetch.
     // Also poll every 60 s so admins on other devices/browsers see updates
     // even if their admin socket missed a broadcast.
-    const POLL_INTERVAL_MS = 60 * 1000;
+    const POLL_INTERVAL_MS = 20 * 1000;
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     async function refreshRegions() {

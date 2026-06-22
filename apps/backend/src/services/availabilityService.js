@@ -9,8 +9,8 @@
 //   AQD = Active Qualified Drivers  — approved Diamond + approved Pro who
 //                                     serve the region AND have presenceUntil
 //                                     in the future (sliding session expiry).
-//                                     Foreground heartbeats extend ~90s;
-//                                     background (app switch) extends ~45min.
+//                                     Foreground heartbeats extend ~60s;
+//                                     mobile background extends ~5min.
 //   RB  = Reserved Buffer          — 25% of AQD, rounded up, minimum 2
 //   CL  = Committed Load           — distinct drivers already assigned to
 //                                     active bookings whose trip window

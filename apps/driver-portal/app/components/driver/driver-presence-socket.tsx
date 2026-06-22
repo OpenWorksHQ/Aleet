@@ -4,13 +4,12 @@ import { useEffect } from "react";
 import { connectDriverSocket, disconnectDriverSocket } from "@/lib/socket";
 
 /**
- * Mount-once component that opens a Socket.IO connection for real-time
- * admin broadcasts. AQD presence is driven by HTTP + socket heartbeats
- * (lastSeenAt), not by socket connect/disconnect.
+ * Mount-once component that opens the driver Socket.IO connection.
+ * AQD presence is socket-driven: heartbeat, background, connect/disconnect.
  *
  * Lifecycle:
- *   - Mount   → connect socket, bump lastSeenAt via server
- *   - Unmount → disconnect socket only (NOT logout — presence unchanged)
+ *   - Mount   → connect socket (marks driver online)
+ *   - Unmount → disconnect socket (short grace unless mobile background TTL)
  *   - Logout  → sendPresenceOffline() then disconnectDriverSocket()
  */
 export function DriverPresenceSocket() {

@@ -304,6 +304,7 @@ async function revertSacAqd() {
         'driver.isOnline': false,
         'driver.lastSeenAt': null,
         'driver.presenceUntil': null,
+        'driver.presenceMode': null,
       },
     },
   );

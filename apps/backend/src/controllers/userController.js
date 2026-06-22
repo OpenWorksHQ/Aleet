@@ -418,16 +418,16 @@ const updateMyRegions = asyncHandler(async (req, res) => {
   }
 });
 
-// POST /api/users/me/presence/heartbeat — driver session keep-alive (HTTP).
-// Used alongside the socket heartbeat; survives brief mobile background better
-// than relying on WebSocket alone.
+// POST /api/users/me/presence/heartbeat — HTTP fallback (socket is primary).
 const presenceHeartbeat = asyncHandler(async (req, res) => {
   if (req.user.role !== 'driver') {
     return sendError(res, 403, 'Drivers only');
   }
   const background = req.body?.background === true;
-  const { recordHeartbeat } = require('../services/presenceService');
-  const result = await recordHeartbeat(req.user.id, background);
+  const { recordHeartbeat, recordBackground } = require('../services/presenceService');
+  const result = background
+    ? await recordBackground(req.user.id)
+    : await recordHeartbeat(req.user.id);
   return sendSuccess(res, 200, 'Presence updated', {
     lastSeenAt: result.lastSeenAt.toISOString(),
     presenceUntil: result.presenceUntil.toISOString(),
