@@ -193,6 +193,8 @@ const formatUser = (user) => {
         diamond: d.diamond,
         regions: Array.isArray(d.regions) ? d.regions : [],
         serveAllRegions: d.serveAllRegions !== false,
+        availabilityStatus: d.availabilityStatus || 'off',
+        lastHeartbeatAt: d.lastHeartbeatAt || null,
         checkr: d.checkr
           ? {
             status: d.checkr.status,

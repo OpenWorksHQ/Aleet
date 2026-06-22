@@ -11,8 +11,9 @@ import { driverNavItems } from "./driver-nav-config";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/app/components/theme-provider";
 import { useUserStore } from "@/lib/user-store";
+import { DriverAvailabilityToggle } from "./driver-availability-toggle";
 import { disconnectDriverSocket } from "@/lib/socket";
-import { sendPresenceOffline } from "@/lib/presence-api";
+import { sendPresenceOffline } from "@/lib/availability-api";
 
 const STATUS_LABEL: Record<string, string> = {
     active: "Active",
@@ -152,6 +153,8 @@ export function DriverHeaderClient() {
                             {STATUS_LABEL[driverStatus] ?? driverStatus}
                         </span>
                     )}
+
+                    <DriverAvailabilityToggle />
 
                     {/* Notification bell */}
                     <div ref={notifRef} className="relative">

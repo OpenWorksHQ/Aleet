@@ -131,14 +131,14 @@ async function getDefaultVehicleTypeIds() {
 
 function aqdDriverUpdate(regionId) {
   const now = new Date();
-  const presenceUntil = new Date(now.getTime() + 45 * 60 * 1000);
   return {
   $set: {
     'driver.status': 'approved',
     'driver.tier': 'Pro',
+    'driver.availabilityStatus': 'available',
+    'driver.availabilityUpdatedAt': now,
+    'driver.lastHeartbeatAt': now,
     'driver.isOnline': true,
-    'driver.lastSeenAt': now,
-    'driver.presenceUntil': presenceUntil,
     'driver.serveAllRegions': true,
     'driver.regions': [regionId],
     active: true,
@@ -148,7 +148,6 @@ function aqdDriverUpdate(regionId) {
 
 async function promoteExistingDrivers(region, vehicleTypeIds) {
   const now = new Date();
-  const presenceUntil = new Date(now.getTime() + 45 * 60 * 1000);
 
   // Prefer drivers already approved or close — exclude our sac test emails for this pass
   const candidates = await User.find({
@@ -171,9 +170,10 @@ async function promoteExistingDrivers(region, vehicleTypeIds) {
         $set: {
           'driver.status': 'approved',
           'driver.tier': 'Pro',
+          'driver.availabilityStatus': 'available',
+          'driver.availabilityUpdatedAt': now,
+          'driver.lastHeartbeatAt': now,
           'driver.isOnline': true,
-          'driver.lastSeenAt': now,
-          'driver.presenceUntil': presenceUntil,
           'driver.serveAllRegions': true,
           'driver.regions': [region._id],
           active: true,
@@ -227,8 +227,9 @@ async function ensureTestDrivers(region, vehicleTypeIds, needed) {
         regions: [region._id],
         serveAllRegions: true,
         isOnline: true,
-        lastSeenAt: new Date(),
-        presenceUntil: new Date(Date.now() + 45 * 60 * 1000),
+        availabilityStatus: 'available',
+        availabilityUpdatedAt: new Date(),
+        lastHeartbeatAt: new Date(),
         driverRating: 4.8,
       },
     });
@@ -241,16 +242,8 @@ async function ensureTestDrivers(region, vehicleTypeIds, needed) {
 }
 
 async function countAqd(regionId) {
-  return User.countDocuments({
-    role: 'driver',
-    'driver.status': 'approved',
-    'driver.tier': { $in: ['Diamond', 'Pro'] },
-    'driver.presenceUntil': { $gte: new Date() },
-    $or: [
-      { 'driver.serveAllRegions': { $ne: false } },
-      { 'driver.regions': regionId },
-    ],
-  });
+  const { aqdDriverFilter } = require('../services/driverAvailabilityService');
+  return User.countDocuments(aqdDriverFilter(regionId));
 }
 
 async function seedSacAqd() {
@@ -302,7 +295,9 @@ async function revertSacAqd() {
     {
       $set: {
         'driver.isOnline': false,
-        'driver.lastSeenAt': null,
+        'driver.availabilityStatus': 'off',
+        'driver.lastHeartbeatAt': null,
+        'driver.availabilityUpdatedAt': null,
         'driver.presenceUntil': null,
         'driver.presenceMode': null,
       },

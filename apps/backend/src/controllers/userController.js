@@ -15,6 +15,7 @@ const {
   sendValidationError,
   sendNotFound,
   sendUnauthorized,
+  sendForbidden,
 } = require('../utils/responseHelper');
 
 // -------------------- REGISTER (UPDATED) --------------------
@@ -418,33 +419,58 @@ const updateMyRegions = asyncHandler(async (req, res) => {
   }
 });
 
-// POST /api/users/me/presence/heartbeat — HTTP fallback (socket is primary).
+// POST /api/users/me/presence/heartbeat — liveness ping while available/on_call.
 const presenceHeartbeat = asyncHandler(async (req, res) => {
   if (req.user.role !== 'driver') {
     return sendError(res, 403, 'Drivers only');
   }
-  const background = req.body?.background === true;
-  const { recordHeartbeat, recordBackground } = require('../services/presenceService');
-  const result = background
-    ? await recordBackground(req.user.id)
-    : await recordHeartbeat(req.user.id);
+  const { recordHeartbeat } = require('../services/driverAvailabilityService');
+  const result = await recordHeartbeat(req.user.id);
   if (!result) {
-    return sendSuccess(res, 200, 'Presence ignored (offline)');
+    return sendSuccess(res, 200, 'Heartbeat ignored (not available)');
   }
-  return sendSuccess(res, 200, 'Presence updated', {
-    lastSeenAt: result.lastSeenAt.toISOString(),
-    presenceUntil: result.presenceUntil.toISOString(),
+  return sendSuccess(res, 200, 'Heartbeat recorded', {
+    lastHeartbeatAt: result.lastHeartbeatAt.toISOString(),
   });
 });
 
-// POST /api/users/me/presence/offline — explicit logout; drops from AQD immediately.
+// GET /api/users/me/availability
+const getMyAvailability = asyncHandler(async (req, res) => {
+  if (req.user.role !== 'driver') {
+    return sendError(res, 403, 'Drivers only');
+  }
+  const { getAvailability } = require('../services/driverAvailabilityService');
+  const data = await getAvailability(req.user.id);
+  if (!data) return sendNotFound(res, 'Driver not found');
+  return sendSuccess(res, 200, 'Availability retrieved', data);
+});
+
+// PATCH /api/users/me/availability — body: { status: 'off' | 'available' | 'on_call' }
+const updateMyAvailability = asyncHandler(async (req, res) => {
+  if (req.user.role !== 'driver') {
+    return sendError(res, 403, 'Drivers only');
+  }
+  const status = req.body?.status;
+  if (!status) return sendValidationError(res, 'status is required');
+  const { setAvailability } = require('../services/driverAvailabilityService');
+  try {
+    const data = await setAvailability(req.user.id, status);
+    return sendSuccess(res, 200, 'Availability updated', data);
+  } catch (e) {
+    if (e.statusCode === 400) return sendValidationError(res, e.message);
+    if (e.statusCode === 403) return sendForbidden(res, e.message);
+    throw e;
+  }
+});
+
+// POST /api/users/me/presence/offline — logout / go unavailable.
 const presenceOffline = asyncHandler(async (req, res) => {
   if (req.user.role !== 'driver') {
     return sendError(res, 403, 'Drivers only');
   }
-  const { markOfflineImmediate } = require('../services/presenceService');
-  await markOfflineImmediate(req.user.id);
-  return sendSuccess(res, 200, 'Marked offline');
+  const { markOff } = require('../services/driverAvailabilityService');
+  await markOff(req.user.id);
+  return sendSuccess(res, 200, 'Marked unavailable');
 });
 
 module.exports = {
@@ -462,6 +488,8 @@ module.exports = {
   checkUser,
   deleteAccount,
   updateMyRegions,
+  getMyAvailability,
+  updateMyAvailability,
   presenceHeartbeat,
   presenceOffline,
 };

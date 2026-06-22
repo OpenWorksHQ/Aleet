@@ -3,7 +3,7 @@ import { DriverSidebar } from "@/app/components/driver/driver-sidebar";
 import { DriverHeader } from "@/app/components/driver/driver-header";
 import { DriverStatusSync } from "@/app/components/driver/driver-status-sync";
 import { DriverPresenceSocket } from "@/app/components/driver/driver-presence-socket";
-import { DriverPresenceHeartbeat } from "@/app/components/driver/driver-presence-heartbeat";
+import { DriverAvailabilityHeartbeat } from "@/app/components/driver/driver-availability-heartbeat";
 import { DevDeleteAccountButton } from "@/app/components/driver/dev-delete-account-button";
 
 export const metadata = {
@@ -15,7 +15,7 @@ export default function DriverLayout({ children }: { children: ReactNode }) {
         <div className="flex min-h-screen bg-page-bg text-text">
             <DriverStatusSync />
             <DriverPresenceSocket />
-            <DriverPresenceHeartbeat />
+            <DriverAvailabilityHeartbeat />
             <DriverSidebar />
             <div className="flex flex-1 flex-col">
                 <DriverHeader />

@@ -262,6 +262,8 @@ const toggleDriverStatus = async (req, res) => {
     // eventually, but suspending an active driver should be instant.
     if (driver.driver.status !== 'approved') {
       driver.driver.isOnline = false;
+      driver.driver.availabilityStatus = 'off';
+      driver.driver.lastHeartbeatAt = null;
     }
 
     // Update background check if provided
@@ -287,7 +289,7 @@ const toggleDriverStatus = async (req, res) => {
 
 
 
-const { isPresenceActive } = require('../services/presenceService');
+const { isAqdEligible } = require('../services/driverAvailabilityService');
 
 const maskSSN = (ssn) => {
   if (!ssn) return null;
@@ -317,7 +319,9 @@ const formatDriverForAdmin = (driver) => ({
     regions: Array.isArray(driver.driver?.regions) ? driver.driver.regions : [],
     serveAllRegions: driver.driver?.serveAllRegions !== false,
     revisionNotes: driver.driver?.revisionNotes || null,
-    isOnline: isPresenceActive(driver.driver?.presenceUntil),
+    isOnline: isAqdEligible(driver),
+    availabilityStatus: driver.driver?.availabilityStatus || 'off',
+    lastHeartbeatAt: driver.driver?.lastHeartbeatAt || null,
     lastSeenAt: driver.driver?.lastSeenAt || null,
     checkr: driver.driver?.checkr
       ? {

@@ -7,6 +7,8 @@ export interface UserProfile {
   avatar?: string | null;
   role: string;
   driverStatus: string;
+  tier: string;
+  availabilityStatus: string;
   revisionNotes: string | null;
   ssn: string | null;
   licenseImage: string | null;

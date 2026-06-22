@@ -8,8 +8,8 @@ const { setIo } = require('./ioHolder');
  * Initialize the Socket.IO server on top of an existing HTTP server.
  *
  * Namespaces:
- *  - /drivers — driver-app connections. Connect/heartbeat/background drive
- *               presenceUntil. Disconnect applies a short grace period.
+ *  - /drivers — trip offers + optional heartbeats while available/on_call.
+ *               AQD uses explicit availability status, not socket connect.
  *  - /admin   — admin-app connections. Receives `driver:presence` events
  *               broadcast by driverPresence so the admin UI updates in
  *               real time without polling.

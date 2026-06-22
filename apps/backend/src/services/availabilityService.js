@@ -7,10 +7,9 @@
 //     AQD - RB - CL >= MCT
 //
 //   AQD = Active Qualified Drivers  — approved Diamond + approved Pro who
-//                                     serve the region AND have presenceUntil
-//                                     in the future (sliding session expiry).
-//                                     Foreground heartbeats extend ~60s;
-//                                     mobile background extends ~5min.
+//                                     serve the region AND have explicitly set
+//                                     availability to available/on_call with a
+//                                     fresh heartbeat (default 30 min window).
 //   RB  = Reserved Buffer          — 25% of AQD, rounded up, minimum 2
 //   CL  = Committed Load           — distinct drivers already assigned to
 //                                     active bookings whose trip window
@@ -28,6 +27,7 @@ const User = require('../models/User');
 const Booking = require('../models/Booking');
 const Region = require('../models/Region');
 const TierSettings = require('../models/TierSettings');
+const { aqdDriverFilter } = require('./driverAvailabilityService');
 
 const SAME_DAY_WINDOW_MS = 24 * 60 * 60 * 1000; // pickup within 24h = same-day
 
@@ -41,18 +41,9 @@ async function loadSameDayConfig() {
   };
 }
 
-// AQD = approved Diamond/Pro, serves region, active presenceUntil.
+// AQD = approved Diamond/Pro, serves region, available/on_call + fresh heartbeat.
 function qualifiedDriverFilter(regionId) {
-  return {
-    role: 'driver',
-    'driver.status': 'approved',
-    'driver.tier': { $in: ['Diamond', 'Pro'] },
-    'driver.presenceUntil': { $gte: new Date() },
-    $or: [
-      { 'driver.serveAllRegions': { $ne: false } },
-      { 'driver.regions': regionId },
-    ],
-  };
+  return aqdDriverFilter(regionId);
 }
 
 /**

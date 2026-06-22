@@ -41,6 +41,8 @@ export function DriverStatusSync() {
 
                 const role = (data.role ?? "").toLowerCase();
                 const driverStatus = data.driver?.status ?? "";
+                const tier = data.driver?.tier ?? "";
+                const availabilityStatus = data.driver?.availabilityStatus ?? "off";
                 const avatar =
                     data.avatar ??
                     data.profileImage ??
@@ -59,6 +61,8 @@ export function DriverStatusSync() {
                     avatar,
                     role,
                     driverStatus,
+                    tier,
+                    availabilityStatus,
                     revisionNotes: data.driver?.revisionNotes ?? null,
                     ssn: data.driver?.ssn ?? null,
                     licenseImage: data.driver?.licenseImage ?? null,

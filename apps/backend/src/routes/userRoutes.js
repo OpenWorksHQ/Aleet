@@ -6,6 +6,8 @@ const {
   submitRevision,
   deleteAccount,
   updateMyRegions,
+  getMyAvailability,
+  updateMyAvailability,
   presenceHeartbeat,
   presenceOffline,
 } = require('../controllers/userController');
@@ -32,6 +34,8 @@ router.delete('/delete-account', authenticateJWT, deleteAccount);
 // Default-open semantics: empty regions + serveAllRegions=true means everywhere.
 router.put('/me/regions', authenticateJWT, updateMyRegions);
 
+router.get('/me/availability', authenticateJWT, getMyAvailability);
+router.patch('/me/availability', authenticateJWT, updateMyAvailability);
 router.post('/me/presence/heartbeat', authenticateJWT, presenceHeartbeat);
 router.post('/me/presence/offline', authenticateJWT, presenceOffline);
 

@@ -101,8 +101,16 @@ const userSchema = new mongoose.Schema(
       cancellationCount: { type: Number, default: 0 },
       lastCancellationAt: { type: Date, default: null },
 
-      // Driver portal session — presenceUntil controls AQD (sliding expiry).
-      // Cleared on logout; foreground ~90s TTL, background ~45min TTL.
+      // Explicit availability for AQD — driver intent, not browser tab state.
+      availabilityStatus: {
+        type: String,
+        enum: ['off', 'available', 'on_call'],
+        default: 'off',
+      },
+      availabilityUpdatedAt: { type: Date, default: null },
+      lastHeartbeatAt: { type: Date, default: null },
+
+      // Legacy session fields (admin session display; AQD uses availability above).
       isOnline: { type: Boolean, default: false },
       lastSeenAt: { type: Date, default: null },
       presenceUntil: { type: Date, default: null },
