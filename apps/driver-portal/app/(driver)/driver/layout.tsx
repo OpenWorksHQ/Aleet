@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { DriverSidebar } from "@/app/components/driver/driver-sidebar";
 import { DriverHeader } from "@/app/components/driver/driver-header";
+import { DriverAvailabilityBar } from "@/app/components/driver/driver-availability-toggle";
 import { DriverStatusSync } from "@/app/components/driver/driver-status-sync";
 import { DriverPresenceSocket } from "@/app/components/driver/driver-presence-socket";
 import { DriverAvailabilityHeartbeat } from "@/app/components/driver/driver-availability-heartbeat";
@@ -17,9 +18,10 @@ export default function DriverLayout({ children }: { children: ReactNode }) {
             <DriverPresenceSocket />
             <DriverAvailabilityHeartbeat />
             <DriverSidebar />
-            <div className="flex flex-1 flex-col">
+            <div className="flex flex-1 flex-col min-w-0">
                 <DriverHeader />
-                <main className="flex-1 overflow-y-auto p-6 sm:p-8">
+                <DriverAvailabilityBar />
+                <main className="flex-1 overflow-y-auto p-4 sm:p-8">
                     {children}
                 </main>
             </div>
