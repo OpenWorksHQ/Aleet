@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { updateDriverAdmin, type ApiDriver } from "@/lib/drivers-api";
-import type { Driver, DriverStatus } from "./driver-types";
+import type { Driver, DriverStatus, DriverAvailability } from "./driver-types";
 import { OnlineBadge, StatusBadge, TierBadge } from "./driver-badges";
 
 const TIERS = ["S-Level", "Pro", "Diamond"] as const;
@@ -35,7 +35,7 @@ function patchFromApi(d: ApiDriver): Partial<Driver> {
   return {
     status: d.driver.status as DriverStatus,
     tier: d.driver.tier,
-    availabilityStatus: d.driver.availabilityStatus ?? "off",
+    availabilityStatus: (d.driver.availabilityStatus ?? "off") as DriverAvailability,
     isOnline: !!d.driver.isOnline,
     lastSeenAt: d.driver.lastHeartbeatAt ?? d.driver.lastSeenAt ?? null,
     revisionNotes: d.driver.revisionNotes ?? null,
