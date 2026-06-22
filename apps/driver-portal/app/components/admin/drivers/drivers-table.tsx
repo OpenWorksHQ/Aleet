@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Input } from "@/app/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { Driver, DriverStatus } from "./driver-types";
-import { StatusBadge, TierBadge, OnlineBadge } from "./driver-badges";
+import { StatusBadge, TierBadge, OnlineBadge, AvailabilityBadge } from "./driver-badges";
 import { DriverDetailModal } from "./driver-detail-modal";
 import { onDriverPresence } from "@/lib/admin-socket";
 
@@ -194,6 +194,7 @@ export function DriversTable({ initialDrivers }: Props) {
                                     <td className="px-5 py-4">
                                         <div className="flex flex-col gap-1">
                                             <StatusBadge status={driver.status} />
+                                            <AvailabilityBadge status={driver.availabilityStatus} />
                                             <OnlineBadge isOnline={driver.isOnline} lastSeenAt={driver.lastSeenAt} />
                                         </div>
                                     </td>
