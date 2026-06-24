@@ -1,22 +1,27 @@
 /**
- * Driver availability for AQD — explicit intent, not browser tab state.
+ * Driver availability for AQD — explicit intent vs coverage liveness.
  *
- * A driver counts toward AQD when ALL are true:
- *   - approved Pro or Diamond
- *   - serves the region
- *   - availabilityStatus is `available` or `on_call`
- *   - lastHeartbeatAt within HEARTBEAT_INACTIVITY_MS (default 30 min)
+ * Two separate concepts:
  *
- * Trip assignment is handled separately by CL in availabilityService.
+ *   availabilityStatus (intent) — stays Available until driver/admin turns off.
+ *                                 NOT cleared by missed heartbeats.
+ *
+ *   lastHeartbeatAt (AQD liveness) — Pro/Diamond drivers count toward AQD only
+ *                                    while heartbeat is within AQD_HEARTBEAT_MS.
+ *
+ * Same-day formula unchanged: AQD − RB − CL ≥ MCT
+ *   CL still removes drivers on Confirmed / In Progress overlapping trips.
  */
 
 const User = require('../models/User');
 const { getIo } = require('../sockets/ioHolder');
 
-const HEARTBEAT_INACTIVITY_MS = 30 * 60 * 1000;
-/** Statuses where the driver is actively available (heartbeats run). */
+/** How long a heartbeat remains valid for AQD counting (4 hours). */
+const AQD_HEARTBEAT_MS = 4 * 60 * 60 * 1000;
+const HEARTBEAT_INACTIVITY_MS = AQD_HEARTBEAT_MS;
+
+/** Statuses where the driver has turned availability on (intent). */
 const ACTIVE_AVAILABILITY_STATUSES = ['available', 'on_call'];
-/** Statuses that count toward AQD (Pro/Diamond only — tier filter is separate). */
 const AQD_STATUSES = ACTIVE_AVAILABILITY_STATUSES;
 const ALL_STATUSES = ['off', ...ACTIVE_AVAILABILITY_STATUSES];
 
@@ -27,27 +32,40 @@ const QUALIFIED_FILTER = {
 };
 
 function heartbeatCutoff() {
-  return new Date(Date.now() - HEARTBEAT_INACTIVITY_MS);
+  return new Date(Date.now() - AQD_HEARTBEAT_MS);
 }
 
+function hasActiveAvailabilityIntent(driverDoc) {
+  const d = driverDoc?.driver || driverDoc;
+  return ACTIVE_AVAILABILITY_STATUSES.includes(d?.availabilityStatus);
+}
+
+function isHeartbeatFresh(lastHeartbeatAt) {
+  if (!lastHeartbeatAt) return false;
+  return new Date(lastHeartbeatAt).getTime() >= heartbeatCutoff().getTime();
+}
+
+/** True when driver should count in the AQD term of the same-day formula. */
 function isAqdEligible(driverDoc) {
   const d = driverDoc?.driver || driverDoc;
   if (!d) return false;
   if (!AQD_STATUSES.includes(d.availabilityStatus)) return false;
-  if (!d.lastHeartbeatAt) return false;
-  return new Date(d.lastHeartbeatAt).getTime() >= heartbeatCutoff().getTime();
+  if (!['Pro', 'Diamond'].includes(d.tier)) return false;
+  if (d.status && d.status !== 'approved') return false;
+  return isHeartbeatFresh(d.lastHeartbeatAt);
 }
 
 function broadcastAvailability(userId, driverFields) {
   const io = getIo();
   if (!io) return;
   try {
-    io.of('/admin').emit('driver:presence', {
+    const payload = {
       userId: String(userId),
       isOnline: isAqdEligible({ driver: driverFields }),
       availabilityStatus: driverFields.availabilityStatus || 'off',
       lastHeartbeatAt: driverFields.lastHeartbeatAt?.toISOString?.() || null,
-    });
+    };
+    io.of('/admin').emit('driver:presence', payload);
   } catch (e) {
     console.error('[availability] broadcast failed:', e?.message || e);
   }
@@ -71,13 +89,16 @@ async function getAvailability(userId) {
     .lean();
   if (!user || user.role !== 'driver') return null;
 
+  const countsForAqd = isAqdEligible(user);
+
   return {
     status: user.driver?.availabilityStatus || 'off',
     tier: user.driver?.tier || null,
     updatedAt: user.driver?.availabilityUpdatedAt?.toISOString?.() || null,
     lastHeartbeatAt: user.driver?.lastHeartbeatAt?.toISOString?.() || null,
-    countsForAqd: isAqdEligible(user),
-    heartbeatTimeoutMinutes: HEARTBEAT_INACTIVITY_MS / 60000,
+    countsForAqd,
+    heartbeatFresh: isHeartbeatFresh(user.driver?.lastHeartbeatAt),
+    heartbeatTimeoutMinutes: AQD_HEARTBEAT_MS / 60000,
   };
 }
 
@@ -117,13 +138,16 @@ async function setAvailability(userId, status) {
   );
 
   const updatedUser = await User.findById(userId)
-    .select('driver.tier driver.availabilityStatus driver.lastHeartbeatAt')
+    .select('driver.tier driver.status driver.availabilityStatus driver.lastHeartbeatAt')
     .lean();
 
-  broadcastAvailability(userId, {
+  const driverFields = {
     ...fields,
     tier: updatedUser?.driver?.tier,
-  });
+    status: updatedUser?.driver?.status,
+  };
+
+  broadcastAvailability(userId, driverFields);
 
   return {
     status,
@@ -131,25 +155,29 @@ async function setAvailability(userId, status) {
     updatedAt: now.toISOString(),
     lastHeartbeatAt: fields.lastHeartbeatAt?.toISOString?.() || null,
     countsForAqd: isAqdEligible(updatedUser),
+    heartbeatFresh: isHeartbeatFresh(fields.lastHeartbeatAt),
   };
 }
 
 async function recordHeartbeat(userId) {
+  const user = await User.findById(userId)
+    .select('role driver.availabilityStatus driver.tier driver.status')
+    .lean();
+
+  if (!user || user.role !== 'driver') return null;
+  if (!hasActiveAvailabilityIntent(user)) return null;
+
   const now = new Date();
-  const result = await User.updateOne(
-    { _id: userId, role: 'driver', 'driver.availabilityStatus': { $in: ACTIVE_AVAILABILITY_STATUSES } },
+  await User.updateOne(
+    { _id: userId, role: 'driver' },
     { $set: { 'driver.lastHeartbeatAt': now, 'driver.isOnline': true } },
   );
 
-  if (result.matchedCount === 0) return null;
-
-  const user = await User.findById(userId)
-    .select('driver.availabilityStatus driver.lastHeartbeatAt')
-    .lean();
-
   broadcastAvailability(userId, {
-    availabilityStatus: user?.driver?.availabilityStatus,
+    availabilityStatus: user.driver?.availabilityStatus,
     lastHeartbeatAt: now,
+    tier: user.driver?.tier,
+    status: user.driver?.status,
   });
 
   return { lastHeartbeatAt: now };
@@ -159,9 +187,14 @@ async function markOff(userId) {
   return setAvailability(userId, 'off');
 }
 
-async function sweepStaleAvailability() {
+/**
+ * Sync denormalized isOnline flag for admin UI.
+ * Does NOT change availabilityStatus — intent stays until manual off.
+ */
+async function syncDenormalizedOnlineFlags() {
   const cutoff = heartbeatCutoff();
-  const result = await User.updateMany(
+
+  const stale = await User.updateMany(
     {
       role: 'driver',
       'driver.availabilityStatus': { $in: ACTIVE_AVAILABILITY_STATUSES },
@@ -170,31 +203,40 @@ async function sweepStaleAvailability() {
         { 'driver.lastHeartbeatAt': null },
       ],
     },
-    {
-      $set: {
-        'driver.availabilityStatus': 'off',
-        'driver.lastHeartbeatAt': null,
-        'driver.isOnline': false,
-      },
-    },
+    { $set: { 'driver.isOnline': false } },
   );
 
-  if (result.modifiedCount > 0) {
-    console.log(`[availability-sweeper] turned off ${result.modifiedCount} stale driver(s)`);
+  const fresh = await User.updateMany(
+    {
+      role: 'driver',
+      'driver.availabilityStatus': { $in: ACTIVE_AVAILABILITY_STATUSES },
+      'driver.lastHeartbeatAt': { $gte: cutoff },
+    },
+    { $set: { 'driver.isOnline': true } },
+  );
+
+  const modified = (stale.modifiedCount || 0) + (fresh.modifiedCount || 0);
+  if (modified > 0) {
+    console.log(`[availability-sync] refreshed isOnline for ${modified} driver(s)`);
   }
-  return result.modifiedCount;
+  return modified;
 }
 
 module.exports = {
+  AQD_HEARTBEAT_MS,
   HEARTBEAT_INACTIVITY_MS,
   ACTIVE_AVAILABILITY_STATUSES,
   AQD_STATUSES,
   ALL_STATUSES,
+  hasActiveAvailabilityIntent,
+  isHeartbeatFresh,
   isAqdEligible,
   aqdDriverFilter,
   getAvailability,
   setAvailability,
   recordHeartbeat,
   markOff,
-  sweepStaleAvailability,
+  syncDenormalizedOnlineFlags,
+  // Legacy export name used by cron
+  sweepStaleAvailability: syncDenormalizedOnlineFlags,
 };

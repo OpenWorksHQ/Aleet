@@ -86,12 +86,12 @@ const PORT = process.env.PORT || 5000;
 const httpServer = http.createServer(app);
 initSockets(httpServer);
 
-// Presence sweeper — backup for sessions with no client signals for 45 min.
+// Presence sync — refreshes isOnline for admin UI; does not clear availability intent.
 const { runPresenceSweep } = require('./cron/presenceSweeper');
 setInterval(() => {
   runPresenceSweep().catch((e) => {
-    console.error('Presence sweep error:', e?.message || e);
+    console.error('Availability sync error:', e?.message || e);
   });
-}, 2 * 60 * 1000);
+}, 5 * 60 * 1000);
 
 httpServer.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));

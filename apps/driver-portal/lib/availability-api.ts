@@ -10,6 +10,7 @@ export interface AvailabilityState {
   updatedAt: string | null;
   lastHeartbeatAt: string | null;
   countsForAqd: boolean;
+  heartbeatFresh?: boolean;
   heartbeatTimeoutMinutes: number;
 }
 
