@@ -20,17 +20,20 @@ function toUiStatus(status: AvailabilityStatus): UiStatus {
   return status === "off" ? "off" : "available";
 }
 
-function statusHint(uiStatus: UiStatus, tier: string): string {
+function statusHint(uiStatus: UiStatus, tier: string, countsForAqd: boolean): string {
   if (uiStatus === "off") {
     return "You are unavailable and will not receive new trip offers.";
   }
   if (tier === "S-Level") {
-    return "You are available for S-Level trips (company vehicle).";
+    return "You are available for S-Level trips (company vehicle). Stays on until you turn off.";
   }
   if (tier === "Pro" || tier === "Diamond") {
-    return "You are available for trips and count toward same-day regional coverage.";
+    if (countsForAqd) {
+      return "Available for trips and counting toward same-day regional coverage.";
+    }
+    return "Available for trips. Open the app briefly to refresh same-day coverage (AQD).";
   }
-  return "You are available for trips in your tier.";
+  return "You are available for trips in your tier. Stays on until you turn off.";
 }
 
 /** Module-level sync for heartbeat hook. */
@@ -47,6 +50,7 @@ function useDriverAvailability() {
   const tier = useUserStore((s) => s.profile?.tier ?? "");
   const setStoreStatus = useUserStore((s) => s.setAvailabilityStatus);
   const [status, setStatus] = useState<UiStatus>("off");
+  const [countsForAqd, setCountsForAqd] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -70,6 +74,7 @@ function useDriverAvailability() {
     }
     const data = await fetchMyAvailability();
     applyStatus(data?.status ?? "off");
+    setCountsForAqd(data?.countsForAqd ?? false);
     setLoading(false);
   }, [canToggle, applyStatus]);
 
@@ -78,15 +83,28 @@ function useDriverAvailability() {
     load();
   }, [load]);
 
+  // Refresh AQD coverage badge while available (heartbeat may expire without changing intent).
+  useEffect(() => {
+    if (!canToggle || status !== "available") return;
+    const poll = setInterval(async () => {
+      const data = await fetchMyAvailability();
+      if (data) setCountsForAqd(data.countsForAqd);
+    }, 60_000);
+    return () => clearInterval(poll);
+  }, [canToggle, status]);
+
   async function onSelect(next: UiStatus) {
     if (!canToggle || saving || next === status) return;
     setSaving(true);
     const data = await updateMyAvailability(next);
-    if (data?.status) applyStatus(data.status);
+    if (data?.status) {
+      applyStatus(data.status);
+      setCountsForAqd(data.countsForAqd ?? false);
+    }
     setSaving(false);
   }
 
-  return { canToggle, status, tier, loading, saving, onSelect };
+  return { canToggle, status, tier, countsForAqd, loading, saving, onSelect };
 }
 
 function SegmentButton({
@@ -141,7 +159,7 @@ function SegmentButton({
  * Availability control for all approved drivers (S-Level, Pro, Diamond).
  */
 export function DriverAvailabilityBar() {
-  const { canToggle, status, tier, loading, saving, onSelect } =
+  const { canToggle, status, tier, countsForAqd, loading, saving, onSelect } =
     useDriverAvailability();
 
   if (!canToggle) return null;
@@ -160,12 +178,22 @@ export function DriverAvailabilityBar() {
               ) : null}
             </p>
             <p className="mt-0.5 text-[11px] leading-snug text-muted/80 sm:text-xs">
-              {loading ? "Loading…" : statusHint(status, tier)}
+              {loading ? "Loading…" : statusHint(status, tier, countsForAqd)}
             </p>
           </div>
-          {status === "available" && !loading && (
+          {status === "available" && !loading && countsForAqd && (
             <span className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-400">
-              Live
+              AQD live
+            </span>
+          )}
+          {status === "available" && !loading && !countsForAqd && (tier === "Pro" || tier === "Diamond") && (
+            <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-400">
+              Available
+            </span>
+          )}
+          {status === "available" && !loading && tier === "S-Level" && (
+            <span className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-400">
+              Available
             </span>
           )}
         </div>

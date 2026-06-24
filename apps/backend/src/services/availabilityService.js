@@ -9,7 +9,8 @@
 //   AQD = Active Qualified Drivers  — approved Diamond + approved Pro who
 //                                     serve the region AND have explicitly set
 //                                     availability to available/on_call with a
-//                                     fresh heartbeat (default 30 min window).
+//                                     fresh heartbeat (default 4 hour window).
+//                                     Intent stays Available until manual off.
 //   RB  = Reserved Buffer          — 25% of AQD, rounded up, minimum 2
 //   CL  = Committed Load           — distinct drivers already assigned to
 //                                     active bookings whose trip window
