@@ -4,9 +4,10 @@
  * Pure utility functions for the booking flow:
  *   - ObjectId sanitization
  *   - ISO UTC assertion
- *   - Input validation (basic + final)
+ *   - Input validation (basic + final) — reads min hours / notice from settings
  *   - Itinerary building + live ETA validation
- *   - Price calculation
+ *   - Late-night hour split calculation
+ *   - Price calculation (booking fee + late-night aware)
  * ---------------------------------------------------------------------------
  */
 
@@ -20,7 +21,6 @@ const { getDriveSeconds } = require('../services/googleRoutesService');
 
 /**
  * Convert a string to ObjectId if valid; return null otherwise.
- * Silently drops invalid values — prevents Mongoose CastErrors.
  */
 const toId = (v) =>
     mongoose.Types.ObjectId.isValid(v) ? new mongoose.Types.ObjectId(v) : null;
@@ -31,11 +31,6 @@ const toId = (v) =>
 
 const ISO_UTC_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?Z$/;
 
-/**
- * Throws if value is not a strict ISO UTC string.
- * @param {string} label  Field name for error message
- * @param {*}      value
- */
 function assertIsoUtc(label, value) {
     if (typeof value !== 'string' || !ISO_UTC_REGEX.test(value)) {
         throw new Error(
@@ -45,45 +40,122 @@ function assertIsoUtc(label, value) {
 }
 
 // ---------------------------------------------------------------------------
+// Late-night hour split
+// ---------------------------------------------------------------------------
+
+/**
+ * Parse "HH:MM" string to total minutes since midnight (UTC).
+ * Returns 0 on invalid input.
+ */
+function parseHHMM(str) {
+    if (!str || typeof str !== 'string') return 0;
+    const [h, m] = str.split(':').map(Number);
+    return (isNaN(h) ? 0 : h) * 60 + (isNaN(m) ? 0 : m);
+}
+
+/**
+ * Compute how many hours of a trip [startDate, endDate] fall inside the
+ * late-night window on each calendar day.
+ *
+ * Times are interpreted as UTC. The backend stores lateNightStart / lateNightEnd
+ * in UTC HH:MM (default 00:00–09:00 UTC).
+ *
+ * @param {Date|string} startDate  Trip start
+ * @param {Date|string} endDate    Trip end
+ * @param {string} lateNightStart  "HH:MM" UTC e.g. "00:00"
+ * @param {string} lateNightEnd    "HH:MM" UTC e.g. "09:00"
+ * @returns {{ lateNightHours: number, regularHours: number, totalHours: number }}
+ */
+function splitLateNightHours(startDate, endDate, lateNightStart = '00:00', lateNightEnd = '09:00') {
+    const start = new Date(startDate).getTime();
+    const end   = new Date(endDate).getTime();
+
+    if (isNaN(start) || isNaN(end) || end <= start) {
+        return { lateNightHours: 0, regularHours: 0, totalHours: 0 };
+    }
+
+    const oneDayMs  = 24 * 3600 * 1000;
+    const lnStartMs = parseHHMM(lateNightStart) * 60 * 1000;
+    const lnEndMs   = parseHHMM(lateNightEnd)   * 60 * 1000;
+
+    let lateNightMs = 0;
+
+    // Walk through each calendar day (UTC) that the trip touches
+    const firstDayStart = new Date(start);
+    firstDayStart.setUTCHours(0, 0, 0, 0);
+    let dayStart = firstDayStart.getTime();
+
+    while (dayStart < end) {
+        const lnWindowStart = dayStart + lnStartMs;
+        const lnWindowEnd   = dayStart + lnEndMs;
+
+        const overlapStart = Math.max(start, lnWindowStart);
+        const overlapEnd   = Math.min(end,   lnWindowEnd);
+
+        if (overlapEnd > overlapStart) {
+            lateNightMs += overlapEnd - overlapStart;
+        }
+        dayStart += oneDayMs;
+    }
+
+    const totalHours     = (end - start) / (3600 * 1000);
+    const lateNightHours = lateNightMs   / (3600 * 1000);
+    const regularHours   = totalHours - lateNightHours;
+
+    return {
+        lateNightHours: Number(lateNightHours.toFixed(6)),
+        regularHours:   Number(regularHours.toFixed(6)),
+        totalHours:     Number(totalHours.toFixed(6))
+    };
+}
+
+// ---------------------------------------------------------------------------
 // Input validation
 // ---------------------------------------------------------------------------
 
-// Non-members must give at least this much notice before pickup.
-// Members are exempt per spec ("Members = no minimums").
-const NON_MEMBER_NOTICE_MS = 3 * 60 * 60 * 1000;
-
 /**
  * Basic booking validation — called by both previewBooking and startBooking.
- * Does NOT require pickupLocation / dropoffLocation (to support preview-only calls).
+ * Reads minBookingHours and sameDayNoticeHours from settings when provided;
+ * falls back to hard defaults (3h / 3h) so existing callers without settings still work.
  *
- * @param {boolean} [opts.isSubscriber=false]  When true, skips the 3-hour notice rule.
- *   Defaults to false so a caller that forgets to pass it gets the stricter (safer) check.
+ * @param {object} opts
+ * @param {boolean} [opts.isSubscriber=false]  When true, skips min-hours + notice rules.
+ * @param {object}  [opts.settings]            TierSettings doc for dynamic thresholds.
  * @returns {{ bookingHours: number, bookingDays: number }}
  * @throws {Error} on any validation failure
  */
-function validateBookingInput({ region, startDate, endDate, quantity, bookingMode = 'multi_day', durationHours, isSubscriber = false }) {
+function validateBookingInput({
+    region, startDate, endDate, quantity,
+    bookingMode = 'multi_day', durationHours,
+    isSubscriber = false,
+    settings = null
+}) {
     assertIsoUtc('startDate', startDate);
     assertIsoUtc('endDate', endDate);
 
     if (!region) throw new Error('Region is required');
 
-    const now = new Date();
+    const now   = new Date();
     const start = new Date(startDate);
-    const end = new Date(endDate);
+    const end   = new Date(endDate);
 
     if (start < now) throw new Error('Start date must be in future');
 
-    // 3-hour notice rule (non-members only).
-    // Keep this AFTER the past-time check so the error message is the most specific.
+    // Dynamic thresholds — fall back to defaults when settings not passed
+    const noticeHours = Number(settings?.sameDayNoticeHours) || 3;
+    const minHours    = Number(settings?.minBookingHours)    || 3;
+
+    // Same-day notice rule (non-members only)
     if (!isSubscriber) {
-        const earliestPickup = new Date(now.getTime() + NON_MEMBER_NOTICE_MS);
+        const noticeMs = noticeHours * 60 * 60 * 1000;
+        const earliestPickup = new Date(now.getTime() + noticeMs);
         if (start < earliestPickup) {
-            throw new Error('Earliest pickup is 3 hours from now');
+            throw new Error(`Earliest pickup is ${noticeHours} hour${noticeHours !== 1 ? 's' : ''} from now`);
         }
     }
 
     const bookingHours = (end - start) / (1000 * 3600);
-    const bookingDays = (end - start) / (1000 * 3600 * 24);
+    const bookingDays  = (end - start) / (1000 * 3600 * 24);
 
     if (bookingMode === 'buy_hours') {
         if (!Number.isFinite(Number(durationHours)) || Number(durationHours) <= 0) {
@@ -91,14 +163,13 @@ function validateBookingInput({ region, startDate, endDate, quantity, bookingMod
         }
     }
 
-    // Min 3h / max 7d apply to BOTH booking modes (buy_hours no longer bypasses
-    // them). Members are exempt — "Members = no minimums".
+    // Min / max apply to both modes. Members are exempt ("Members = no minimums").
     if (!isSubscriber) {
-        if (bookingHours < 3) throw new Error('Minimum booking is 3 hours');
-        if (bookingDays > 7) throw new Error('Maximum booking is 7 days');
+        if (bookingHours < minHours) throw new Error(`Minimum booking is ${minHours} hours`);
+        if (bookingDays > 7)         throw new Error('Maximum booking is 7 days');
     }
 
-    // Quantity must be 1-5 when provided. Booking schema defaults to 1 when omitted.
+    // Quantity 1–5
     if (quantity != null && (!Number.isInteger(Number(quantity)) || Number(quantity) < 1 || Number(quantity) > 5)) {
         throw new Error('Quantity must be between 1 and 5');
     }
@@ -108,9 +179,6 @@ function validateBookingInput({ region, startDate, endDate, quantity, bookingMod
 
 /**
  * Final validation — called only by startBooking before persisting.
- * Requires pickupLocation, dropoffLocation, and valid stops (when not freeRouting).
- *
- * @throws {Error} on any validation failure
  */
 function validateFinalBookingInput({ pickupLocation, dropoffLocation, stops, freeRouting, bookingMode = 'multi_day' }) {
     if (!pickupLocation) throw new Error('Pickup location is required');
@@ -129,7 +197,6 @@ function validateFinalBookingInput({ pickupLocation, dropoffLocation, stops, fre
         return;
     }
 
-    // dropoffLocation is optional when freeRouting is enabled
     if (!freeRouting && !dropoffLocation) throw new Error('Dropoff location is required');
 
     if (!freeRouting) {
@@ -151,11 +218,6 @@ function validateFinalBookingInput({ pickupLocation, dropoffLocation, stops, fre
 // Itinerary
 // ---------------------------------------------------------------------------
 
-/**
- * Build a normalized itinerary object from a raw request body.
- * @param {object} body  req.body (with pickupLocation, dropoffLocation, stops, startDate, endDate)
- * @returns {{ pickupLocation, pickupTime, stops, dropoffLocation, dropoffTime }}
- */
 function buildItineraryFromBody(body) {
     const stops = (body.stops || []).map(s => {
         const rawTime = s.time || s.arrivalTime || s.pickupTime;
@@ -181,18 +243,10 @@ function buildItineraryFromBody(body) {
     };
 }
 
-/**
- * Validate live drive time + 15-min buffer for every leg in the itinerary.
- *
- * @param {{ pickupLocation, pickupTime, stops, dropoffLocation, dropoffTime }} itin
- * @param {{ bufferMinutes?: number }} options
- * @returns {Promise<{ allOk: boolean, bufferMinutes: number, legs: object[], error?: string }>}
- */
 async function validateItinerary(itin, { bufferMinutes = 15 } = {}) {
     const legs = [];
     const bufferSec = bufferMinutes * 60;
 
-    // Build ordered list: [Pickup] → stops[] → [Drop-off]
     const points = [
         { label: 'Pickup', loc: itin.pickupLocation, t: itin.pickupTime },
         ...itin.stops.map((s, idx) => ({
@@ -254,35 +308,36 @@ async function validateItinerary(itin, { bufferMinutes = 15 } = {}) {
 
 /**
  * Resolve the locked membership hourly rate for a user.
- * Membership is a flat, vehicle-independent rate — NOT a percentage discount:
- *   - Founder 30 (invite-only) members → settings.founder30Rate ($69)
- *   - Standard members                 → settings.membershipRate ($89)
- * Returns null for non-members so callers can fall back to the dynamic rate.
- *
- * @param {object} user      User document (needs subscriptionStatus + subscriptionDetails.plan)
- * @param {object} [settings] TierSettings document (membershipRate, founder30Rate)
- * @returns {number|null}
+ * Returns null for non-members so callers fall back to the vehicle rate.
  */
 function resolveMemberRate(user, settings) {
     if (user?.subscriptionStatus !== 'subscriber') return null;
-    const isFounder = user?.subscriptionDetails?.plan === 'founder30';
+    const isFounder     = user?.subscriptionDetails?.plan === 'founder30';
     const membershipRate = Number(settings?.membershipRate) || 89;
-    const founder30Rate = Number(settings?.founder30Rate) || 69;
+    const founder30Rate  = Number(settings?.founder30Rate)  || 69;
     return isFounder ? founder30Rate : membershipRate;
 }
 
 /**
  * Calculate booking price for both regular and subscriber rates.
+ * Now handles:
+ *   - Booking fee (visible line item, from settings)
+ *   - Late-night split: hours inside lateNightStart–lateNightEnd use vehicle rate for members
+ *   - Min booking hours read from settings (enforced upstream in validateBookingInput)
  *
  * @param {{
  *   vehicleType,
  *   quantity,
- *   addOns: ObjectId[],       // top-level booking add-on IDs
- *   stops?: Array<{ addOnIds?: ObjectId[] }>,  // per-stop add-on IDs
- *   isSubscriber,
- *   memberRate,               // locked $/hr for members ($89 / $69); null for non-members
- *   usedHours,
- *   bookingHours
+ *   addOns: ObjectId[],
+ *   stops?: Array<{ addOnIds?: ObjectId[] }>,
+ *   isSubscriber: boolean,
+ *   memberRate: number|null,
+ *   usedHours: number,
+ *   bookingHours: number,
+ *   bookingFee?: number,        // from settings (default 34)
+ *   startDate?: string|Date,    // for late-night calculation
+ *   endDate?: string|Date,      // for late-night calculation
+ *   settings?: object           // TierSettings doc
  * }} params
  * @returns {Promise<{ regularPrice, subscriberPrice, breakdown }>}
  */
@@ -294,11 +349,15 @@ async function calculateBookingPrice({
     isSubscriber,
     memberRate,
     usedHours,
-    bookingHours
+    bookingHours,
+    bookingFee,
+    startDate,
+    endDate,
+    settings
 }) {
     const baseRate = Number(vehicleType?.hourlyPrice || 0);
-    const qty = Number(quantity) || 1;
-    const hours = Number(bookingHours) || 0;
+    const qty      = Number(quantity) || 1;
+    const hours    = Number(bookingHours) || 0;
     const totalBookedHours = hours * qty;
 
     // Merge top-level addOns + per-stop addOnIds into one deduplicated set
@@ -307,48 +366,99 @@ async function calculateBookingPrice({
         ? stops.flatMap(s => Array.isArray(s.addOnIds) ? s.addOnIds.filter(Boolean) : [])
         : [];
 
-    const allIds = [...new Set([...topLevelIds, ...stopIds].map(id => id.toString()))].map(id => toId(id)).filter(Boolean);
+    const allIds = [...new Set([...topLevelIds, ...stopIds].map(id => id.toString()))]
+        .map(id => toId(id)).filter(Boolean);
 
-    // Fetch only IDs that actually exist in DB — invalid IDs are silently dropped
     const validAddOns = allIds.length
         ? await AddOn.find({ _id: { $in: allIds } })
         : [];
 
-    const paidAddOns = validAddOns.filter(a => a.type === 'paid');
-    const freeAddOns = validAddOns.filter(a => a.type === 'free');
+    const paidAddOns  = validAddOns.filter(a => a.type === 'paid');
+    const freeAddOns  = validAddOns.filter(a => a.type === 'free');
+    const addOnsCost  = paidAddOns.reduce((sum, a) => sum + (a.price || 0), 0);
 
-    const addOnsCost = paidAddOns.reduce((sum, a) => sum + (a.price || 0), 0);
+    // ── Booking fee (visible line item) ──────────────────────────────────────
+    const effectiveBookingFee = typeof bookingFee === 'number' ? bookingFee
+        : Number(settings?.bookingFee) || 34;
 
-    let regularPrice = totalBookedHours * baseRate + addOnsCost;
-    let subscriberPrice = regularPrice;
+    // ── Regular price (non-member) ────────────────────────────────────────────
+    let regularPrice = totalBookedHours * baseRate + addOnsCost + effectiveBookingFee;
 
-    // Locked membership rate ($89 standard / $69 Founder 30), applied to every
-    // booked hour regardless of vehicle type. Falls back to the dynamic vehicle
-    // rate only if a caller forgets to pass memberRate (defensive).
-    const lockedRate = Number(memberRate) > 0 ? Number(memberRate) : baseRate;
+    // ── Subscriber / member price ─────────────────────────────────────────────
+    let subscriberPrice = regularPrice; // default: same as regular
 
-    let freeHoursLeft = Math.max(0, 5 - (usedHours || 0));
-    let freeHoursUsed = 0;
+    // Late-night split data (only relevant for members)
+    let lateNightHours  = 0;
+    let regularHoursForMember = totalBookedHours;
+    let isLateNight     = false;
 
-    if (isSubscriber) {
-        freeHoursUsed = Math.min(totalBookedHours, freeHoursLeft);
-        const billableHours = Math.max(0, totalBookedHours - freeHoursLeft);
-        subscriberPrice = billableHours * lockedRate + addOnsCost; // locked rate, no % discount
+    if (isSubscriber && startDate && endDate && settings) {
+        const split = splitLateNightHours(
+            startDate, endDate,
+            settings.lateNightStart || '00:00',
+            settings.lateNightEnd   || '09:00'
+        );
+        lateNightHours        = split.lateNightHours * qty;
+        regularHoursForMember = split.regularHours   * qty;
+        isLateNight           = lateNightHours > 0;
     }
 
+    if (isSubscriber) {
+        const lockedRate = Number(memberRate) > 0 ? Number(memberRate) : baseRate;
+
+        // Free hours (monthly quota) apply only to non-late-night portion
+        const freeHoursLeft   = Math.max(0, (Number(settings?.membershipMonthlyHours) || 5) - (usedHours || 0));
+        const freeHoursUsed   = Math.min(regularHoursForMember, freeHoursLeft);
+        const billableRegular = Math.max(0, regularHoursForMember - freeHoursLeft);
+
+        // Late-night hours always billed at vehicle (base) rate — no membership discount
+        const memberPortion    = billableRegular * lockedRate;
+        const lateNightPortion = lateNightHours  * baseRate;
+
+        subscriberPrice = memberPortion + lateNightPortion + addOnsCost + effectiveBookingFee;
+
+        return {
+            regularPrice:   Number(regularPrice.toFixed(2)),
+            subscriberPrice: Number(subscriberPrice.toFixed(2)),
+            breakdown: {
+                baseRate,
+                memberRate: lockedRate,
+                hours,
+                qty,
+                bookingFee: effectiveBookingFee,
+                addOnsCost:     Number(addOnsCost.toFixed(2)),
+                paidAddOns,
+                freeAddOns,
+                freeHoursUsed:  Number(freeHoursUsed.toFixed(4)),
+                freeHoursLeft:  Number(Math.max(0, freeHoursLeft - regularHoursForMember).toFixed(4)),
+                isLateNight,
+                lateNightHours: Number(lateNightHours.toFixed(4)),
+                regularMemberHours: Number(regularHoursForMember.toFixed(4)),
+                lateNightNote: isLateNight
+                    ? `${Number(lateNightHours.toFixed(2))}h billed at vehicle rate ($${baseRate}/hr); ${Number(regularHoursForMember.toFixed(2))}h at member rate ($${lockedRate}/hr)`
+                    : null
+            }
+        };
+    }
+
+    // Non-member path (simpler)
     return {
-        regularPrice: Number(regularPrice.toFixed(2)),
-        subscriberPrice: Number(subscriberPrice.toFixed(2)),
+        regularPrice:    Number(regularPrice.toFixed(2)),
+        subscriberPrice: Number(regularPrice.toFixed(2)), // no discount
         breakdown: {
             baseRate,
-            memberRate: isSubscriber ? lockedRate : null,
+            memberRate: null,
             hours,
             qty,
-            addOnsCost: Number(addOnsCost.toFixed(2)),
+            bookingFee: effectiveBookingFee,
+            addOnsCost:    Number(addOnsCost.toFixed(2)),
             paidAddOns,
             freeAddOns,
-            freeHoursUsed,
-            freeHoursLeft: isSubscriber ? Math.max(0, freeHoursLeft - totalBookedHours) : 0
+            freeHoursUsed:  0,
+            freeHoursLeft:  0,
+            isLateNight:    false,
+            lateNightHours: 0,
+            lateNightNote:  null
         }
     };
 }
@@ -360,6 +470,7 @@ module.exports = {
     validateFinalBookingInput,
     buildItineraryFromBody,
     validateItinerary,
+    splitLateNightHours,
     resolveMemberRate,
     calculateBookingPrice
 };

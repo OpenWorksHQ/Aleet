@@ -1,6 +1,7 @@
 const express = require('express');
 const { toggleDriverStatus, assignDriverToBooking, getEligibleDriversForBooking, autoAssignDriverToBooking, redispatchBooking, unassignDriverFromBooking, getAllDrivers, approveDriver, requestRevision, uploadAleetLicense, updateDriverRegions, getDriverLicensing, getSidebarStats, getAdminDashboard } = require('../controllers/adminController');
 const { getDriverTierPerformance, getTierSettings, updateTierSettings } = require('../controllers/tierController');
+const { inviteFounder30, listMemberships, adminChargeOverage, updateMemberBalance } = require('../controllers/adminMembershipController');
 const authenticateJWT = require('../middleware/authMiddleware');
 const requireAdmin = require('../middleware/requireAdmin');
 const { requirePermission } = require('../middleware/requireAdmin');
@@ -35,9 +36,22 @@ router.get('/sidebar-stats', requireAdmin, requirePermission('view-reports'), ge
 // Admin dashboard
 router.get('/dashboard', requireAdmin, requirePermission('view-reports'), getAdminDashboard);
 
-// Tier performance & settings
+// Tier performance & settings (also serves as the central admin pricing panel)
 router.get('/tiers/performance', requireAdmin, requirePermission('view-reports'), getDriverTierPerformance);
 router.get('/tiers/settings', requireAdmin, requirePermission('view-reports'), getTierSettings);
 router.patch('/tiers/settings', requireAdmin, requirePermission('manage-users'), updateTierSettings);
+
+// ── Membership / Founder 30 management ──────────────────────────────────────
+// List all active members with hour balance, billing info, and saved card
+router.get('/memberships', requireAdmin, requirePermission('view-reports'), listMemberships);
+
+// Grant or revoke Founder 30 invite for a customer
+router.patch('/memberships/invite-founder30/:userId', requireAdmin, requirePermission('manage-users'), inviteFounder30);
+
+// Manually charge overage hours to a member's saved card
+router.post('/memberships/:userId/charge-overage', requireAdmin, requirePermission('manage-bookings'), adminChargeOverage);
+
+// Admin override: adjust a member's monthly hour balance
+router.patch('/memberships/:userId/balance', requireAdmin, requirePermission('manage-users'), updateMemberBalance);
 
 module.exports = router;

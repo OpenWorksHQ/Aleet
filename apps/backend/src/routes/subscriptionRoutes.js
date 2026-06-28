@@ -1,37 +1,41 @@
 const express = require('express');
-const {
-  createSubscriptionCheckout,
-  processSubscriptionPayment,
-  getSubscriptionStatus,
-  cancelSubscription,
-  getSubscriptionBenefits,
-  updatePaymentMethod,
-  createStripeCustomer,
-} = require('../controllers/subscriptionController');
-const authenticateJWT = require('../middleware/authMiddleware');
 const router = express.Router();
+const authenticateJWT = require('../middleware/authMiddleware');
+const {
+    createSubscriptionCheckout,
+    chargeSubscriptionWithSavedCard,
+    processSubscriptionPayment,
+    getSubscriptionStatus,
+    cancelSubscription,
+    getSubscriptionBenefits,
+    updatePaymentMethod,
+    createStripeCustomer
+} = require('../controllers/subscriptionController');
 
-// ===== SUBSCRIPTION ROUTES ===== //
+// ── Public ───────────────────────────────────────────────────────────────────
+// Plan details + pricing shown on the marketing/signup page
+router.get('/benefits', getSubscriptionBenefits);
 
-// Create Stripe checkout session for subscription ($449/month billed quarterly)
-router.post('/checkout',authenticateJWT, createSubscriptionCheckout);
+// ── Authenticated ─────────────────────────────────────────────────────────────
+// Redirect checkout (no saved card required — card saved automatically after payment)
+router.post('/checkout', authenticateJWT, createSubscriptionCheckout);
 
-// Process successful subscription payment (called after Stripe checkout)
+// Direct charge via saved card (fastest path for existing users)
+router.post('/charge-saved-card', authenticateJWT, chargeSubscriptionWithSavedCard);
+
+// Reconcile after Stripe Checkout redirect (called from success page)
 router.post('/process-payment', authenticateJWT, processSubscriptionPayment);
 
-// Create Stripe customer for subscription management
-router.post('/create-customer', authenticateJWT, createStripeCustomer);
-
-// Get current subscription status and usage
+// Get current subscription status, hours balance, and next billing date
 router.get('/status', authenticateJWT, getSubscriptionStatus);
 
 // Cancel subscription
 router.post('/cancel', authenticateJWT, cancelSubscription);
 
-// Get subscription benefits and pricing info
-router.get('/benefits', getSubscriptionBenefits);
-
-// Update payment method via Stripe portal
+// Open Stripe billing portal (update payment method)
 router.put('/payment-method', authenticateJWT, updatePaymentMethod);
+
+// Ensure Stripe customer record exists (utility — rarely called directly)
+router.post('/create-customer', authenticateJWT, createStripeCustomer);
 
 module.exports = router;
