@@ -38,11 +38,18 @@ exports.createCheckoutSession = async (req, res) => {
     // 3) Get user email (optional)
     const user = await User.findById(userId);
 
-    // 4) Create Checkout Session
+    // 4) Get or create Stripe customer so the card is saved to their profile
+    const { getOrCreateStripeCustomer } = require('./savedCardController');
+    const customerId = await getOrCreateStripeCustomer(user);
+
+    // 5) Create Checkout Session with setup_future_usage so the card is saved
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       payment_method_types: ['card'],
-      ...(user?.email ? { customer_email: user.email } : {}),
+      customer: customerId,
+      payment_intent_data: {
+        setup_future_usage: 'off_session'  // saves card for future off-session charges
+      },
       metadata: {
         bookingId: booking._id.toString(),
         userId: userId.toString(),
@@ -126,33 +133,56 @@ exports.webhook = async (req, res) => {
         }
       }
 
-      // Handle subscription payments
+      // Handle subscription payments — delegate to subscriptionController
       if (type === 'subscription' && userId) {
-        const User = require('../models/User');
+        const { processSubscriptionPayment: processSubFromWebhook } = require('./subscriptionController');
+        // Call internal logic via a mock req/res (processSubscriptionPayment is asyncHandler)
+        // Simpler: replicate the activation logic inline here
+        const User         = require('../models/User');
+        const TierSettings = require('../models/TierSettings');
         const user = await User.findById(userId);
         if (!user) {
           console.error('User not found for subscription:', userId);
-        } else {
-          // Update user subscription status
-          const subscriptionDetails = {
-            plan: 'monthly',
-            price: 449,
-            billingCycle: 'quarterly',
-            startDate: new Date(),
-            nextBillingDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days from now
-            paymentMethodId: fullSession.payment_intent?.id || null,
-            stripeCustomerId: fullSession.customer || null,
-            stripeSessionId: fullSession.id,
-            stripePaymentIntentId: fullSession.payment_intent?.id || null,
-            isActive: true,
-            monthlyHoursIncluded: 5
-          };
+        } else if (user.subscriptionStatus !== 'subscriber') {
+          const plan     = fullSession.metadata?.plan || 'standard';
+          const settings = await TierSettings.findOne();
+          const isFounder    = plan === 'founder30';
+          const ratePerHour  = isFounder ? (Number(settings?.founder30Rate) || 69) : (Number(settings?.membershipRate) || 89);
+          const monthlyHours = Number(settings?.membershipMonthlyHours) || 5;
+          const quarterlyCharge = ratePerHour * monthlyHours * 3;
+          const nextBillingDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
 
           await User.findByIdAndUpdate(userId, {
             subscriptionStatus: 'subscriber',
-            subscriptionDetails: subscriptionDetails
+            subscriptionDetails: {
+              plan,
+              price:                 quarterlyCharge,
+              billingCycle:          settings?.membershipBillingCycle || 'quarterly',
+              startDate:             new Date(),
+              nextBillingDate,
+              stripeCustomerId:      fullSession.customer || null,
+              stripeSessionId:       fullSession.id,
+              stripePaymentIntentId: fullSession.payment_intent?.id || null,
+              isActive:              true,
+              monthlyHoursIncluded:  monthlyHours
+            }
           });
-          console.log('💾 User subscription activated:', userId);
+
+          // Auto-attach the card used in checkout so it appears in saved cards
+          if (fullSession.customer && fullSession.payment_intent?.id) {
+            const { attachCardAfterCheckout } = require('./savedCardController');
+            await attachCardAfterCheckout(fullSession.customer, fullSession.payment_intent.id);
+          }
+
+          console.log('💾 Subscription activated via webhook:', userId, 'plan:', plan);
+        }
+      }
+
+      // Auto-attach card for regular booking checkouts too (Uber-style saved cards)
+      if (bookingId && type !== 'subscription') {
+        if (fullSession.customer && fullSession.payment_intent?.id) {
+          const { attachCardAfterCheckout } = require('./savedCardController');
+          await attachCardAfterCheckout(fullSession.customer, fullSession.payment_intent.id);
         }
       }
     }
