@@ -80,27 +80,29 @@ const investorStorage = multer.diskStorage({
   }
 });
 
+// Investor data-room: PDF, Office (DOC/DOCX, XLS/XLSX, PPT/PPTX), JPG/JPEG, PNG only
 const ALLOWED_INVESTOR_MIMES = [
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
-  'application/vnd.ms-excel',
+  'application/pdf',                                                           // .pdf
+  'application/msword',                                                        // .doc
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',   // .docx
+  'application/vnd.ms-excel',                                                // .xls
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',         // .xlsx
-  'application/vnd.ms-powerpoint',
+  'application/vnd.ms-powerpoint',                                           // .ppt
   'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
-  'text/csv',
-  'text/plain',
-  'image/png',
-  'image/jpeg',
-  'image/webp',
-  'image/gif',
+  'image/png',                                                                 // .png
+  'image/jpeg',                                                                // .jpg, .jpeg
 ];
 
 const investorFileFilter = (req, file, cb) => {
   if (ALLOWED_INVESTOR_MIMES.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Unsupported file type. Allowed: PDF, Word, Excel, PowerPoint, CSV, TXT, or images.'), false);
+    cb(
+      new Error(
+        'Unsupported file type. Allowed: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, JPG, JPEG, PNG.'
+      ),
+      false
+    );
   }
 };
 
