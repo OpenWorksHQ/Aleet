@@ -8,6 +8,8 @@ import {
   updateInvestorDocument,
 } from "@/lib/investor-documents-api";
 import { X } from "lucide-react";
+import { INVESTOR_DOCUMENT_ACCEPT } from "./investor-file-types";
+import { SupportedFileTypes } from "./supported-file-types";
 
 type Props = {
   onClose: () => void;
@@ -162,10 +164,11 @@ export function InvestorDocumentModal({ onClose, onSave, editing }: Props) {
           >
             <input
               type="file"
-              accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.webp"
+              accept={INVESTOR_DOCUMENT_ACCEPT}
               onChange={(event) => setFile(event.target.files?.[0] ?? null)}
               className="block w-full text-sm text-muted file:mr-3 file:rounded-lg file:border file:border-border file:bg-page-bg file:px-3 file:py-2 file:text-sm file:text-text"
             />
+            <SupportedFileTypes compact />
           </Field>
 
           <div className="mt-2 flex justify-end gap-3">

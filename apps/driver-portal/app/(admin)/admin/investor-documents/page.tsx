@@ -13,13 +13,17 @@ export default async function InvestorDocumentsPage() {
     documents = await fetchInvestorDocuments(token);
   } catch (error) {
     loadError =
-      error instanceof Error ? error.message : "Failed to load investor resources";
+      error instanceof Error
+        ? error.message
+        : "Failed to load investor resources";
   }
 
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-xl font-bold text-text sm:text-2xl">Investor Resources</h1>
+        <h1 className="text-xl font-bold text-text sm:text-2xl">
+          Investor Resources
+        </h1>
         <p className="text-sm text-muted">
           Upload and manage documents shown on the private Teams portal
         </p>

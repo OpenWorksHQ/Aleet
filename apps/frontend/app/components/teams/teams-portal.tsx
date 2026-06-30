@@ -88,7 +88,7 @@ export function TeamsPortal() {
           </p>
 
           <h2 className="mt-10 max-w-[640px] text-[26px] font-semibold leading-[1.25] tracking-[-0.02em] sm:text-[30px]">
-            Aleet is building the future of luxury transportation — quietly.
+            Aleet is building the future of luxury transportation quietly.
           </h2>
 
           <p className="mt-5 max-w-[620px] text-[14px] leading-[1.65] text-[#9a9a9a] sm:text-[15px]">
