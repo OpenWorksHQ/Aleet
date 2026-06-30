@@ -1,21 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Building2, Car, Lock, MapPin } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { getInvestorDocuments, type InvestorDocument } from "@/lib/api/teams";
 import { AccessRequestForm } from "./access-request-form";
-
-const PORTAL_TABS = [
-  "Financials",
-  "Strategic Goals",
-  "Ownership & Roles",
-] as const;
 
 const BUILDING_BLOCKS = [
   {
     title: "Transportation Layer",
     description:
-      "A lotury chainteir network with routing, matching, and client logistics tech behind the scenes.",
+      "A luxury chauffeur network with routing, matching, and client logistics tech behind the scenes.",
     icon: Car,
   },
   {
@@ -32,8 +26,41 @@ const BUILDING_BLOCKS = [
 ] as const;
 
 export function TeamsPortal() {
-  const [activeTab, setActiveTab] =
-    useState<(typeof PORTAL_TABS)[number]>("Financials");
+  const [documents, setDocuments] = useState<InvestorDocument[]>([]);
+  const [isLoadingDocuments, setIsLoadingDocuments] = useState(true);
+
+  console.log("documents", documents);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDocuments() {
+      try {
+        const response = await getInvestorDocuments();
+        if (!cancelled) {
+          setDocuments(response.data ?? []);
+        }
+      } catch {
+        if (!cancelled) {
+          setDocuments([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingDocuments(false);
+        }
+      }
+    }
+
+    loadDocuments();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const openDocument = (document: InvestorDocument) => {
+    window.open(document.fileUrl, "_blank", "noopener,noreferrer");
+  };
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
@@ -41,7 +68,7 @@ export function TeamsPortal() {
         <section className="flex flex-1 flex-col px-6 py-10 sm:px-10 sm:py-12 lg:px-14 lg:py-16">
           <div className="flex items-start gap-3">
             <Lock
-              className=" mt-2 sm:mt-3 h-5 w-5 shrink-0 text-[#bca066]"
+              className="mt-2 h-5 w-5 shrink-0 text-[#bca066] sm:mt-3"
               strokeWidth={1.75}
               aria-hidden
             />
@@ -95,23 +122,25 @@ export function TeamsPortal() {
             </ul>
           </div>
 
-          <div className="mt-12 flex flex-wrap gap-3">
-            {PORTAL_TABS.map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setActiveTab(tab)}
-                className={cn(
-                  "rounded-md border px-4 py-2 text-[13px] transition-colors",
-                  activeTab === tab
-                    ? "border-[#bca066] text-[#e8e8e8]"
-                    : "border-[#333333] text-[#8a8a8a] hover:border-[#4a4a4a] hover:text-[#b8b8b8]",
-                )}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
+          {isLoadingDocuments ? (
+            <p className="mt-12 text-[13px] text-[#666666]">
+              Loading resources...
+            </p>
+          ) : documents.length > 0 ? (
+            <div className="mt-12 flex flex-wrap gap-3">
+              {documents.map((document) => (
+                <button
+                  key={document._id}
+                  type="button"
+                  onClick={() => openDocument(document)}
+                  title={document.title}
+                  className="rounded-md border border-[#333333] px-4 py-2 text-[13px] text-[#e8e8e8] transition-colors hover:border-[#bca066] hover:text-[#ffffff]"
+                >
+                  {document.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
 
           <p className="mt-6 text-[14px] leading-[1.6] text-[#666666]">
             All content is shared for early alignment only. Internal tools,

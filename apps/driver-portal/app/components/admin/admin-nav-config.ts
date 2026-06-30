@@ -49,6 +49,7 @@ export const adminNavItems: NavItem[] = [
   { label: "Vehicle Types", href: "/admin/vehicle-types", icon: "vehicles" },
   { label: "Add-ons", href: "/admin/addons", icon: "addons" },
   { label: "Regions", href: "/admin/regions", icon: "regions" },
+  { label: "Investor Resources", href: "/admin/investor-documents", icon: "investor" },
   { label: "Settings", href: "/admin/settings", icon: "settings" },
   {
     label: "Administrators",
