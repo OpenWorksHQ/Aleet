@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Karla } from "next/font/google";
+import { Suspense } from "react";
 import { Toaster } from "sonner";
+import { GoogleAnalytics } from "./components/google-analytics";
 import { GoogleMapsProvider } from "./components/google-maps-provider";
 import { getSiteUrl } from "@/lib/site-url";
 import "./globals.css";
@@ -10,6 +12,8 @@ const karla = Karla({
   subsets: ["latin"],
 });
 
+const gscVerification = process.env.NEXT_PUBLIC_GSC_VERIFICATION?.trim();
+
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
   title: "Aleet - Book a Ride, Track Your Trip",
@@ -18,6 +22,9 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
+  ...(gscVerification
+    ? { verification: { google: gscVerification } }
+    : {}),
 };
 
 export default function RootLayout({
@@ -31,6 +38,9 @@ export default function RootLayout({
       className={`${karla.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <Suspense fallback={null}>
+          <GoogleAnalytics />
+        </Suspense>
         <GoogleMapsProvider>
           {children}
         </GoogleMapsProvider>
