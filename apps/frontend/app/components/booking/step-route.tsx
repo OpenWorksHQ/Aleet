@@ -145,6 +145,7 @@ export function StepRoute({ data, quickBookingMode, onChange, onNext, onBack, pr
     }, 0);
 
     const isBuyHours = quickBookingMode === "buy_hours";
+    const fromHomepage = quickBookingMode !== null;
     const isValid = isBuyHours
         ? !!data.pickupAddress.text && !!data.dropoffAddress.text
         : !!data.pickupAddress.text && (data.freeRouting || !!data.dropoffAddress.text);
@@ -411,7 +412,7 @@ export function StepRoute({ data, quickBookingMode, onChange, onNext, onBack, pr
                         </Button>
                     )}
                     <Button className="flex-1" disabled={!isValid} onClick={onNext}>
-                        Review Booking →
+                        {fromHomepage ? "Complete Booking" : "Review Booking →"}
                     </Button>
                 </div>
             </div>
