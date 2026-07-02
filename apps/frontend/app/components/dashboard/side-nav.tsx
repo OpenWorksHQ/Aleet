@@ -75,7 +75,7 @@ export function SideNav({ initialActive = "dashboard" }: { initialActive?: strin
                 <div
                     className={cn(
                         "pointer-events-none absolute left-0 right-0 hidden lg:block",
-                        "rounded-xl border border-[#bca066]/25 bg-linear-to-r from-[#bca066]/15 to-[#bca066]/5",
+                        "rounded-xl border border-aleet-gold/25 bg-linear-to-r from-aleet-gold/15 to-aleet-gold/5",
                         animated ? "transition-all duration-300 ease-in-out" : "",
                     )}
                     style={{ top: indicatorStyle.top, height: indicatorStyle.height }}
@@ -95,7 +95,7 @@ export function SideNav({ initialActive = "dashboard" }: { initialActive?: strin
                         onClick={() => handleSelect(key)}
                         className={cn(
                             "relative inline-flex w-full flex-col items-center cursor-pointer justify-center gap-1 rounded-xl px-1.5 py-2 text-center transition-colors duration-200 lg:aspect-square",
-                            isActive ? "text-[#bca066]" : "text-[#5a6a6b] hover:text-white/70",
+                            isActive ? "text-aleet-gold" : "text-aleet-text-subtle hover:text-aleet-text-muted",
                         )}
                     >
                         <Icon className="h-5 w-5 shrink-0" />

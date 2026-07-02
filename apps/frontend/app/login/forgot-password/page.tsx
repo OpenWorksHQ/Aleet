@@ -25,7 +25,6 @@ function ForgotPasswordContent() {
   const router = useRouter();
   const [step, setStep] = useState<Step>(1);
 
-  // If the page loads with ?token=..., jump straight to step 3 (set new password)
   useEffect(() => {
     if (searchParams.get("token")) {
       setStep(3);
@@ -33,21 +32,21 @@ function ForgotPasswordContent() {
   }, [searchParams]);
 
   return (
-    <div className="flex min-h-screen flex-col bg-page-bg px-5 pt-6 pb-4.5 text-white sm:px-14 sm:pt-14 sm:pb-6">
+    <div className="flex min-h-screen flex-col bg-aleet-cream px-5 pt-6 pb-4.5 text-aleet-text sm:px-14 sm:pt-14 sm:pb-6">
       <AuthMenu />
 
       <div className="flex flex-1 items-center justify-center py-8">
         <main className="w-full">
           <Container className="max-w-140">
-            <section className="rounded-3xl border border-[#1e2b2a] bg-[radial-gradient(110%_180%_at_50%_0%,rgba(8,27,25,0.95)_0%,rgba(4,12,11,0.95)_62%)] px-4 py-6 shadow-[0_14px_44px_rgba(0,0,0,0.35)] sm:px-8 sm:py-9">
+            <section className="rounded-3xl border border-aleet-border bg-aleet-card px-4 py-6 shadow-[0_14px_44px_rgba(26,21,16,0.08)] sm:px-8 sm:py-9">
               <header className="mb-7 text-center sm:mb-8">
-                <h1 className="mb-2 text-[30px] leading-[1.1] font-semibold text-white sm:text-[40px]">
+                <h1 className="mb-2 font-serif text-[30px] leading-[1.1] font-medium text-aleet-text sm:text-[40px]">
                   {step === 1 && "Reset Password"}
                   {step === 2 && "Check Your Email"}
                   {step === 3 && "New Password"}
                   {step === 4 && "All Done!"}
                 </h1>
-                <p className="text-[14px] font-semibold text-[#a3a8a7] sm:text-[16px]">
+                <p className="text-[14px] font-semibold text-aleet-text-muted sm:text-[16px]">
                   {step === 1 && "Enter your email to receive a reset link"}
                   {step === 2 && "We sent a reset link to your inbox"}
                   {step === 3 && "Choose your new password"}
@@ -55,14 +54,13 @@ function ForgotPasswordContent() {
                 </p>
               </header>
 
-              {/* Progress bar */}
               <div className="mb-6 flex items-center gap-2">
                 {([1, 2, 3, 4] as const).map((s) => (
                   <div
                     key={s}
                     className={cn(
                       "h-0.75 flex-1 rounded-full transition-colors duration-300",
-                      step >= s ? "bg-[#bca066]" : "bg-[#1e2b2c]",
+                      step >= s ? "bg-aleet-gold" : "bg-aleet-border",
                     )}
                   />
                 ))}
@@ -136,7 +134,7 @@ function ForgotStep({ onSuccess }: { onSuccess: () => void }) {
         name="email"
         placeholder="your@email.com"
         required
-        className="mb-5 h-12.5 border-[#1e2b2c] bg-[#090c0e] px-4 text-[15px] placeholder:text-[#5a5a5e] sm:mb-6 sm:h-14 sm:text-[17px]"
+        className="mb-5 h-12.5 px-4 text-[15px] sm:mb-6 sm:h-14 sm:text-[17px]"
       />
       <Button
         className="mb-5 h-13 text-[17px] sm:mb-6 sm:h-14.5 sm:text-[21px]"
@@ -147,15 +145,13 @@ function ForgotStep({ onSuccess }: { onSuccess: () => void }) {
       </Button>
       <Link
         href="/login"
-        className="text-center text-[13px] font-semibold text-[#9ba0a1] transition-colors hover:text-white sm:text-[14px]"
+        className="text-center text-[13px] font-semibold text-aleet-text-muted transition-colors hover:text-aleet-text sm:text-[14px]"
       >
         ← Back to Login
       </Link>
     </motion.form>
   );
 }
-
-// ── Step 2: Check email ───────────────────────────────────────────────────────
 
 function CheckEmailStep() {
   return (
@@ -166,13 +162,13 @@ function CheckEmailStep() {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.18 }}
     >
-      <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[#0f2a1e]">
+      <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-aleet-gold/10 text-aleet-gold">
         <svg
           width="28"
           height="28"
           viewBox="0 0 24 24"
           fill="none"
-          stroke="#bca066"
+          stroke="currentColor"
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -181,24 +177,22 @@ function CheckEmailStep() {
           <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
         </svg>
       </div>
-      <p className="mb-2 text-[15px] font-semibold text-white sm:text-[16px]">
+      <p className="mb-2 text-[15px] font-semibold text-aleet-text sm:text-[16px]">
         Check your inbox
       </p>
-      <p className="mb-7 text-[13px] leading-relaxed text-[#a3a8a7] sm:text-[14px]">
+      <p className="mb-7 text-[13px] leading-relaxed text-aleet-text-muted sm:text-[14px]">
         We&apos;ve sent a password reset link to your email. Click the link to set a new password.
-        The link expires in <span className="text-white">30 minutes</span>.
+        The link expires in <span className="font-semibold text-aleet-text">30 minutes</span>.
       </p>
       <Link
         href="/login"
-        className="text-[13px] font-semibold text-[#9ba0a1] transition-colors hover:text-white sm:text-[14px]"
+        className="text-[13px] font-semibold text-aleet-text-muted transition-colors hover:text-aleet-text sm:text-[14px]"
       >
         ← Back to Login
       </Link>
     </motion.div>
   );
 }
-
-// ── Step 3: Set new password ──────────────────────────────────────────────────
 
 function ResetStep({ token, onSuccess }: { token: string; onSuccess: () => void }) {
   const [isLoading, setIsLoading] = useState(false);
@@ -250,7 +244,7 @@ function ResetStep({ token, onSuccess }: { token: string; onSuccess: () => void 
         placeholder="New password (min. 8 characters)"
         required
         minLength={8}
-        className="mb-4 h-12.5 border-[#1e2b2c] bg-[#090c0e] px-4 text-[15px] placeholder:text-[#5a5a5e] sm:h-14 sm:text-[17px]"
+        className="mb-4 h-12.5 px-4 text-[15px] sm:h-14 sm:text-[17px]"
       />
       <Input
         id="reset-confirm-password"
@@ -259,7 +253,7 @@ function ResetStep({ token, onSuccess }: { token: string; onSuccess: () => void 
         placeholder="Confirm new password"
         required
         minLength={8}
-        className="mb-5 h-12.5 border-[#1e2b2c] bg-[#090c0e] px-4 text-[15px] placeholder:text-[#5a5a5e] sm:mb-6 sm:h-14 sm:text-[17px]"
+        className="mb-5 h-12.5 px-4 text-[15px] sm:mb-6 sm:h-14 sm:text-[17px]"
       />
       <Button
         className="mb-5 h-13 text-[17px] sm:mb-6 sm:h-14.5 sm:text-[21px]"
@@ -271,7 +265,7 @@ function ResetStep({ token, onSuccess }: { token: string; onSuccess: () => void 
       <button
         type="button"
         onClick={() => router.push("/login")}
-        className="text-center text-[13px] font-semibold text-[#9ba0a1] transition-colors hover:text-white"
+        className="text-center text-[13px] font-semibold text-aleet-text-muted transition-colors hover:text-aleet-text"
       >
         ← Back to Login
       </button>
@@ -288,13 +282,13 @@ function SuccessStep({ onLogin }: { onLogin: () => void }) {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.18 }}
     >
-      <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[#0f2a1e]">
+      <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-aleet-gold/10 text-aleet-gold">
         <svg
           width="28"
           height="28"
           viewBox="0 0 24 24"
           fill="none"
-          stroke="#bca066"
+          stroke="currentColor"
           strokeWidth="2.2"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -302,7 +296,7 @@ function SuccessStep({ onLogin }: { onLogin: () => void }) {
           <polyline points="20 6 9 17 4 12" />
         </svg>
       </div>
-      <p className="mb-7 text-[14px] text-[#a3a8a7] sm:text-[15px]">
+      <p className="mb-7 text-[14px] text-aleet-text-muted sm:text-[15px]">
         Your password has been successfully updated. You can now log in with your new password.
       </p>
       <Button

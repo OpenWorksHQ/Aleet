@@ -63,41 +63,41 @@ export function TeamsPortal() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white">
+    <div className="min-h-screen bg-aleet-cream text-aleet-text">
       <div className="mx-auto flex min-h-screen max-w-[1440px] flex-col lg:flex-row">
         <section className="flex flex-1 flex-col px-6 py-10 sm:px-10 sm:py-12 lg:px-14 lg:py-16">
           <div className="flex items-start gap-3">
             <Lock
-              className="mt-2 h-5 w-5 shrink-0 text-[#bca066] sm:mt-3"
+              className="mt-2 h-5 w-5 shrink-0 text-aleet-gold sm:mt-3"
               strokeWidth={1.75}
               aria-hidden
             />
             <div>
-              <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.02em] sm:text-[32px]">
+              <h1 className="font-serif text-[28px] font-medium leading-tight tracking-[-0.02em] sm:text-[32px]">
                 Aleet Teams Portal
               </h1>
-              <p className="mt-1 text-[15px] text-[#9a9a9a]">
+              <p className="mt-1 text-[15px] text-aleet-text-muted">
                 Private Access for Strategic Builders
               </p>
             </div>
           </div>
 
-          <p className="mt-8 max-w-[620px] text-[14px] leading-[1.65] text-[#b8b8b8] sm:text-[15px]">
+          <p className="mt-8 max-w-[620px] text-[14px] leading-[1.65] text-aleet-text-muted sm:text-[15px]">
             Submit your info to join Aleet&apos;s early investor, legal, or
             leadership circle. One page. One form. No noise. Just execution.
           </p>
 
-          <h2 className="mt-10 max-w-[640px] text-[26px] font-semibold leading-[1.25] tracking-[-0.02em] sm:text-[30px]">
+          <h2 className="mt-10 max-w-[640px] font-serif text-[26px] font-medium leading-[1.25] tracking-[-0.02em] sm:text-[30px]">
             Aleet is building the future of luxury transportation quietly.
           </h2>
 
-          <p className="mt-5 max-w-[620px] text-[14px] leading-[1.65] text-[#9a9a9a] sm:text-[15px]">
+          <p className="mt-5 max-w-[620px] text-[14px] leading-[1.65] text-aleet-text-muted sm:text-[15px]">
             We&apos;re building a legal investor network, routing, matching, and
             client logistics tech behind the scenes.
           </p>
 
           <div className="mt-12">
-            <h3 className="text-[22px] font-bold text-[#d8d8d8]">
+            <h3 className="font-serif text-[22px] font-medium text-aleet-text">
               What We&apos;re Building Toward
             </h3>
 
@@ -105,15 +105,15 @@ export function TeamsPortal() {
               {BUILDING_BLOCKS.map(({ title, description, icon: Icon }) => (
                 <li key={title} className="flex gap-3">
                   <Icon
-                    className="mt-0.5 h-4 w-4 shrink-0 text-[#bca066]"
+                    className="mt-0.5 h-4 w-4 shrink-0 text-aleet-gold"
                     strokeWidth={1.75}
                     aria-hidden
                   />
                   <div>
-                    <p className="text-[14px] font-medium text-white sm:text-[15px]">
+                    <p className="text-[14px] font-medium text-aleet-text sm:text-[15px]">
                       {title}
                     </p>
-                    <p className="mt-1.5 text-[13px] leading-[1.6] text-[#8a8a8a] sm:text-[14px]">
+                    <p className="mt-1.5 text-[13px] leading-[1.6] text-aleet-text-muted sm:text-[14px]">
                       {description}
                     </p>
                   </div>
@@ -123,7 +123,7 @@ export function TeamsPortal() {
           </div>
 
           {isLoadingDocuments ? (
-            <p className="mt-12 text-[13px] text-[#666666]">
+            <p className="mt-12 text-[13px] text-aleet-text-subtle">
               Loading resources...
             </p>
           ) : documents.length > 0 ? (
@@ -134,7 +134,7 @@ export function TeamsPortal() {
                   type="button"
                   onClick={() => openDocument(document)}
                   title={document.title}
-                  className="rounded-md border border-[#333333] px-4 py-2 text-[13px] text-[#e8e8e8] transition-colors hover:border-[#bca066] hover:text-[#ffffff]"
+                  className="rounded-md border border-aleet-border px-4 py-2 text-[13px] text-aleet-text transition-colors hover:border-aleet-gold hover:text-aleet-gold"
                 >
                   {document.label}
                 </button>
@@ -142,16 +142,16 @@ export function TeamsPortal() {
             </div>
           ) : null}
 
-          <p className="mt-6 text-[14px] leading-[1.6] text-[#666666]">
+          <p className="mt-6 text-[14px] leading-[1.6] text-aleet-text-subtle">
             All content is shared for early alignment only. Internal tools,
             client lists, and ops models are protected.
           </p>
         </section>
 
-        <div className="hidden w-px bg-[#222222] lg:block" aria-hidden />
+        <div className="hidden w-px bg-aleet-border lg:block" aria-hidden />
 
-        <section className="border-t border-[#222222] px-6 py-10 sm:px-10 sm:py-12 lg:w-[440px] lg:shrink-0 lg:border-t-0 lg:px-10 lg:py-16 xl:w-[480px] xl:px-12">
-          <h2 className="text-[22px] font-semibold leading-tight tracking-[-0.02em] sm:text-[30px]">
+        <section className="border-t border-aleet-border px-6 py-10 sm:px-10 sm:py-12 lg:w-[440px] lg:shrink-0 lg:border-t-0 lg:px-10 lg:py-16 xl:w-[480px] xl:px-12">
+          <h2 className="font-serif text-[22px] font-medium leading-tight tracking-[-0.02em] sm:text-[30px]">
             Join Aleet&apos;s Early Builder Circle
           </h2>
 

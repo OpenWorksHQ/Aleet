@@ -98,23 +98,23 @@ const MOCK_TRIPS: Record<TripTab, TripData[]> = {
 };
 
 const BADGE_STYLES: Record<TripData["badgeVariant"], string> = {
-    active: "bg-[#bca066] text-[#252728]",
-    upcoming: "bg-[#bca066] text-[#252728]",
-    completed: "bg-white/10 text-white/60",
+    active: "bg-aleet-gold text-aleet-text",
+    upcoming: "bg-aleet-gold text-aleet-text",
+    completed: "bg-aleet-cream text-aleet-text-muted",
 };
 
 const TAB_BADGE_STYLES: Record<TripTab, { active: string; inactive: string }> = {
     active: {
-        active: "bg-[#bca066]/20 text-[#bca066]",
-        inactive: "bg-white/5 text-white/30",
+        active: "bg-aleet-gold/20 text-aleet-gold",
+        inactive: "bg-aleet-cream text-aleet-text-subtle",
     },
     upcoming: {
-        active: "bg-[#bca066]/20 text-[#bca066]",
-        inactive: "bg-white/5 text-white/30",
+        active: "bg-aleet-gold/20 text-aleet-gold",
+        inactive: "bg-aleet-cream text-aleet-text-subtle",
     },
     completed: {
-        active: "bg-white/10 text-white/60",
-        inactive: "bg-white/5 text-white/30",
+        active: "bg-aleet-cream text-aleet-text-muted",
+        inactive: "bg-aleet-cream text-aleet-text-subtle",
     },
 };
 
@@ -132,10 +132,10 @@ export function TripsSection() {
     const totalLabel = tabs.find((t) => t.key === tab)?.label ?? "";
 
     return (
-        <section className="rounded-2xl border border-[#1e2b2c] bg-[rgba(8,19,18,0.62)]">
-            <header className="border-b border-[#1e2b2c] px-3 py-4 sm:px-6">
+        <section className="rounded-2xl border border-aleet-border bg-aleet-card shadow-sm">
+            <header className="border-b border-aleet-border px-3 py-4 sm:px-6">
                 {/* Tabs */}
-                <div className="grid grid-cols-3 gap-1 rounded-xl border border-[#1e2a2c] bg-[#0c1211] p-1">
+                <div className="grid grid-cols-3 gap-1 rounded-xl border border-aleet-border bg-aleet-card p-1">
                     {tabs.map(({ key, label }) => {
                         const isActive = tab === key;
                         const badgeStyle = isActive
@@ -148,7 +148,7 @@ export function TripsSection() {
                                 onClick={() => setTab(key)}
                                 className={cn(
                                     "flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-[12px] font-semibold transition-colors duration-150 sm:gap-2 sm:px-4 sm:text-[13px]",
-                                    isActive ? "bg-[#1e2a2c] text-white" : "text-white/40 hover:text-white/70",
+                                    isActive ? "bg-aleet-cream text-aleet-text" : "text-aleet-text-muted hover:text-aleet-text",
                                 )}
                             >
                                 <span className="truncate">{label}</span>
@@ -162,7 +162,7 @@ export function TripsSection() {
             </header>
 
             {trips.length === 0 ? (
-                <p className="py-10 text-center text-[13px] text-white/30">
+                <p className="py-10 text-center text-[13px] text-aleet-text-subtle">
                     No {totalLabel.toLowerCase()} trips.
                 </p>
             ) : (
@@ -191,18 +191,18 @@ function TripCard({
     car,
 }: TripData) {
     return (
-        <article className="overflow-hidden rounded-2xl border border-[#1e2b2c] bg-[rgba(6,17,16,0.7)]">
+        <article className="overflow-hidden rounded-2xl border border-aleet-border bg-aleet-card">
             <div className="space-y-4 px-5 py-5">
                 <div className="flex items-start justify-between gap-3">
-                    <p className="text-sm font-semibold text-white">{date}</p>
-                    <EditIcon className="h-4 w-4 text-[#7f8687]" />
+                    <p className="text-sm font-semibold text-aleet-text">{date}</p>
+                    <EditIcon className="h-4 w-4 text-aleet-text-subtle" />
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
                     <span className={cn("rounded-full px-2.5 py-1 text-[11px] font-semibold", BADGE_STYLES[badgeVariant])}>
                         {badge}
                     </span>
-                    <span className="text-xs text-[#9ca3a4]">{meta}</span>
+                    <span className="text-xs text-aleet-text-muted">{meta}</span>
                 </div>
 
                 <TripPoint icon={<Navigation className="h-3.5 w-3.5" />} title={pickupTitle} text={pickupText} />
@@ -210,7 +210,7 @@ function TripCard({
                 {dropoffTitle ? <TripPoint icon={<Flag className="h-3.5 w-3.5" />} title={dropoffTitle} text={dropoffText ?? ""} /> : null}
             </div>
 
-            <footer className="flex flex-col gap-3 border-t border-[#1e2b2c] px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <footer className="flex flex-col gap-3 border-t border-aleet-border px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex min-w-0 items-center gap-3">
                     <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[linear-gradient(160deg,#d1d5db,#9ca3af)] text-xs font-semibold text-[#1f2937]">
                         {driver
@@ -220,15 +220,15 @@ function TripCard({
                             .slice(0, 2)}
                     </span>
                     <div className="min-w-0">
-                        <p className="truncate text-base font-medium text-[#bca066]">{driver}</p>
-                        <p className="truncate text-xs text-[#d1d5db]">{car}</p>
-                        <p className="text-[11px] text-[#d1d5db]">★ 4.9</p>
+                        <p className="truncate text-base font-medium text-aleet-gold">{driver}</p>
+                        <p className="truncate text-xs text-aleet-text-muted">{car}</p>
+                        <p className="text-[11px] text-aleet-text-muted">★ 4.9</p>
                     </div>
                 </div>
 
                 <button
                     type="button"
-                    className="inline-flex items-center gap-2 text-sm font-medium text-white transition-colors hover:text-[#bca066]"
+                    className="inline-flex items-center gap-2 text-sm font-medium text-aleet-text transition-colors hover:text-aleet-gold"
                 >
                     <PhoneIcon className="h-4 w-4" />
                     Contact
@@ -241,10 +241,10 @@ function TripCard({
 function TripPoint({ icon, title, text }: { icon?: React.ReactNode; title: string; text: string }) {
     return (
         <div className="flex items-start gap-2.5">
-            {icon && <span className="mt-0.5 shrink-0 text-[#5a7080]">{icon}</span>}
+            {icon && <span className="mt-0.5 shrink-0 text-aleet-text-subtle">{icon}</span>}
             <div>
-                <p className="text-sm font-semibold text-white">{title}</p>
-                <p className="text-xs text-[#d1d5db]">{text}</p>
+                <p className="text-sm font-semibold text-aleet-text">{title}</p>
+                <p className="text-xs text-aleet-text-muted">{text}</p>
             </div>
         </div>
     );

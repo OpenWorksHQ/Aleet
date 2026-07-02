@@ -32,7 +32,7 @@ export function PasscodeStep({ isLoading, onSubmit, onBack }: Props) {
                 required
                 minLength={8}
                 autoFocus
-                className="mb-4 h-[50px] border-[#1e2b2c] bg-[#090c0e] px-4 text-[15px] placeholder:text-[#5a5a5e] sm:h-[56px] sm:text-[17px]"
+                className="mb-4 h-[50px] px-4 text-[15px] sm:h-[56px] sm:text-[17px]"
             />
             <Input
                 type="password"
@@ -40,7 +40,7 @@ export function PasscodeStep({ isLoading, onSubmit, onBack }: Props) {
                 placeholder="Confirm password"
                 required
                 minLength={8}
-                className="mb-5 h-[50px] border-[#1e2b2c] bg-[#090c0e] px-4 text-[15px] placeholder:text-[#5a5a5e] sm:h-[56px] sm:text-[17px]"
+                className="mb-5 h-[50px] px-4 text-[15px] sm:h-[56px] sm:text-[17px]"
             />
             <Button
                 className="mb-4 h-[52px] text-[17px] sm:h-[58px] sm:text-[21px]"
@@ -52,7 +52,7 @@ export function PasscodeStep({ isLoading, onSubmit, onBack }: Props) {
             <button
                 type="button"
                 onClick={onBack}
-                className="text-center text-[13px] font-semibold text-[#9ba0a1] transition-colors hover:text-white"
+                className="text-center text-[13px] font-semibold text-aleet-text-muted transition-colors hover:text-aleet-text"
             >
                 ← Back
             </button>

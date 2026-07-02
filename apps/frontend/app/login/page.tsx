@@ -181,19 +181,19 @@ function AuthFlow() {
   const showProgress = total > 0;
 
   return (
-    <div className="flex min-h-screen flex-col bg-page-bg px-5 pt-6 pb-4.5 text-white sm:px-14 sm:pt-14 sm:pb-6">
+    <div className="flex min-h-screen flex-col bg-aleet-cream px-5 pt-6 pb-4.5 text-aleet-text sm:px-14 sm:pt-14 sm:pb-6">
       <AuthMenu />
 
       <div className="flex flex-1 items-center justify-center py-8">
         <main className="w-full">
           <Container className="max-w-140">
-            <section className="rounded-3xl border border-[#1e2b2a] bg-[radial-gradient(110%_180%_at_50%_0%,rgba(8,27,25,0.95)_0%,rgba(4,12,11,0.95)_62%)] px-4 py-6 shadow-[0_14px_44px_rgba(0,0,0,0.35)] sm:px-8 sm:py-9">
+            <section className="rounded-3xl border border-aleet-border bg-aleet-card px-4 py-6 shadow-[0_14px_44px_rgba(26,21,16,0.08)] sm:px-8 sm:py-9">
 
               <header className="mb-7 text-center sm:mb-8">
-                <h1 className="mb-2 text-[30px] leading-[1.1] font-semibold text-white sm:text-[40px]">
+                <h1 className="mb-2 font-serif text-[30px] leading-[1.1] font-medium text-aleet-text sm:text-[40px]">
                   {title}
                 </h1>
-                <p className="text-[14px] font-semibold text-[#a3a8a7] sm:text-[16px]">
+                <p className="text-[14px] font-semibold text-aleet-text-muted sm:text-[16px]">
                   {subtitle}
                 </p>
               </header>
@@ -205,7 +205,7 @@ function AuthFlow() {
                       key={i}
                       className={cn(
                         "h-0.75 flex-1 rounded-full transition-colors duration-300",
-                        i < progress ? "bg-[#bca066]" : "bg-[#1e2b2c]",
+                        i < progress ? "bg-aleet-gold" : "bg-aleet-border",
                       )}
                     />
                   ))}

@@ -54,22 +54,22 @@ export function DatePicker({
                         classNames={{
                             root: "p-4 select-none w-[280px]",
                             month_caption: "relative flex items-center justify-center mb-2 h-8",
-                            caption_label: "text-[13px] font-semibold tracking-wide text-white",
+                            caption_label: "text-[13px] font-semibold tracking-wide text-aleet-text",
                             nav: "absolute inset-x-0 top-0 flex items-center justify-between h-8 pointer-events-none",
                             button_previous:
-                                "flex h-7 w-7 items-center justify-center rounded-lg text-[#5a7080] hover:bg-[#1e2a2c] hover:text-[#bca066] transition-colors pointer-events-auto mt-8",
+                                "flex h-7 w-7 items-center justify-center rounded-lg text-aleet-text-subtle hover:bg-aleet-cream hover:text-aleet-gold transition-colors pointer-events-auto mt-8",
                             button_next:
-                                "flex h-7 w-7 items-center justify-center rounded-lg text-[#5a7080] hover:bg-[#1e2a2c] hover:text-[#bca066] transition-colors pointer-events-auto mt-8",
+                                "flex h-7 w-7 items-center justify-center rounded-lg text-aleet-text-subtle hover:bg-aleet-cream hover:text-aleet-gold transition-colors pointer-events-auto mt-8",
                             weekdays: "grid grid-cols-7 mb-2",
-                            weekday: "text-center text-[11px] font-semibold uppercase tracking-wider text-[#3a5060] py-1",
+                            weekday: "text-center text-[11px] font-semibold uppercase tracking-wider text-aleet-text-subtle py-1",
                             weeks: "space-y-1",
                             week: "grid grid-cols-7 gap-0.5",
                             day: "flex items-center justify-center",
                             day_button:
-                                "h-9 w-9 rounded-lg text-[13px] font-medium text-[#a0b4bc] hover:bg-[#1a2830] hover:text-white transition-all duration-150 rdp-selected:bg-[#bca066] rdp-selected:text-[#0a0a00] rdp-selected:font-bold",
+                                "h-9 w-9 rounded-lg text-[13px] font-medium text-aleet-text-muted hover:bg-aleet-cream hover:text-aleet-text transition-all duration-150",
                             selected:
-                                "[&_button]:!bg-[#bca066] [&_button]:!text-[#0a0a00] [&_button]:!font-bold [&_button]:!rounded-lg [&_button]:shadow-[0_0_12px_rgba(188,160,102,0.5)]",
-                            today: "text-[#bca066] font-semibold ring-1 ring-[#bca066]/30 rounded-lg",
+                                "[&_button]:!bg-aleet-gold [&_button]:!text-aleet-text [&_button]:!font-bold [&_button]:!rounded-lg [&_button]:shadow-[0_0_12px_rgba(197,163,134,0.35)]",
+                            today: "text-aleet-gold font-semibold ring-1 ring-aleet-gold/30 rounded-lg",
                             disabled: "opacity-20 cursor-not-allowed pointer-events-none",
                             outside: "opacity-20",
                         }}

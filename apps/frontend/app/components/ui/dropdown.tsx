@@ -4,8 +4,6 @@ import { useRef, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown } from "lucide-react";
 
-// ─── Dropdown wrapper ──────────────────────────────────────────────────────
-
 export function Dropdown({
     open,
     onClose,
@@ -21,7 +19,6 @@ export function Dropdown({
         if (!open) return;
         function handler(e: MouseEvent) {
             if (ref.current && ref.current.contains(e.target as Node)) return;
-            // Не закриваємо якщо клік всередині portal popup
             if ((e.target as HTMLElement).closest("[data-dropdown-popup]")) return;
             onClose();
         }
@@ -35,8 +32,6 @@ export function Dropdown({
         </div>
     );
 }
-
-// ─── Field trigger ─────────────────────────────────────────────────────────
 
 export function FieldTrigger({
     label,
@@ -55,30 +50,28 @@ export function FieldTrigger({
 }) {
     return (
         <div>
-            <p className="mb-1.5 text-[12px] font-semibold uppercase tracking-widest text-[#7a8a9a]">
+            <p className="mb-1.5 text-[12px] font-semibold uppercase tracking-widest text-aleet-text-subtle">
                 {label}
             </p>
             <button
                 type="button"
                 onClick={onClick}
                 className={`inline-flex h-11 w-full items-center gap-2 rounded-lg border px-3 text-[13px] transition-all duration-200 sm:h-12 sm:text-[14px] ${open
-                    ? "border-[#bca066]/60 bg-[#1e1a0e] text-white shadow-[0_0_0_1px_rgba(188,160,102,0.2)]"
+                    ? "border-aleet-gold/60 bg-aleet-card text-aleet-text shadow-[0_0_0_1px_rgba(197,163,134,0.2)]"
                     : value
-                        ? "border-[#3a4245] bg-[#212829] text-white hover:border-[#bca066]/30"
-                        : "border-[#2e3638] bg-[#1e2527] text-[#5a6870] hover:border-[#3a4245]"
+                        ? "border-aleet-border-strong bg-aleet-card text-aleet-text hover:border-aleet-gold/30"
+                        : "border-aleet-border bg-aleet-cream-muted text-aleet-text-subtle hover:border-aleet-border-strong"
                     }`}
             >
-                <span className="text-[#bca066]/70">{icon}</span>
+                <span className="text-aleet-gold/80">{icon}</span>
                 <span className="flex-1 text-left">{value || placeholder}</span>
                 <ChevronDown
-                    className={`h-3.5 w-3.5 text-[#5a6870] transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+                    className={`h-3.5 w-3.5 text-aleet-text-subtle transition-transform duration-200 ${open ? "rotate-180" : ""}`}
                 />
             </button>
         </div>
     );
 }
-
-// ─── Popup container (portal) ──────────────────────────────────────────────
 
 export function Popup({
     anchorRef,
@@ -89,7 +82,6 @@ export function Popup({
     anchorRef: React.RefObject<HTMLElement | null>;
     children: React.ReactNode;
     placement?: "top" | "bottom";
-    /** If true (default), popup width matches the anchor. If false, popup can be wider (min-width = anchor). */
     matchWidth?: boolean;
 }) {
     const popupRef = useRef<HTMLDivElement>(null);
@@ -104,7 +96,6 @@ export function Popup({
         const r = anchor.getBoundingClientRect();
         const popupHeight = popup.offsetHeight;
         const popupWidth = matchWidth ? r.width : popup.scrollWidth;
-        // Clamp left so the popup doesn't overflow the right edge of the viewport
         const maxLeft = window.innerWidth - popupWidth - 8;
         const left = Math.min(r.left, maxLeft);
 
@@ -120,7 +111,6 @@ export function Popup({
 
     useEffect(() => {
         measure();
-        // два RAF — гарантовано після браузерного paint з правильними coords
         let raf1: number;
         let raf2: number;
         raf1 = requestAnimationFrame(() => {
@@ -150,7 +140,7 @@ export function Popup({
                 ? { top: coords.top, left: coords.left, width: coords.width, minWidth: coords.minWidth }
                 : { top: -9999, left: -9999, width: 0, minWidth: 0 }
             }
-            className={`fixed z-9999 overflow-hidden rounded-xl border border-[#2a3336] bg-[#111918] shadow-[0_16px_48px_rgba(0,0,0,0.6)] transition-opacity duration-150 ${visible ? "opacity-100" : "opacity-0"}`}
+            className={`fixed z-9999 overflow-hidden rounded-xl border border-aleet-border bg-aleet-card shadow-[0_16px_48px_rgba(26,21,16,0.12)] transition-opacity duration-150 ${visible ? "opacity-100" : "opacity-0"}`}
         >
             {children}
         </div>,

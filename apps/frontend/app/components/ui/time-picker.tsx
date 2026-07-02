@@ -27,9 +27,7 @@ export function TimePicker({
     onChange: (t: string) => void;
     placeholder?: string;
     placement?: "top" | "bottom";
-    /** Return `true` to disable a specific hour/minute/period combination. */
     disableSlot?: (slot: { hour: string; minute: string; period: string }) => boolean;
-    /** Message shown when the selected slot is disabled. */
     disabledMessage?: string;
 }) {
     const [open, setOpen] = useState(false);
@@ -70,22 +68,17 @@ export function TimePicker({
             {open && (
                 <Popup anchorRef={triggerRef} placement={placement}>
                     <div className="w-full px-4 pt-4 pb-3">
-
-                        {/* Spinner columns */}
                         <div className="grid grid-cols-3 gap-2">
-                            {/* Hour */}
                             <SpinnerColumn
                                 value={hour}
                                 onUp={() => setHour(cycle(HOURS, hour, 1))}
                                 onDown={() => setHour(cycle(HOURS, hour, -1))}
                             />
-                            {/* Minute */}
                             <SpinnerColumn
                                 value={minute}
                                 onUp={() => setMinute(cycle(MINUTES, minute, 1))}
                                 onDown={() => setMinute(cycle(MINUTES, minute, -1))}
                             />
-                            {/* Period */}
                             <SpinnerColumn
                                 value={period}
                                 onUp={() => setPeriod(cycle(PERIODS, period, 1))}
@@ -94,17 +87,16 @@ export function TimePicker({
                         </div>
 
                         {isCurrentSlotDisabled && (
-                            <p className="mt-2 text-center text-[11px] text-red-400/70">
+                            <p className="mt-2 text-center text-[11px] text-red-500/80">
                                 {disabledMessage}
                             </p>
                         )}
 
-                        {/* Actions */}
                         <div className="mt-3 grid grid-cols-2 gap-2">
                             <button
                                 type="button"
                                 onClick={handleClear}
-                                className="rounded-lg border border-[#2e3638] py-2 text-[13px] font-semibold text-[#7a8a9a] transition-colors hover:border-[#3a4648] hover:text-white"
+                                className="rounded-lg border border-aleet-border py-2 text-[13px] font-semibold text-aleet-text-muted transition-colors hover:border-aleet-border-strong hover:text-aleet-text"
                             >
                                 Clear
                             </button>
@@ -112,7 +104,7 @@ export function TimePicker({
                                 type="button"
                                 disabled={isCurrentSlotDisabled}
                                 onClick={confirm}
-                                className="rounded-lg bg-[#bca066] py-2 text-[13px] font-semibold text-[#0d0e0b] transition-colors hover:bg-[#cdb077] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="rounded-lg bg-aleet-gold py-2 text-[13px] font-semibold text-aleet-text transition-colors hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
                             >
                                 Select
                             </button>
@@ -138,17 +130,17 @@ function SpinnerColumn({
             <button
                 type="button"
                 onClick={onUp}
-                className="flex h-7 w-full items-center justify-center rounded-md text-[#5a7080] transition-colors hover:bg-[#1a2830] hover:text-white"
+                className="flex h-7 w-full items-center justify-center rounded-md text-aleet-text-subtle transition-colors hover:bg-aleet-cream hover:text-aleet-text"
             >
                 <ChevronUp className="h-4 w-4" strokeWidth={2} />
             </button>
-            <div className="flex h-10 w-full items-center justify-center rounded-lg bg-[#141e1d] text-[22px] font-semibold text-white tabular-nums">
+            <div className="flex h-10 w-full items-center justify-center rounded-lg bg-aleet-cream-muted text-[22px] font-semibold text-aleet-text tabular-nums">
                 {value}
             </div>
             <button
                 type="button"
                 onClick={onDown}
-                className="flex h-7 w-full items-center justify-center rounded-md text-[#5a7080] transition-colors hover:bg-[#1a2830] hover:text-white"
+                className="flex h-7 w-full items-center justify-center rounded-md text-aleet-text-subtle transition-colors hover:bg-aleet-cream hover:text-aleet-text"
             >
                 <ChevronDown className="h-4 w-4" strokeWidth={2} />
             </button>

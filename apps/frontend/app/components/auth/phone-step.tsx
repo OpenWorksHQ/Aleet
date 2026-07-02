@@ -32,7 +32,7 @@ export function PhoneStep({ isLoading, onSubmit, onBack }: Props) {
                 autoComplete="tel"
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
-                className="mb-5 h-12.5 border-[#1e2b2c] bg-[#090c0e] px-4 text-[15px] placeholder:text-[#5a5a5e] sm:h-14 sm:text-[17px]"
+                className="mb-5 h-12.5 px-4 text-[15px] sm:h-14 sm:text-[17px]"
             />
 
             <Button
@@ -46,7 +46,7 @@ export function PhoneStep({ isLoading, onSubmit, onBack }: Props) {
             <button
                 type="button"
                 onClick={onBack}
-                className="text-center text-[13px] font-semibold text-[#9ba0a1] transition-colors hover:text-white"
+                className="text-center text-[13px] font-semibold text-aleet-text-muted transition-colors hover:text-aleet-text"
             >
                 ← Back
             </button>

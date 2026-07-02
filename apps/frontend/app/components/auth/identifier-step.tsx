@@ -32,7 +32,7 @@ export function IdentifierStep({ isLoading, onSubmit }: Props) {
                 autoComplete="username"
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
-                className="mb-5 h-12.5 border-[#1e2b2c] bg-[#090c0e] px-4 text-[15px] placeholder:text-[#5a5a5e] sm:h-14 sm:text-[17px]"
+                className="mb-5 h-12.5 px-4 text-[15px] sm:h-14 sm:text-[17px]"
             />
 
             <Button
@@ -45,16 +45,16 @@ export function IdentifierStep({ isLoading, onSubmit }: Props) {
 
             <Link
                 href="/login/forgot-password"
-                className="mb-4 text-center text-[13px] font-semibold text-[#bca066] hover:underline"
+                className="mb-4 text-center text-[13px] font-semibold text-aleet-gold hover:underline"
             >
                 Forgot password?
             </Link>
 
-            <p className="text-center text-[12px] text-[#5a6a6a] sm:text-[13px]">
+            <p className="text-center text-[12px] text-aleet-text-subtle sm:text-[13px]">
                 By continuing you agree to our{" "}
                 <Link
                     href="#"
-                    className="text-[#9ba0a1] underline underline-offset-2 hover:text-white"
+                    className="text-aleet-text-muted underline underline-offset-2 hover:text-aleet-text"
                 >
                     Terms &amp; Conditions
                 </Link>

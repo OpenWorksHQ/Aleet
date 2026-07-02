@@ -105,9 +105,9 @@ export function SiteMenu({ items = defaultItems, className }: SiteMenuProps) {
           openMenu();
         }}
       >
-        <span className="h-0.5 w-6.5 rounded-xs bg-[#bca066]" />
-        <span className="h-0.5 w-6.5 rounded-xs bg-[#bca066]" />
-        <span className="h-0.5 w-6.5 rounded-xs bg-[#bca066]" />
+        <span className="h-0.5 w-6.5 rounded-xs bg-aleet-gold" />
+        <span className="h-0.5 w-6.5 rounded-xs bg-aleet-gold" />
+        <span className="h-0.5 w-6.5 rounded-xs bg-aleet-gold" />
       </button>
 
       {isMounted ? (
@@ -116,7 +116,7 @@ export function SiteMenu({ items = defaultItems, className }: SiteMenuProps) {
             type="button"
             aria-label="Close menu overlay"
             className={cn(
-              "absolute inset-0 bg-[rgba(0,0,0,0.05)] backdrop-blur-xs transition-opacity duration-250",
+              "absolute inset-0 bg-black/20 backdrop-blur-xs transition-opacity duration-250",
               isVisible ? "opacity-100" : "opacity-0",
             )}
             onClick={closeMenu}
@@ -124,24 +124,22 @@ export function SiteMenu({ items = defaultItems, className }: SiteMenuProps) {
 
           <aside
             className={cn(
-              "relative z-10 flex h-full w-full max-w-120 flex-col border-r border-[#bca066]/30 bg-[#050a09] px-8 pt-8 pb-6 transition-transform duration-250 ease-out [@media(max-height:640px)]:px-6 [@media(max-height:640px)]:pt-5 [@media(max-height:640px)]:pb-4",
+              "relative z-10 flex h-full w-full max-w-120 flex-col border-r border-aleet-border bg-aleet-cream px-8 pt-8 pb-6 transition-transform duration-250 ease-out [@media(max-height:640px)]:px-6 [@media(max-height:640px)]:pt-5 [@media(max-height:640px)]:pb-4",
               isVisible ? "translate-x-0" : "-translate-x-full",
             )}
           >
-            {/* Header row: logo + close button */}
             <div className="mb-7 flex items-center justify-between sm:mb-9 [@media(max-height:640px)]:mb-4">
-              <div className="inline-flex items-center gap-3 text-[#bca066]">
-                <span className="inline-flex h-10.5 w-10.5 items-center justify-center rounded-full border-[3.5px] border-[#bca066] font-serif text-[26px] leading-none font-semibold [@media(max-height:640px)]:h-8.5 [@media(max-height:640px)]:w-8.5 [@media(max-height:640px)]:text-[20px]">
-                  A
-                </span>
-                <span className="text-[36px] leading-none font-semibold tracking-[-0.02em] [@media(max-height:640px)]:text-[28px]">
-                  Aleet
-                </span>
-              </div>
+              <Link
+                href="/"
+                className="text-[20px] font-normal tracking-[0.28em] text-aleet-text no-underline sm:text-[22px]"
+                onClick={closeMenu}
+              >
+                ALEET
+              </Link>
 
               <button
                 type="button"
-                className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/60 transition-colors hover:border-white/20 hover:bg-white/10 hover:text-white"
+                className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-aleet-border bg-aleet-card text-aleet-text-muted transition-colors hover:border-aleet-gold/40 hover:text-aleet-text"
                 aria-label="Close menu"
                 onClick={closeMenu}
               >
@@ -156,11 +154,11 @@ export function SiteMenu({ items = defaultItems, className }: SiteMenuProps) {
                 <Link
                   key={item.label}
                   href={item.href}
-                  className="group inline-flex items-center gap-4 rounded-xl px-3 py-3 text-[15px] font-medium leading-[1.2] tracking-[-0.01em] text-white/80 no-underline transition-all duration-200 hover:bg-white/5 hover:text-white sm:py-3.5 sm:text-[16px] [@media(max-height:640px)]:py-1.5 [@media(max-height:640px)]:text-[13px]"
+                  className="group inline-flex items-center gap-4 rounded-xl px-3 py-3 text-[15px] font-medium leading-[1.2] tracking-[-0.01em] text-aleet-text-muted no-underline transition-all duration-200 hover:bg-aleet-cream-muted hover:text-aleet-text sm:py-3.5 sm:text-[16px] [@media(max-height:640px)]:py-1.5 [@media(max-height:640px)]:text-[13px]"
                   onClick={closeMenu}
                 >
-                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/5 transition-colors duration-200 group-hover:bg-[#bca066]/15 [@media(max-height:640px)]:h-7 [@media(max-height:640px)]:w-7 [@media(max-height:640px)]:rounded-md">
-                    <item.icon className="h-4.5 w-4.5 text-white/40 transition-colors duration-200 group-hover:text-[#bca066] [@media(max-height:640px)]:h-3.5 [@media(max-height:640px)]:w-3.5" />
+                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-aleet-cream-muted transition-colors duration-200 group-hover:bg-aleet-gold/15 [@media(max-height:640px)]:h-7 [@media(max-height:640px)]:w-7 [@media(max-height:640px)]:rounded-md">
+                    <item.icon className="h-4.5 w-4.5 text-aleet-text-subtle transition-colors duration-200 group-hover:text-aleet-gold [@media(max-height:640px)]:h-3.5 [@media(max-height:640px)]:w-3.5" />
                   </span>
                   {item.label}
                 </Link>
@@ -172,7 +170,7 @@ export function SiteMenu({ items = defaultItems, className }: SiteMenuProps) {
                 href="https://portal.aleet.app"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex h-13 w-full items-center justify-center rounded-xl border border-white bg-white px-6 text-[16px] font-semibold text-[#050d0c] transition-opacity duration-200 hover:opacity-90 [@media(max-height:640px)]:h-10 [@media(max-height:640px)]:rounded-lg [@media(max-height:640px)]:text-[14px]"
+                className="inline-flex h-13 w-full items-center justify-center rounded-xl bg-black px-6 text-[16px] font-semibold text-white transition-opacity duration-200 hover:opacity-90 [@media(max-height:640px)]:h-10 [@media(max-height:640px)]:rounded-lg [@media(max-height:640px)]:text-[14px]"
                 onClick={closeMenu}
               >
                 Become a driver

@@ -17,7 +17,7 @@ export function BookingModeSwitch({ mode, onModeChange }: BookingModeSwitchProps
                 <span
                     aria-hidden
                     className={cn(
-                        "pointer-events-none absolute top-1 h-12 w-[calc(50%-4px)] rounded-xl border border-[#bca066]/30 bg-[#2a2520] transition-transform duration-300 ease-out",
+                        "pointer-events-none absolute top-1 h-12 w-[calc(50%-4px)] rounded-xl border border-aleet-gold/30 bg-[#2a2520] transition-transform duration-300 ease-out",
                         mode === "buy-hours" ? "left-1 translate-x-0" : "left-1 translate-x-full",
                     )}
                 />
