@@ -72,6 +72,12 @@ export function AdminNavIcon({ icon, className }: Props) {
                 <circle cx="12" cy="9" r="2.5" />
             </svg>
         ),
+        investor: (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className={cls}>
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+                <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
+            </svg>
+        ),
         settings: (
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className={cls}>
                 <circle cx="12" cy="12" r="3" />

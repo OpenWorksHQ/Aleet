@@ -55,18 +55,18 @@ export function Select({
                                         setOpen(false);
                                     }}
                                     className={`flex w-full items-center justify-between px-4 py-2.5 text-[13px] transition-colors ${selected
-                                        ? "bg-[#1e2a1a] text-[#bca066]"
-                                        : "text-[#c8d4d6] hover:bg-[#1a2224] hover:text-white"
+                                        ? "bg-aleet-gold/15 text-aleet-gold-dark"
+                                        : "text-aleet-text-muted hover:bg-aleet-cream hover:text-aleet-text"
                                         }`}
                                 >
                                     <span>{opt.label}</span>
                                     {opt.price && (
-                                        <span className={`text-[12px] ${selected ? "text-[#bca066]" : "text-[#5a7060]"}`}>
+                                        <span className={`text-[12px] ${selected ? "text-aleet-gold-dark" : "text-aleet-text-subtle"}`}>
                                             {opt.price}
                                         </span>
                                     )}
                                     {selected && (
-                                        <span className="ml-2 h-1.5 w-1.5 rounded-full bg-[#bca066]" />
+                                        <span className="ml-2 h-1.5 w-1.5 rounded-full bg-aleet-gold" />
                                     )}
                                 </button>
                             );

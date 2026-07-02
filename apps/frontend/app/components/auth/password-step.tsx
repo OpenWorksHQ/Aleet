@@ -22,7 +22,7 @@ export function PasswordStep({ identifier, isLoading, onSubmit, onBack }: Props)
 
     return (
         <motion.form {...fadeProps} className="flex flex-col" onSubmit={handleSubmit}>
-            <p className="mb-5 rounded-lg border border-[#1e2b2c] bg-[#090c0e] px-4 py-3 text-[14px] text-[#a3a8a7]">
+            <p className="mb-5 rounded-lg border border-aleet-border bg-aleet-cream px-4 py-3 text-[14px] text-aleet-text-muted">
                 {identifier}
             </p>
             <Input
@@ -31,7 +31,7 @@ export function PasswordStep({ identifier, isLoading, onSubmit, onBack }: Props)
                 placeholder="Enter your password"
                 required
                 autoFocus
-                className="mb-5 h-12.5 border-[#1e2b2c] bg-[#090c0e] px-4 text-[15px] placeholder:text-[#5a5a5e] sm:h-14 sm:text-[17px]"
+                className="mb-5 h-12.5 px-4 text-[15px] sm:h-14 sm:text-[17px]"
             />
             <Button
                 className="mb-4 h-13 text-[17px] sm:h-14.5 sm:text-[21px]"
@@ -44,7 +44,7 @@ export function PasswordStep({ identifier, isLoading, onSubmit, onBack }: Props)
                 <button
                     type="button"
                     onClick={onBack}
-                    className="text-[#9ba0a1] transition-colors hover:text-white"
+                    className="text-aleet-text-muted transition-colors hover:text-aleet-text"
                 >
                     ← Back
                 </button>

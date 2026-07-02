@@ -17,7 +17,7 @@ export function SameDayNotice({ sameDay }: { sameDay: SameDayAvailability }) {
 
   if (loading) {
     return (
-      <div className="mt-3 flex items-center gap-2.5 rounded-xl border border-[#1e2a2c] bg-[#0c1211] px-4 py-3 text-[12px] text-white/40">
+      <div className="mt-3 flex items-center gap-2.5 rounded-xl border border-aleet-border bg-aleet-card px-4 py-3 text-[12px] text-aleet-text-muted">
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
         Checking same-day availability…
       </div>
@@ -29,19 +29,19 @@ export function SameDayNotice({ sameDay }: { sameDay: SameDayAvailability }) {
   return (
     <div
       role="alert"
-      className="mt-3 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-950/20 px-4 py-3"
+      className="mt-3 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3"
     >
-      <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-400">
+      <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
         <TriangleAlert className="h-4 w-4" />
       </span>
       <div className="min-w-0">
-        <p className="text-[13px] font-semibold text-amber-300">
+        <p className="text-[13px] font-semibold text-amber-900">
           Same-day booking unavailable
         </p>
-        <p className="mt-0.5 text-[12px] leading-relaxed text-amber-200/70">
+        <p className="mt-0.5 text-[12px] leading-relaxed text-amber-800/80">
           {status.message}
         </p>
-        <p className="mt-1.5 text-[12px] text-amber-200/50">
+        <p className="mt-1.5 text-[12px] text-amber-700/70">
           Pick a pickup time at least 24 hours out to continue.
         </p>
       </div>

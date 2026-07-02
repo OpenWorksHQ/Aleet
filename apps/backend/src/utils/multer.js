@@ -62,6 +62,72 @@ const uploadAvatar = upload.fields([
   { name: 'avatar', maxCount: 1 },
 ]);
 
+// ── Investor data-room documents ────────────────────────────────────────────
+// Stored in uploads/investor/ so they're served at /uploads/investor/<file>.
+// Unlike the image-only `upload` above, this accepts PDFs and common doc types.
+const investorDir = path.join(uploadsDir, 'investor');
+if (!fs.existsSync(investorDir)) {
+  fs.mkdirSync(investorDir, { recursive: true });
+}
+
+const investorStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, investorDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+// Investor data-room: PDF, Office (DOC/DOCX, XLS/XLSX, PPT/PPTX), JPG/JPEG, PNG only
+const ALLOWED_INVESTOR_MIMES = [
+  'application/pdf',                                                           // .pdf
+  'application/msword',                                                        // .doc
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',   // .docx
+  'application/vnd.ms-excel',                                                // .xls
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',         // .xlsx
+  'application/vnd.ms-powerpoint',                                           // .ppt
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+  'image/png',                                                                 // .png
+  'image/jpeg',                                                                // .jpg, .jpeg
+];
+
+const investorFileFilter = (req, file, cb) => {
+  if (ALLOWED_INVESTOR_MIMES.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(
+      new Error(
+        'Unsupported file type. Allowed: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, JPG, JPEG, PNG.'
+      ),
+      false
+    );
+  }
+};
+
+const investorUpload = multer({
+  storage: investorStorage,
+  fileFilter: investorFileFilter,
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB — documents can be larger than images
+});
+
+// Single investor document upload — field name is "document"
+const uploadInvestorDocument = investorUpload.single('document');
+
+// Error handler tailored to investor uploads (handles the doc-type message too)
+const handleInvestorUploadError = (error, req, res, next) => {
+  if (error instanceof multer.MulterError) {
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ success: false, message: 'File too large. Maximum size is 25MB.' });
+    }
+    return res.status(400).json({ success: false, message: 'File upload error: ' + error.message });
+  } else if (error && /Unsupported file type/.test(error.message || '')) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+  next(error);
+};
+
 // Error handling middleware
 const handleUploadError = (error, req, res, next) => {
   if (error instanceof multer.MulterError) {
@@ -93,4 +159,4 @@ const fileUrl = (filename) => {
   return base ? `${base}/uploads/${filename}` : `/uploads/${filename}`;
 };
 
-module.exports = { uploadDriverDocuments, uploadDriverComplete, uploadSingleForHireLicense, uploadAvatar, handleUploadError, uploadNone, fileUrl };
+module.exports = { uploadDriverDocuments, uploadDriverComplete, uploadSingleForHireLicense, uploadAvatar, handleUploadError, uploadNone, fileUrl, uploadInvestorDocument, handleInvestorUploadError };

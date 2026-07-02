@@ -162,14 +162,14 @@ function TripSummaryBar({
         ];
 
         return (
-            <div className="mb-5 flex items-start justify-between gap-3 rounded-xl border border-[#1e2a2c] bg-[#0d1514] px-4 py-3">
+            <div className="mb-5 flex items-start justify-between gap-3 rounded-xl border border-aleet-border bg-aleet-card px-4 py-3">
                 <div className="flex flex-wrap gap-x-5 gap-y-1.5">
                     {items.map((item) => (
                         <div key={item.label} className="flex flex-col gap-0.5">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#3a5060]">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-aleet-text-subtle">
                                 {item.label}
                             </span>
-                            <span className="text-[13px] font-medium text-white/90">{item.value}</span>
+                            <span className="text-[13px] font-medium text-aleet-text">{item.value}</span>
                         </div>
                     ))}
                 </div>
@@ -177,7 +177,7 @@ function TripSummaryBar({
                     type="button"
                     onClick={() => setEditing(true)}
                     title="Edit trip details"
-                    className="mt-0.5 flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-[#2a3336] px-2.5 py-1.5 text-[12px] font-medium text-[#bca066] transition-colors hover:border-[#bca066]/40 hover:bg-[#bca066]/10"
+                    className="mt-0.5 flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-aleet-border px-2.5 py-1.5 text-[12px] font-medium text-aleet-gold transition-colors hover:border-aleet-gold/40 hover:bg-aleet-gold/10"
                 >
                     <Pencil className="h-3.5 w-3.5" />
                     Edit
@@ -195,13 +195,13 @@ function TripSummaryBar({
     }
 
     return (
-        <div className="mb-5 rounded-xl border border-[#bca066]/30 bg-[#0d1514] p-4 sm:p-5">
+        <div className="mb-5 rounded-xl border border-aleet-gold/30 bg-aleet-card p-4 sm:p-5">
             <div className="mb-4 flex items-center justify-between">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-[#3a5060]">Edit Trip Details</p>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-aleet-text-subtle">Edit Trip Details</p>
                 <button
                     type="button"
                     onClick={handleDone}
-                    className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-[#bca066]/30 bg-[#bca066]/10 px-2.5 py-1.5 text-[12px] font-medium text-[#bca066] transition-colors hover:bg-[#bca066]/20"
+                    className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-aleet-gold/30 bg-aleet-gold/10 px-2.5 py-1.5 text-[12px] font-medium text-aleet-gold transition-colors hover:bg-aleet-gold/20"
                 >
                     <ChevronUp className="h-3.5 w-3.5" />
                     Done
@@ -238,26 +238,26 @@ function TripSummaryBar({
             <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {isBuyHours ? (
                     <div>
-                        <p className="mb-1.5 text-[12px] font-semibold uppercase tracking-widest text-[#7a8a9a]">Duration</p>
-                        <div className="flex h-11 items-center justify-between rounded-lg border border-[#2e3638] bg-[#1e2527] px-2.5 sm:h-12">
+                        <p className="mb-1.5 text-[12px] font-semibold uppercase tracking-widest text-aleet-text-muted">Duration</p>
+                        <div className="flex h-11 items-center justify-between rounded-lg border border-aleet-border-strong bg-aleet-cream px-2.5 sm:h-12">
                             <button
                                 type="button"
                                 onClick={() => {
                                     const current = getDurationHours() ?? 1;
                                     handleDurationChange(Math.max(1, current - 1));
                                 }}
-                                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-white/70 transition-colors hover:bg-[#2a3336] hover:text-white"
+                                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-aleet-text-muted transition-colors hover:bg-[#2a3336] hover:text-aleet-text"
                             >
                                 −
                             </button>
-                            <span className="text-[13px] font-medium text-white">{getDurationHours() ?? 1}h</span>
+                            <span className="text-[13px] font-medium text-aleet-text">{getDurationHours() ?? 1}h</span>
                             <button
                                 type="button"
                                 onClick={() => {
                                     const current = getDurationHours() ?? 1;
                                     handleDurationChange(Math.min(24, current + 1));
                                 }}
-                                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-white/70 transition-colors hover:bg-[#2a3336] hover:text-white"
+                                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-aleet-text-muted transition-colors hover:bg-[#2a3336] hover:text-aleet-text"
                             >
                                 +
                             </button>
@@ -306,7 +306,7 @@ function StepIndicator({ current, skipFirstStep }: { current: Step; skipFirstSte
                         {i > 0 && (
                             <div className="relative mb-6 h-0.5 flex-1 overflow-hidden rounded-full bg-[#1e2a2c]">
                                 <div
-                                    className="absolute inset-0 origin-left rounded-full bg-[#bca066]/50 transition-transform duration-500 ease-in-out"
+                                    className="absolute inset-0 origin-left rounded-full bg-aleet-gold/50 transition-transform duration-500 ease-in-out"
                                     style={{ transform: current > idx - 1 ? "scaleX(1)" : "scaleX(0)" }}
                                 />
                             </div>
@@ -315,10 +315,10 @@ function StepIndicator({ current, skipFirstStep }: { current: Step; skipFirstSte
                         <div className="flex shrink-0 flex-col items-center gap-1.5">
                             <div
                                 className={`flex h-8 w-8 items-center justify-center rounded-full border text-[13px] font-semibold transition-all duration-300 ${isDone
-                                    ? "border-[#bca066]/30 bg-[#bca066]/15 text-[#bca066]"
+                                    ? "border-aleet-gold/30 bg-aleet-gold/15 text-aleet-gold"
                                     : isActive
-                                        ? "border-[#bca066] bg-[#bca066] text-[#0a0900] shadow-[0_0_12px_rgba(188,160,102,0.35)]"
-                                        : "border-[#1e2a2c] bg-[#0c1211] text-[#3a5060]"
+                                        ? "border-aleet-gold bg-aleet-gold text-aleet-text shadow-sm"
+                                        : "border-aleet-border bg-aleet-card text-aleet-text-subtle"
                                     }`}
                             >
                                 {isDone ? (
@@ -330,10 +330,10 @@ function StepIndicator({ current, skipFirstStep }: { current: Step; skipFirstSte
                                 )}
                             </div>
                             <div className="text-center">
-                                <p className={`text-[12px] font-semibold ${isActive ? "text-white" : isDone ? "text-[#bca066]/70" : "text-[#3a5060]"}`}>
+                                <p className={`text-[12px] font-semibold ${isActive ? "text-aleet-text" : isDone ? "text-aleet-gold/70" : "text-aleet-text-subtle"}`}>
                                     {step.label}
                                 </p>
-                                <p className="hidden text-[10px] text-[#3a5060] sm:block">{step.sub}</p>
+                                <p className="hidden text-[10px] text-aleet-text-subtle sm:block">{step.sub}</p>
                             </div>
                         </div>
                         {/* Right connector (after last node — not needed) */}
@@ -510,18 +510,18 @@ export function BookingWizard({ onStepChange, renderIndicator }: { onStepChange?
     if (submitted) {
         return (
             <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
-                <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full border border-[#bca066]/30 bg-[#bca066]/10 text-[#bca066]">
+                <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full border border-aleet-gold/30 bg-aleet-gold/10 text-aleet-gold">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-8 w-8">
                         <path d="m5 13 4 4L19 7" />
                     </svg>
                 </div>
-                <h2 className="mb-2 text-[24px] font-semibold text-white">Booking Confirmed</h2>
-                <p className="max-w-sm text-[14px] text-white/50">
+                <h2 className="mb-2 font-serif text-[24px] font-medium text-aleet-text">Booking Confirmed</h2>
+                <p className="max-w-sm text-[14px] text-aleet-text-muted">
                     Your reservation has been received. You&apos;ll get a confirmation email shortly.
                 </p>
                 <Link
                     href="/dashboard"
-                    className="mt-8 inline-flex items-center gap-2 rounded-xl border border-[#bca066]/30 bg-[#bca066]/10 px-5 py-2.5 text-[13px] font-medium text-[#bca066] transition-colors hover:bg-[#bca066]/20"
+                    className="mt-8 inline-flex items-center gap-2 rounded-xl border border-aleet-gold/30 bg-aleet-gold/10 px-5 py-2.5 text-[13px] font-medium text-aleet-gold transition-colors hover:bg-aleet-gold/20"
                 >
                     View my bookings →
                 </Link>

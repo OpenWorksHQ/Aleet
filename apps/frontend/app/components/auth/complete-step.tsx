@@ -29,7 +29,7 @@ export function CompleteStep({ isLoading, defaultEmail = "", onSubmit, onBack }:
                 required
                 autoFocus
                 autoComplete="name"
-                className="mb-4 h-12.5 border-[#1e2b2c] bg-[#090c0e] px-4 text-[15px] placeholder:text-[#5a5a5e] sm:h-14 sm:text-[17px]"
+                className="mb-4 h-12.5 px-4 text-[15px] sm:h-14 sm:text-[17px]"
             />
             <Input
                 type="email"
@@ -38,7 +38,7 @@ export function CompleteStep({ isLoading, defaultEmail = "", onSubmit, onBack }:
                 required
                 autoComplete="email"
                 defaultValue={defaultEmail}
-                className="mb-5 h-12.5 border-[#1e2b2c] bg-[#090c0e] px-4 text-[15px] placeholder:text-[#5a5a5e] sm:h-14 sm:text-[17px]"
+                className="mb-5 h-12.5 px-4 text-[15px] sm:h-14 sm:text-[17px]"
             />
             <Button
                 className="mb-4 h-13 text-[17px] sm:h-14.5 sm:text-[21px]"
@@ -50,7 +50,7 @@ export function CompleteStep({ isLoading, defaultEmail = "", onSubmit, onBack }:
             <button
                 type="button"
                 onClick={onBack}
-                className="text-center text-[13px] font-semibold text-[#9ba0a1] transition-colors hover:text-white"
+                className="text-center text-[13px] font-semibold text-aleet-text-muted transition-colors hover:text-aleet-text"
             >
                 ← Back
             </button>

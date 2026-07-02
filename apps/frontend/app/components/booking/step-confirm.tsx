@@ -49,7 +49,7 @@ function calcDurationHours(data: BookingData) {
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
     return (
-        <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-[#3a5060]">
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-aleet-text-subtle">
             {children}
         </p>
     );
@@ -57,13 +57,13 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 function Row({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
     return (
-        <div className="flex items-center gap-3 py-2.5 not-last:border-b not-last:border-[#1e2a2c]">
-            <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/5 text-[#5a7080]">
+        <div className="flex items-center gap-3 py-2.5 not-last:border-b not-last:border-aleet-border">
+            <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/5 text-aleet-text-subtle">
                 {icon}
             </span>
             <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
-                <span className="text-[13px] text-white/45">{label}</span>
-                <span className="shrink-0 text-right text-[13px] font-medium text-white">{value}</span>
+                <span className="text-[13px] text-aleet-text-muted">{label}</span>
+                <span className="shrink-0 text-right text-[13px] font-medium text-aleet-text">{value}</span>
             </div>
         </div>
     );
@@ -79,15 +79,15 @@ export function StepConfirm({ data, serverPrice, priceLoading, freeAddons, paidA
 
     return (
         <div>
-            <h2 className="mb-1 text-[22px] font-semibold tracking-tight text-white sm:text-[26px]">
+            <h2 className="mb-1 font-serif text-[22px] font-medium tracking-tight text-aleet-text sm:text-[26px]">
                 Review & Confirm
             </h2>
-            <p className="mb-6 text-[13px] text-white/50 sm:text-[15px]">
+            <p className="mb-6 text-[13px] text-aleet-text-muted sm:text-[15px]">
                 Double-check your booking details before confirming.
             </p>
 
             {/* ─── Trip Details ─── */}
-            <div className="rounded-2xl border border-[#1e2a2c] bg-[#0c1211] p-4 sm:p-6">
+            <div className="rounded-2xl border border-aleet-border bg-aleet-card p-4 sm:p-6">
                 <SectionTitle>Trip Details</SectionTitle>
                 <Row icon={<Calendar className="h-3.5 w-3.5" />} label="Pickup" value={`${formatDate(data.pickupDate)} at ${data.pickupTime || "—"}`} />
                 <Row icon={<Clock className="h-3.5 w-3.5" />} label="Return" value={`${formatDate(data.dropoffDate)} at ${data.dropoffTime || "—"}`} />
@@ -100,17 +100,17 @@ export function StepConfirm({ data, serverPrice, priceLoading, freeAddons, paidA
             </div>
 
             {/* ─── Route ─── */}
-            <div className="mt-3 rounded-2xl border border-[#1e2a2c] bg-[#0c1211] p-4 sm:p-6">
+            <div className="mt-3 rounded-2xl border border-aleet-border bg-aleet-card p-4 sm:p-6">
                 <SectionTitle>Route</SectionTitle>
 
                 {data.freeRouting ? (
                     <div className="flex items-start gap-3 py-2">
-                        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#bca066]/10 text-[#bca066]">
+                        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-aleet-gold/10 text-aleet-gold">
                             <MapPin className="h-3.5 w-3.5" />
                         </span>
                         <div>
-                            <p className="text-[13px] font-medium text-white">{data.pickupAddress.text || "—"}</p>
-                            <p className="mt-1 text-[12px] text-[#bca066]/70">Free routing — driver follows your instructions</p>
+                            <p className="text-[13px] font-medium text-aleet-text">{data.pickupAddress.text || "—"}</p>
+                            <p className="mt-1 text-[12px] text-aleet-gold/70">Free routing — driver follows your instructions</p>
                         </div>
                     </div>
                 ) : (
@@ -124,9 +124,9 @@ export function StepConfirm({ data, serverPrice, priceLoading, freeAddons, paidA
                             { text: data.dropoffAddress.text, note: "" },
                         ].filter((a) => a.text).map((item, i, arr) => (
                             <div key={i} className="flex items-start gap-3 py-2">
-                                <span className="relative z-10 mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[#2e3638] bg-[#0c1211]">
+                                <span className="relative z-10 mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-aleet-border-strong bg-aleet-card">
                                     {i === 0 ? (
-                                        <span className="h-2 w-2 rounded-full bg-[#bca066]" />
+                                        <span className="h-2 w-2 rounded-full bg-aleet-gold" />
                                     ) : i === arr.length - 1 ? (
                                         <span className="h-2 w-2 rounded-full bg-white/40" />
                                     ) : (
@@ -134,11 +134,11 @@ export function StepConfirm({ data, serverPrice, priceLoading, freeAddons, paidA
                                     )}
                                 </span>
                                 <div className="min-w-0">
-                                    <p className={`text-[13px] ${i === 0 ? "font-medium text-white" : i === arr.length - 1 ? "font-medium text-white/80" : "text-white/50"}`}>
+                                    <p className={`text-[13px] ${i === 0 ? "font-medium text-aleet-text" : i === arr.length - 1 ? "font-medium text-aleet-text" : "text-aleet-text-muted"}`}>
                                         {item.text}
                                     </p>
                                     {item.note.trim() && (
-                                        <p className="mt-0.5 text-[12px] italic text-[#bca066]/70">{item.note}</p>
+                                        <p className="mt-0.5 text-[12px] italic text-aleet-gold/70">{item.note}</p>
                                     )}
                                 </div>
                             </div>
@@ -149,7 +149,7 @@ export function StepConfirm({ data, serverPrice, priceLoading, freeAddons, paidA
 
             {/* ─── Add-ons ─── */}
             {data.selectedAddons.length > 0 && (
-                <div className="mt-3 rounded-2xl border border-[#1e2a2c] bg-[#0c1211] p-4 sm:p-6">
+                <div className="mt-3 rounded-2xl border border-aleet-border bg-aleet-card p-4 sm:p-6">
                     <SectionTitle>Add-ons</SectionTitle>
                     <div className="flex flex-col gap-2">
                         {data.selectedAddons.map((id) => {
@@ -157,9 +157,9 @@ export function StepConfirm({ data, serverPrice, priceLoading, freeAddons, paidA
                             const free = freeAddons.find((a) => a._id === id);
                             const addon = paid ?? free;
                             return (
-                                <div key={id} className="flex items-center justify-between py-1.5 not-last:border-b not-last:border-[#1e2a2c]">
-                                    <span className="text-[13px] text-white">{addon?.name ?? id}</span>
-                                    <span className="text-[13px] text-[#5a7080]">
+                                <div key={id} className="flex items-center justify-between py-1.5 not-last:border-b not-last:border-aleet-border">
+                                    <span className="text-[13px] text-aleet-text">{addon?.name ?? id}</span>
+                                    <span className="text-[13px] text-aleet-text-subtle">
                                         {paid ? `+$${paid.price}/hr` : <span className="text-[#4caf50]">Free</span>}
                                     </span>
                                 </div>
@@ -170,11 +170,11 @@ export function StepConfirm({ data, serverPrice, priceLoading, freeAddons, paidA
             )}
 
             {/* ─── Price Breakdown ─── */}
-            <div className="mt-3 rounded-2xl border border-[#1e2a2c] bg-[#0c1211] p-4 sm:p-6">
+            <div className="mt-3 rounded-2xl border border-aleet-border bg-aleet-card p-4 sm:p-6">
                 <SectionTitle>Order Total</SectionTitle>
 
                 {priceLoading ? (
-                    <div className="flex items-center justify-center gap-2.5 py-6 text-[#5a7080]">
+                    <div className="flex items-center justify-center gap-2.5 py-6 text-aleet-text-subtle">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         <span className="text-[13px]">Calculating price…</span>
                     </div>
@@ -182,52 +182,52 @@ export function StepConfirm({ data, serverPrice, priceLoading, freeAddons, paidA
                     <div className="space-y-2.5">
                         {/* Base */}
                         <div className="flex justify-between text-[13px]">
-                            <span className="text-white/50">
+                            <span className="text-aleet-text-muted">
                                 {serverPrice.vehicleType.name} × {serverPrice.quantity} · ${serverPrice.breakdown.baseRate}/hr · {serverPrice.hours}h
                             </span>
-                            <span className="text-white">${(serverPrice.breakdown.baseRate * serverPrice.quantity * serverPrice.hours).toFixed(0)}</span>
+                            <span className="text-aleet-text">${(serverPrice.breakdown.baseRate * serverPrice.quantity * serverPrice.hours).toFixed(0)}</span>
                         </div>
                         {/* Add-ons */}
                         {(serverPrice.breakdown.addOns ?? []).map((addon) => (
                             <div key={addon._id} className="flex justify-between text-[13px]">
-                                <span className="text-white/50">{addon.name}</span>
-                                <span className="text-white">+${addon.price}</span>
+                                <span className="text-aleet-text-muted">{addon.name}</span>
+                                <span className="text-aleet-text">+${addon.price}</span>
                             </div>
                         ))}
                         {/* Distance surcharge */}
                         {serverPrice.breakdown.distance.distanceSurcharge > 0 && (
                             <div className="flex justify-between text-[13px]">
-                                <span className="text-white/50">Distance surcharge</span>
-                                <span className="text-white">+${serverPrice.breakdown.distance.distanceSurcharge.toFixed(0)}</span>
+                                <span className="text-aleet-text-muted">Distance surcharge</span>
+                                <span className="text-aleet-text">+${serverPrice.breakdown.distance.distanceSurcharge.toFixed(0)}</span>
                             </div>
                         )}
                         {/* Free hours used */}
                         {serverPrice.breakdown.freeHoursUsed > 0 && (
                             <div className="flex justify-between text-[13px]">
-                                <span className="text-white/50">Free hours applied</span>
+                                <span className="text-aleet-text-muted">Free hours applied</span>
                                 <span className="text-[#4caf50]">−{serverPrice.breakdown.freeHoursUsed}h</span>
                             </div>
                         )}
-                        <div className="mt-3 flex justify-between border-t border-[#1e2a2c] pt-3">
-                            <span className="text-[15px] font-semibold text-white">Total</span>
-                            <span className="text-[18px] font-bold text-[#bca066]">${serverPrice.total.toFixed(0)}</span>
+                        <div className="mt-3 flex justify-between border-t border-aleet-border pt-3">
+                            <span className="text-[15px] font-semibold text-aleet-text">Total</span>
+                            <span className="text-[18px] font-bold text-aleet-gold">${serverPrice.total.toFixed(0)}</span>
                         </div>
                     </div>
                 ) : hours > 0 && data.vehicleHourlyRate > 0 ? (
                     <div className="space-y-2.5">
                         <div className="flex justify-between text-[13px]">
-                            <span className="text-white/50">
+                            <span className="text-aleet-text-muted">
                                 {data.vehicleType} × {data.quantity} · ${data.vehicleHourlyRate}/hr · {hours.toFixed(1)}h
                             </span>
-                            <span className="text-white">${baseTotal.toFixed(0)}</span>
+                            <span className="text-aleet-text">${baseTotal.toFixed(0)}</span>
                         </div>
-                        <div className="mt-3 flex justify-between border-t border-[#1e2a2c] pt-3">
-                            <span className="text-[15px] font-semibold text-white">Estimated Total</span>
-                            <span className="text-[18px] font-bold text-[#bca066]">${clientGrandTotal.toFixed(0)}</span>
+                        <div className="mt-3 flex justify-between border-t border-aleet-border pt-3">
+                            <span className="text-[15px] font-semibold text-aleet-text">Estimated Total</span>
+                            <span className="text-[18px] font-bold text-aleet-gold">${clientGrandTotal.toFixed(0)}</span>
                         </div>
                     </div>
                 ) : (
-                    <p className="py-4 text-center text-[13px] text-white/30">
+                    <p className="py-4 text-center text-[13px] text-aleet-text-subtle">
                         Price unavailable — please check your booking details.
                     </p>
                 )}
@@ -235,13 +235,13 @@ export function StepConfirm({ data, serverPrice, priceLoading, freeAddons, paidA
 
             {/* ─── Special Requests ─── */}
             {data.specialRequests && (
-                <div className="mt-3 rounded-2xl border border-[#1e2a2c] bg-[#0c1211] p-4 sm:p-6">
+                <div className="mt-3 rounded-2xl border border-aleet-border bg-aleet-card p-4 sm:p-6">
                     <SectionTitle>Special Requests</SectionTitle>
-                    <p className="text-[13px] leading-relaxed text-white/70">{data.specialRequests}</p>
+                    <p className="text-[13px] leading-relaxed text-aleet-text-muted">{data.specialRequests}</p>
                 </div>
             )}
 
-            <p className="mt-4 text-left text-[11px] text-white/25">
+            <p className="mt-4 text-left text-[11px] text-aleet-text-subtle">
                 By confirming, you agree to our Terms of Service and Cancellation Policy.
             </p>
 

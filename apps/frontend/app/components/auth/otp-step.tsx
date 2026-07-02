@@ -62,9 +62,9 @@ export function OtpStep({ identifier, isLoading, onSubmit, onBack }: Props) {
 
     return (
         <motion.form {...fadeProps} className="flex flex-col" onSubmit={handleSubmit}>
-            <p className="mb-6 text-center text-[14px] text-[#a3a8a7]">
+            <p className="mb-6 text-center text-[14px] text-aleet-text-muted">
                 Code sent to{" "}
-                <span className="font-semibold text-white">{identifier}</span>
+                <span className="font-semibold text-aleet-text">{identifier}</span>
             </p>
             <div className="mb-6 grid grid-cols-6 gap-2.5 sm:gap-3.5">
                 {otp.map((digit, i) => (
@@ -80,8 +80,8 @@ export function OtpStep({ identifier, isLoading, onSubmit, onBack }: Props) {
                         onKeyDown={(e) => onKeyDown(i, e)}
                         onPaste={onPaste}
                         className={cn(
-                            "h-13.5 w-full rounded-lg border border-[#1e2125] bg-[#090c0e] text-center text-[20px] font-semibold text-white outline-none transition-colors focus:border-[#3f4349] sm:h-16 sm:text-[24px]",
-                            digit && "border-[#414a4d]",
+                            "h-13.5 w-full rounded-lg border border-aleet-border-strong bg-aleet-card text-center text-[20px] font-semibold text-aleet-text outline-none transition-colors focus:border-aleet-gold sm:h-16 sm:text-[24px]",
+                            digit && "border-aleet-gold/50",
                         )}
                         aria-label={`Digit ${i + 1}`}
                     />
@@ -98,7 +98,7 @@ export function OtpStep({ identifier, isLoading, onSubmit, onBack }: Props) {
             <button
                 type="button"
                 onClick={onBack}
-                className="text-center text-[13px] font-semibold text-[#9ba0a1] transition-colors hover:text-white"
+                className="text-center text-[13px] font-semibold text-aleet-text-muted transition-colors hover:text-aleet-text"
             >
                 ← Back
             </button>
