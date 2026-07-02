@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Karla } from "next/font/google";
+import { Karla, Playfair_Display } from "next/font/google";
 import { Toaster } from "sonner";
 import { GoogleMapsProvider } from "./components/google-maps-provider";
 import { getSiteUrl } from "@/lib/site-url";
@@ -8,6 +8,12 @@ import "./globals.css";
 const karla = Karla({
   variable: "--font-karla",
   subsets: ["latin"],
+});
+
+const playfair = Playfair_Display({
+  variable: "--font-playfair",
+  subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -28,9 +34,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${karla.variable} h-full antialiased`}
+      className={`${karla.variable} ${playfair.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col bg-aleet-cream text-aleet-text">
         <GoogleMapsProvider>
           {children}
         </GoogleMapsProvider>
@@ -38,13 +44,13 @@ export default function RootLayout({
           position="bottom-right"
           toastOptions={{
             style: {
-              background: "#0d1a19",
-              border: "1px solid #1e2b2a",
-              color: "#e8e8e8",
+              background: "#ffffff",
+              border: "1px solid #e5dfd4",
+              color: "#1a1510",
               fontFamily: "var(--font-karla), Karla, sans-serif",
               fontSize: "14px",
               borderRadius: "12px",
-              boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+              boxShadow: "0 8px 32px rgba(26,21,16,0.12)",
             },
           }}
         />

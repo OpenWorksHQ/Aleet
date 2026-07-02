@@ -19,7 +19,7 @@ function formatDate(iso: string) {
 const STATUS_STYLES: Record<string, string> = {
     Pending: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
     Active: "bg-green-500/10 text-green-400 border-green-500/20",
-    Completed: "bg-[#bca066]/10 text-[#bca066] border-[#bca066]/20",
+    Completed: "bg-aleet-gold/10 text-aleet-gold border-aleet-gold/20",
     Cancelled: "bg-red-500/10 text-red-400 border-red-500/20",
 };
 
@@ -29,16 +29,16 @@ const PAYMENT_STYLES: Record<string, string> = {
 };
 
 function BookingCard({ booking }: { booking: MyBooking }) {
-    const statusCls = STATUS_STYLES[booking.status] ?? "bg-white/5 text-white/50 border-white/10";
-    const paymentCls = PAYMENT_STYLES[booking.paymentStatus] ?? "bg-white/5 text-white/50 border-white/10";
+    const statusCls = STATUS_STYLES[booking.status] ?? "bg-aleet-cream text-aleet-text-muted border-aleet-border";
+    const paymentCls = PAYMENT_STYLES[booking.paymentStatus] ?? "bg-aleet-cream text-aleet-text-muted border-aleet-border";
 
     return (
-        <div className="rounded-2xl border border-[#1e2a2c] bg-[#0c1211] p-4 sm:p-5">
+        <div className="rounded-2xl border border-aleet-border bg-aleet-card p-4 sm:p-5">
             {/* Header row */}
             <div className="mb-3 flex items-start justify-between gap-3">
                 <div>
-                    <p className="font-mono text-[11px] text-[#3a5060]">#{booking._id.slice(-8).toUpperCase()}</p>
-                    <p className="mt-0.5 text-[13px] text-white/40">{formatDate(booking.createdAt)}</p>
+                    <p className="font-mono text-[11px] text-aleet-text-subtle">#{booking._id.slice(-8).toUpperCase()}</p>
+                    <p className="mt-0.5 text-[13px] text-aleet-text-muted">{formatDate(booking.createdAt)}</p>
                 </div>
                 <div className="flex shrink-0 gap-2">
                     <span className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${statusCls}`}>
@@ -53,24 +53,24 @@ function BookingCard({ booking }: { booking: MyBooking }) {
             <div className="space-y-2">
                 {/* Vehicle */}
                 <div className="flex items-center gap-2 text-[13px]">
-                    <Car className="h-3.5 w-3.5 shrink-0 text-[#5a7080]" />
-                    <span className="text-white/70">
+                    <Car className="h-3.5 w-3.5 shrink-0 text-aleet-text-subtle" />
+                    <span className="text-aleet-text-muted">
                         {booking.vehicleType.name} · ${booking.vehicleType.hourlyPrice}/hr · {booking.quantity} vehicle{booking.quantity > 1 ? "s" : ""}
                     </span>
                 </div>
 
                 {/* Dates */}
                 <div className="flex items-center gap-2 text-[13px]">
-                    <Calendar className="h-3.5 w-3.5 shrink-0 text-[#5a7080]" />
-                    <span className="text-white/70">
+                    <Calendar className="h-3.5 w-3.5 shrink-0 text-aleet-text-subtle" />
+                    <span className="text-aleet-text-muted">
                         {formatDate(booking.dates.startDate)} → {formatDate(booking.dates.endDate)}
                     </span>
                 </div>
 
                 {/* Route */}
                 <div className="flex items-start gap-2 text-[13px]">
-                    <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#5a7080]" />
-                    <span className="text-white/70">
+                    <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-aleet-text-subtle" />
+                    <span className="text-aleet-text-muted">
                         {booking.pickupLocation}
                         {booking.freeRouting
                             ? " · Free routing"
@@ -83,8 +83,8 @@ function BookingCard({ booking }: { booking: MyBooking }) {
                 {/* Stops */}
                 {booking.stops.length > 0 && (
                     <div className="flex items-start gap-2 text-[13px]">
-                        <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#5a7080]" />
-                        <span className="text-white/50">
+                        <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-aleet-text-subtle" />
+                        <span className="text-aleet-text-muted">
                             Stops ({booking.stops.length}): {booking.stops.map((s) => s.location).join(" → ")}
                         </span>
                     </div>
@@ -93,8 +93,8 @@ function BookingCard({ booking }: { booking: MyBooking }) {
                 {/* Add-ons */}
                 {booking.addOns.length > 0 && (
                     <div className="flex items-start gap-2 text-[13px]">
-                        <Tag className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#5a7080]" />
-                        <span className="text-white/50">
+                        <Tag className="mt-0.5 h-3.5 w-3.5 shrink-0 text-aleet-text-subtle" />
+                        <span className="text-aleet-text-muted">
                             {booking.addOns.map((a) => a.name).join(", ")}
                         </span>
                     </div>
@@ -102,9 +102,9 @@ function BookingCard({ booking }: { booking: MyBooking }) {
             </div>
 
             {/* Price */}
-            <div className="mt-4 flex items-baseline justify-between border-t border-[#1e2a2c] pt-3">
-                <span className="text-[12px] text-white/30">Total</span>
-                <span className="text-[20px] font-bold text-[#bca066]">
+            <div className="mt-4 flex items-baseline justify-between border-t border-aleet-border pt-3">
+                <span className="text-[12px] text-aleet-text-subtle">Total</span>
+                <span className="text-[20px] font-bold text-aleet-gold">
                     ${booking.finalPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
             </div>

@@ -121,13 +121,12 @@ export function AddressAutocomplete({
     return (
         <div ref={containerRef} className={cn("relative", className)}>
             {label && (
-                <p className="mb-1.5 text-[12px] font-semibold uppercase tracking-widest text-[#7a8a9a]">
+                <p className="mb-1.5 text-[12px] font-semibold uppercase tracking-widest text-aleet-text-subtle">
                     {label}
                 </p>
             )}
             <div className="relative">
-                {/* Pin icon */}
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#bca066]/50">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-aleet-gold/50">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-3.5 w-3.5">
                         <path d="M12 21c-4.418-4.418-7-7.582-7-10a7 7 0 1 1 14 0c0 2.418-2.582 5.582-7 10Z" />
                         <circle cx="12" cy="11" r="2.5" />
@@ -143,7 +142,7 @@ export function AddressAutocomplete({
                     placeholder={placeholder}
                     disabled={disabled}
                     autoComplete="off"
-                    className="h-11 w-full rounded-lg border border-[#2e3638] bg-[#1e2527] pl-9 pr-3 text-[13px] text-white placeholder:text-[#5a6870] outline-none transition-colors focus:border-[#bca066]/40 focus:bg-[#1e2a1a] disabled:cursor-not-allowed disabled:opacity-40 sm:h-12 sm:text-[14px]"
+                    className="h-11 w-full rounded-lg border border-aleet-border-strong bg-aleet-card pl-9 pr-3 text-[13px] text-aleet-text placeholder:text-aleet-text-subtle outline-none transition-colors focus:border-aleet-gold/50 disabled:cursor-not-allowed disabled:opacity-40 sm:h-12 sm:text-[14px]"
                 />
             </div>
 
@@ -151,7 +150,7 @@ export function AddressAutocomplete({
             {open && suggestions.length > 0 && (
                 <ul
                     role="listbox"
-                    className="absolute z-50 mt-1 w-full overflow-hidden rounded-xl border border-[#2e3638] bg-[#0e1a19] shadow-[0_8px_32px_rgba(0,0,0,0.6)]"
+                    className="absolute z-50 mt-1 w-full overflow-hidden rounded-xl border border-aleet-border bg-aleet-card shadow-[0_8px_32px_rgba(26,21,16,0.12)]"
                 >
                     {suggestions.map((s, i) => (
                         <li
@@ -162,17 +161,17 @@ export function AddressAutocomplete({
                                 e.preventDefault();
                                 handleSelect(s);
                             }}
-                            className="flex cursor-pointer items-start gap-2.5 px-3 py-2.5 transition-colors hover:bg-[#bca066]/8 not-last:border-b not-last:border-[#1e2a2c]"
+                            className="flex cursor-pointer items-start gap-2.5 px-3 py-2.5 transition-colors hover:bg-aleet-gold/8 not-last:border-b not-last:border-aleet-border"
                         >
-                            <span className="mt-0.5 shrink-0 text-[#bca066]/40">
+                            <span className="mt-0.5 shrink-0 text-aleet-gold/50">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-3.5 w-3.5">
                                     <path d="M12 21c-4.418-4.418-7-7.582-7-10a7 7 0 1 1 14 0c0 2.418-2.582 5.582-7 10Z" />
                                     <circle cx="12" cy="11" r="2.5" />
                                 </svg>
                             </span>
                             <div className="min-w-0">
-                                <p className="truncate text-[13px] text-white/90">{getMainText(s)}</p>
-                                <p className="truncate text-[11px] text-white/35">{getSecondaryText(s)}</p>
+                                <p className="truncate text-[13px] text-aleet-text">{getMainText(s)}</p>
+                                <p className="truncate text-[11px] text-aleet-text-subtle">{getSecondaryText(s)}</p>
                             </div>
                         </li>
                     ))}

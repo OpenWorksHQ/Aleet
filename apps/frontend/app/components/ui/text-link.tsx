@@ -9,7 +9,7 @@ export function TextLink({ className, ...props }: TextLinkProps) {
   return (
     <Link
       className={cn(
-        "text-sm text-[#bababa] no-underline transition-opacity hover:opacity-85 sm:text-[15px]",
+        "text-sm text-aleet-text-muted no-underline transition-colors hover:text-aleet-gold sm:text-[15px]",
         className,
       )}
       {...props}

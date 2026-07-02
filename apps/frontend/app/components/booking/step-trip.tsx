@@ -142,16 +142,16 @@ export function StepTrip({ data, onChange, onNext, priceBar, isMember = false, s
 
     return (
         <div>
-            <h2 className="mb-1 text-[22px] font-semibold tracking-tight text-white sm:text-[26px]">
+            <h2 className="mb-1 font-serif text-[22px] font-medium tracking-tight text-aleet-text sm:text-[26px]">
                 Trip Details
             </h2>
-            <p className="mb-6 text-[13px] text-white/50 sm:text-[15px]">
+            <p className="mb-6 text-[13px] text-aleet-text-muted sm:text-[15px]">
                 Select your dates, vehicle type, and region to get started.
             </p>
 
             {/* ── Dates & Vehicle ── */}
-            <div className="rounded-2xl border border-[#1e2a2c] bg-[#0c1211] p-4 sm:p-6">
-                <p className="mb-4 text-[11px] font-semibold uppercase tracking-widest text-[#3a5060]">Schedule</p>
+            <div className="rounded-2xl border border-aleet-border bg-aleet-card p-4 sm:p-6">
+                <p className="mb-4 text-[11px] font-semibold uppercase tracking-widest text-aleet-text-subtle">Schedule</p>
 
                 {/* Row 1 */}
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -200,12 +200,12 @@ export function StepTrip({ data, onChange, onNext, priceBar, isMember = false, s
                     />
                     {/* Duration + cost indicator */}
                     <div className="col-span-2 flex items-end">
-                        <div className={`flex h-11 w-full items-center gap-2 rounded-lg border px-3 sm:h-12 ${durationHours !== null && !isDurationValid ? "border-red-500/40 bg-red-950/20" : "border-[#1e2a2c] bg-[#111918]/60"}`}>
-                            <span className="text-[#bca066]/60">
+                        <div className={`flex h-11 w-full items-center gap-2 rounded-lg border px-3 sm:h-12 ${durationHours !== null && !isDurationValid ? "border-red-500/40 bg-red-950/20" : "border-aleet-border bg-aleet-cream"}`}>
+                            <span className="text-aleet-gold/60">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-4 w-4"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></svg>
                             </span>
                             {durationHours !== null ? (
-                                <span className={`text-[13px] ${isDurationValid ? "text-white/60" : "text-red-400/80"}`}>
+                                <span className={`text-[13px] ${isDurationValid ? "text-aleet-text-muted" : "text-red-400/80"}`}>
                                     {durationHours.toFixed(1)}h duration
                                     {!isDurationValid && (
                                         <span className="ml-1 text-red-400/60">
@@ -213,13 +213,13 @@ export function StepTrip({ data, onChange, onNext, priceBar, isMember = false, s
                                         </span>
                                     )}
                                     {isDurationValid && estimatedCost !== null && (
-                                        <span className="ml-2 text-[#bca066]">
+                                        <span className="ml-2 text-aleet-gold">
                                             · ${estimatedCost.toFixed(0)} est. total
                                         </span>
                                     )}
                                 </span>
                             ) : (
-                                <span className="text-[13px] text-white/25">Select dates to see duration</span>
+                                <span className="text-[13px] text-aleet-text-subtle">Select dates to see duration</span>
                             )}
                         </div>
                     </div>

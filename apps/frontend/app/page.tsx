@@ -1,15 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Playfair_Display } from "next/font/google";
-import { SiteMenu } from "./components/site-menu";
+import { AppHeader } from "./components/app-header";
 import { BookingForm } from "./components/booking-form";
 import heroImage from "@/public/images/homepage/homepage_hero.jpeg";
-
-const playfair = Playfair_Display({
-  subsets: ["latin"],
-  variable: "--font-homepage-serif",
-  display: "swap",
-});
 
 const GOLD = "#c5a386";
 const CREAM = "#f9f7f2";
@@ -40,58 +33,11 @@ const FEATURES = [
 export default function HomePage() {
   return (
     <div
-      className={`${playfair.variable} overflow-x-hidden text-[#1a1510]`}
+      className="overflow-x-hidden text-aleet-text"
       style={{ backgroundColor: CREAM }}
     >
       {/* ─── Black navbar ─── */}
-      <header className="relative z-30 bg-black">
-        <div className="mx-auto grid max-w-[95%] w-full grid-cols-[1fr_auto] items-center gap-4 px-5 py-4 sm:px-8 lg:grid-cols-[1fr_auto_1fr] lg:px-12 lg:py-[18px]">
-          <div className="flex items-center gap-3 lg:justify-self-start">
-            <div className="lg:hidden">
-              <SiteMenu />
-            </div>
-            <Link
-              href="/"
-              className="text-[20px] font-normal tracking-[0.28em] text-white no-underline sm:text-[22px]"
-            >
-              ALEET
-            </Link>
-          </div>
-
-          <nav
-            className="hidden items-center gap-7 lg:flex lg:justify-self-center xl:gap-9"
-            aria-label="Main navigation"
-          >
-            {(["Membership", "Business", "For Partners", "About"] as const).map(
-              (item) => (
-                <Link
-                  key={item}
-                  href="#"
-                  className="text-[13px] text-white/85 no-underline transition-colors hover:text-white xl:text-[14px]"
-                >
-                  {item}
-                </Link>
-              ),
-            )}
-          </nav>
-
-          <div className="flex items-center justify-end gap-4 sm:gap-5 lg:justify-self-end">
-            <Link
-              href="/login"
-              className="hidden text-[13px] text-white/85 no-underline transition-colors hover:text-white sm:inline xl:text-[14px]"
-            >
-              Log in
-            </Link>
-            <Link
-              href="#"
-              className="rounded-md px-4 py-2 text-[12px] font-semibold text-black no-underline transition-opacity hover:opacity-90 sm:px-5 sm:py-2.5 sm:text-[13px]"
-              style={{ backgroundColor: GOLD }}
-            >
-              Join Aleet
-            </Link>
-          </div>
-        </div>
-      </header>
+      <AppHeader showMarketingNav />
 
       {/* ─── Split hero ─── */}
       <div className="relative">
@@ -103,10 +49,7 @@ export default function HomePage() {
           >
             <div className="max-w-[480px] ">
               <h1
-                className="text-[32px] leading-[1.14] text-[#1a1510] sm:text-[40px] xl:text-[48px]"
-                style={{
-                  fontFamily: "var(--font-homepage-serif), Georgia, serif",
-                }}
+                className="font-serif text-[32px] leading-[1.14] text-aleet-text sm:text-[40px] xl:text-[48px]"
               >
                 Curated access.
                 <br />
@@ -114,9 +57,8 @@ export default function HomePage() {
                 <br />
                 services that fit{" "}
                 <em
-                  className="not-italic"
+                  className="font-serif not-italic"
                   style={{
-                    fontFamily: "var(--font-homepage-serif), Georgia, serif",
                     fontStyle: "italic",
                     color: GOLD,
                   }}
@@ -125,7 +67,7 @@ export default function HomePage() {
                 </em>
               </h1>
 
-              <p className="mt-5 max-w-[400px] text-[13px] leading-[1.75] text-[#5c5348] sm:text-[14px]">
+              <p className="mt-5 max-w-[400px] text-[13px] leading-[1.75] text-aleet-text-muted sm:text-[14px]">
                 Professional drivers, event access, multi-day travel, and
                 concierge services — all in one place. Available to members
                 only.
@@ -206,9 +148,12 @@ export default function HomePage() {
         <div className="mx-auto grid w-full max-w-[1440px] grid-cols-1 gap-8 lg:grid-cols-[1.15fr_1fr_1fr] lg:items-center lg:gap-0">
           {/* Brand */}
           <div className="max-w-md lg:pr-10">
-            <p className="text-[14px] font-semibold text-[#1a1510]">
-              Aleet Access™
-            </p>
+            <Link
+              href="/teams"
+              className="text-[14px] font-semibold text-[#1a1510] no-underline transition-colors hover:text-aleet-gold"
+            >
+              Investor Resources
+            </Link>
             <p className="mt-1.5 text-[12px] leading-relaxed text-[#6a6054] sm:text-[13px]">
               Membership includes exclusive access to all concierge services
               across DMV · NYC · Miami · LA · ATL and more

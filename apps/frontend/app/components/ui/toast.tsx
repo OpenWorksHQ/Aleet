@@ -8,17 +8,17 @@ interface ToastOptions {
 
 const baseClassNames = {
     title: "text-[14px] font-semibold",
-    description: "text-[13px] text-[#a3a8a7]",
+    description: "text-[13px] text-aleet-text-muted",
 };
 
 export const toast = {
     success: (message: string, options?: ToastOptions) =>
         sonnerToast.success(message, {
             ...options,
-            icon: <CheckCircle size={18} className="text-[#bca066]" />,
+            icon: <CheckCircle size={18} className="text-aleet-gold" />,
             classNames: {
                 ...baseClassNames,
-                icon: "text-[#bca066]",
+                icon: "text-aleet-gold",
             },
         }),
 

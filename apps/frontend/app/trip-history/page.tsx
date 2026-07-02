@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { SiteMenu } from "../components/site-menu";
-import { SideNav } from "@/app/components/dashboard/side-nav";
+import { DashboardShell } from "../components/dashboard-shell";
 import { cn } from "@/lib/utils";
 import { fetchMyBookings, type MyBooking } from "@/lib/api/my-bookings";
 import { getToken } from "@/lib/auth";
@@ -132,10 +130,10 @@ const MOCK_BOOKINGS: MyBooking[] = [
 ];
 
 const STATUS_STYLES: Record<string, string> = {
-    active: "bg-[#bca066] text-[#252728]",
-    upcoming: "bg-[#bca066] text-[#252728]",
-    completed: "bg-white/10 text-white/60",
-    cancelled: "bg-red-900/30 text-red-400",
+    active: "bg-aleet-gold text-aleet-text",
+    upcoming: "bg-aleet-gold text-aleet-text",
+    completed: "bg-aleet-cream text-aleet-text-muted",
+    cancelled: "bg-red-100 text-red-600",
 };
 
 function statusLabel(status: string) {
@@ -153,14 +151,14 @@ function formatDate(dateStr: string) {
 }
 
 function BookingCard({ booking }: { booking: MyBooking }) {
-    const badgeStyle = STATUS_STYLES[booking.status] ?? "bg-white/10 text-white/60";
+    const badgeStyle = STATUS_STYLES[booking.status] ?? "bg-aleet-cream text-aleet-text-muted";
 
     return (
-        <article className="overflow-hidden rounded-2xl border border-[#1e2b2c] bg-[rgba(6,17,16,0.7)]">
+        <article className="overflow-hidden rounded-2xl border border-aleet-border bg-aleet-card shadow-sm">
             <div className="space-y-4 px-5 py-5">
                 {/* Date + status */}
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-semibold text-white">
+                    <p className="text-sm font-semibold text-aleet-text">
                         {formatDate(booking.dates.startDate)}
                     </p>
                     <span className={cn("rounded-full px-2.5 py-1 text-[11px] font-semibold", badgeStyle)}>
@@ -171,49 +169,49 @@ function BookingCard({ booking }: { booking: MyBooking }) {
                 {/* Route */}
                 <div className="space-y-2">
                     <div className="flex items-start gap-2.5">
-                        <span className="mt-0.5 shrink-0 text-[#5a7080]">
+                        <span className="mt-0.5 shrink-0 text-aleet-text-subtle">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="h-3.5 w-3.5" aria-hidden><path d="M12 2L12 22M5 9l7-7 7 7" /></svg>
                         </span>
                         <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-white/40">Pickup</p>
-                            <p className="text-sm text-white">{booking.pickupLocation}</p>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-aleet-text-muted">Pickup</p>
+                            <p className="text-sm text-aleet-text">{booking.pickupLocation}</p>
                         </div>
                     </div>
                     {booking.stops.length > 0 && (
                         <div className="flex items-start gap-2.5">
-                            <span className="mt-0.5 shrink-0 text-[#5a7080]">
+                            <span className="mt-0.5 shrink-0 text-aleet-text-subtle">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="h-3.5 w-3.5" aria-hidden><circle cx="12" cy="12" r="3" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4" /></svg>
                             </span>
                             <div>
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-white/40">
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-aleet-text-muted">
                                     Stops ({booking.stops.length})
                                 </p>
-                                <p className="text-sm text-white">{booking.stops.map((s) => s.location).join(", ")}</p>
+                                <p className="text-sm text-aleet-text">{booking.stops.map((s) => s.location).join(", ")}</p>
                             </div>
                         </div>
                     )}
                     {booking.dropoffLocation && (
                         <div className="flex items-start gap-2.5">
-                            <span className="mt-0.5 shrink-0 text-[#5a7080]">
+                            <span className="mt-0.5 shrink-0 text-aleet-text-subtle">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="h-3.5 w-3.5" aria-hidden><path d="M12 22V2M5 15l7 7 7-7" /></svg>
                             </span>
                             <div>
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-white/40">Drop-off</p>
-                                <p className="text-sm text-white">{booking.dropoffLocation}</p>
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-aleet-text-muted">Drop-off</p>
+                                <p className="text-sm text-aleet-text">{booking.dropoffLocation}</p>
                             </div>
                         </div>
                     )}
                 </div>
 
                 {/* Vehicle + price */}
-                <div className="flex items-center justify-between gap-3 border-t border-[#1e2b2c] pt-4">
+                <div className="flex items-center justify-between gap-3 border-t border-aleet-border pt-4">
                     <div>
-                        <p className="text-sm font-medium text-[#bca066]">{booking.vehicleType.name}</p>
-                        <p className="text-xs text-white/40">
+                        <p className="text-sm font-medium text-aleet-gold">{booking.vehicleType.name}</p>
+                        <p className="text-xs text-aleet-text-muted">
                             {formatDate(booking.dates.startDate)} — {formatDate(booking.dates.endDate)}
                         </p>
                     </div>
-                    <p className="text-lg font-semibold text-white">${booking.finalPrice.toFixed(2)}</p>
+                    <p className="text-lg font-semibold text-aleet-text">${booking.finalPrice.toFixed(2)}</p>
                 </div>
             </div>
         </article>
@@ -240,44 +238,17 @@ export default function TripHistoryPage() {
         : (bookings ?? []).filter((b) => b.status === filter);
 
     return (
-        <div className="min-h-screen bg-[#050d0c] pb-10 text-white">
-            {/* Header */}
-            <header className="sticky top-0 z-40 w-full border-b border-white/6 bg-[#050d0c]">
-                <div className="flex h-14 w-full items-center justify-between px-4 sm:h-16 sm:px-8">
-                    <SiteMenu />
-                    <Link
-                        href="/"
-                        className="inline-flex items-center gap-2.5 text-[#bca066] no-underline"
-                        aria-label="Aleet home"
-                    >
-                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border-[3px] border-[#bca066] font-serif text-[18px] leading-none font-semibold sm:h-9 sm:w-9 sm:text-[20px]">
-                            A
-                        </span>
-                        <span className="text-[22px] leading-none font-semibold tracking-[-0.02em] sm:text-[26px]">
-                            Aleet
-                        </span>
-                    </Link>
-                    <div className="w-9 sm:w-10" />
-                </div>
-            </header>
-
-            <main className="mx-auto mt-8 w-full px-5 sm:px-10">
-                <section className="grid gap-4 lg:grid-cols-[92px_1fr]">
-                    <aside className="overflow-hidden rounded-xl border border-[#1e2b2c] bg-[rgba(8,19,18,0.62)] p-1.5">
-                        <SideNav initialActive="history" />
-                    </aside>
-
-                    <section className="min-w-0 space-y-4">
+        <DashboardShell activeNav="history">
                         {/* Page title */}
                         <div className="flex items-center justify-between">
                             <div>
-                                <h1 className="text-2xl font-semibold text-white sm:text-3xl">Trip History</h1>
-                                <p className="mt-1 text-sm text-white/40">All your past and upcoming bookings</p>
+                                <h1 className="font-serif text-2xl font-medium text-aleet-text sm:text-3xl">Trip History</h1>
+                                <p className="mt-1 text-sm text-aleet-text-muted">All your past and upcoming bookings</p>
                             </div>
                         </div>
 
                         {/* Filter tabs */}
-                        <div className="overflow-x-auto rounded-xl border border-[#1e2a2c] bg-[#0c1211] p-1">
+                        <div className="overflow-x-auto rounded-xl border border-aleet-border bg-aleet-card p-1 shadow-sm">
                             <div className="flex min-w-max gap-1">
                                 {statuses.map((s) => (
                                     <button
@@ -286,14 +257,14 @@ export default function TripHistoryPage() {
                                         onClick={() => setFilter(s)}
                                         className={cn(
                                             "flex shrink-0 items-center justify-center rounded-lg px-3 py-2 text-[12px] font-semibold capitalize whitespace-nowrap transition-colors duration-150",
-                                            filter === s ? "bg-[#1e2a2c] text-white" : "text-white/40 hover:text-white/70",
+                                            filter === s ? "bg-aleet-cream text-aleet-text" : "text-aleet-text-muted hover:text-aleet-text",
                                         )}
                                     >
                                         {s}
                                         {bookings && s !== "all" && (
                                             <span className={cn(
                                                 "ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold",
-                                                filter === s ? "bg-[#bca066]/20 text-[#bca066]" : "bg-white/5 text-white/30",
+                                                filter === s ? "bg-aleet-gold/20 text-aleet-gold" : "bg-aleet-cream text-aleet-text-subtle",
                                             )}>
                                                 {bookings.filter((b) => b.status === s).length}
                                             </span>
@@ -301,7 +272,7 @@ export default function TripHistoryPage() {
                                         {bookings && s === "all" && (
                                             <span className={cn(
                                                 "ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold",
-                                                filter === s ? "bg-[#bca066]/20 text-[#bca066]" : "bg-white/5 text-white/30",
+                                                filter === s ? "bg-aleet-gold/20 text-aleet-gold" : "bg-aleet-cream text-aleet-text-subtle",
                                             )}>
                                                 {bookings.length}
                                             </span>
@@ -314,11 +285,11 @@ export default function TripHistoryPage() {
                         {/* Content */}
                         {isLoading ? (
                             <div className="flex items-center justify-center py-16">
-                                <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#bca066]/30 border-t-[#bca066]" />
+                                <div className="h-8 w-8 animate-spin rounded-full border-2 border-aleet-gold/30 border-t-aleet-gold" />
                             </div>
                         ) : filtered.length === 0 ? (
-                            <div className="rounded-2xl border border-[#1e2b2c] bg-[rgba(8,19,18,0.62)] py-16 text-center">
-                                <p className="text-sm text-white/30">No {filter === "all" ? "" : filter} trips found.</p>
+                            <div className="rounded-2xl border border-aleet-border bg-aleet-card py-16 text-center shadow-sm">
+                                <p className="text-sm text-aleet-text-subtle">No {filter === "all" ? "" : filter} trips found.</p>
                             </div>
                         ) : (
                             <div className="grid gap-3 lg:grid-cols-2">
@@ -327,9 +298,6 @@ export default function TripHistoryPage() {
                                 ))}
                             </div>
                         )}
-                    </section>
-                </section>
-            </main>
-        </div>
+        </DashboardShell>
     );
 }
