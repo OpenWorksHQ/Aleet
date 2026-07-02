@@ -6,13 +6,14 @@ export type NavLink = {
 export const MARKETING_NAV: NavLink[] = [
   { label: "Membership", href: "/membership" },
   { label: "Business", href: "#" },
-  { label: "For Partners", href: "/teams" },
+  { label: "For Partners", href: "/partners" },
   { label: "About", href: "#" },
 ];
 
 export const MOBILE_MENU_NAV: NavLink[] = [
   { label: "Membership", href: "/membership" },
   { label: "Book a Trip", href: "/booking" },
+  { label: "For Partners", href: "/partners" },
   { label: "Investor Resources", href: "/teams" },
   { label: "About", href: "#" },
 ];

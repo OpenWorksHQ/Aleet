@@ -1,9 +1,9 @@
 const KEY = "pendingBooking";
-const TTL_MS = 30 * 60 * 1000; // 30 хвилин
+const TTL_MS = 30 * 60 * 1000;
 
 export type PendingBooking = {
-  pickupDate: string | null; // ISO string
-  dropoffDate: string | null; // ISO string
+  pickupDate: string | null;
+  dropoffDate: string | null;
   pickupTime: string;
   dropoffTime: string;
   vehicleType: string;
@@ -11,10 +11,18 @@ export type PendingBooking = {
   vehicleHourlyRate: number;
   region: string;
   regionId: string;
-  bookingMode?: "buy_hours" | "multi_day" | "buy-hours" | "multi-day";
+  bookingMode?: "buy_hours" | "multi_day" | "venue_access" | "buy-hours" | "multi-day";
+  pickupLocationText?: string;
+  pickupLocationPlaceId?: string;
   dropoffLocationText?: string;
   dropoffLocationPlaceId?: string;
   promoCode?: string;
+  partnerId?: string;
+  partnerCode?: string;
+  partnerName?: string;
+  venueId?: string;
+  pickupLocked?: boolean;
+  discountPct?: number;
   _savedAt: number;
 };
 
@@ -40,7 +48,6 @@ export function loadPendingBooking(): Omit<PendingBooking, "_savedAt"> | null {
       localStorage.removeItem(KEY);
       return null;
     }
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { _savedAt, ...rest } = parsed;
     return rest;
   } catch {

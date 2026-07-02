@@ -58,7 +58,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 function Row({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
     return (
         <div className="flex items-center gap-3 py-2.5 not-last:border-b not-last:border-aleet-border">
-            <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/5 text-aleet-text-subtle">
+            <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-aleet-gold/10 text-aleet-gold">
                 {icon}
             </span>
             <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
@@ -92,6 +92,12 @@ export function StepConfirm({ data, serverPrice, priceLoading, freeAddons, paidA
                 <Row icon={<Calendar className="h-3.5 w-3.5" />} label="Pickup" value={`${formatDate(data.pickupDate)} at ${data.pickupTime || "—"}`} />
                 <Row icon={<Clock className="h-3.5 w-3.5" />} label="Return" value={`${formatDate(data.dropoffDate)} at ${data.dropoffTime || "—"}`} />
                 <Row icon={<Car className="h-3.5 w-3.5" />} label="Vehicle" value={data.vehicleType || "—"} />
+                {data.partnerName ? (
+                    <Row icon={<Globe className="h-3.5 w-3.5" />} label="Partner" value={data.partnerName} />
+                ) : null}
+                {data.discountPct ? (
+                    <Row icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="Partner discount" value={`${data.discountPct}% applied`} />
+                ) : null}
                 <Row icon={<Globe className="h-3.5 w-3.5" />} label="Region" value={data.region || "—"} />
                 <Row icon={<Users className="h-3.5 w-3.5" />} label="Vehicles" value={`${data.quantity} × ${data.vehicleType || "vehicle"}`} />
                 {hours > 0 && (
@@ -116,7 +122,7 @@ export function StepConfirm({ data, serverPrice, priceLoading, freeAddons, paidA
                 ) : (
                     <div className="relative flex flex-col gap-0">
                         {/* Timeline line */}
-                        <div className="absolute left-1.75 top-3 bottom-3 w-px bg-[#1e2a2c]" />
+                        <div className="absolute left-1.75 top-3 bottom-3 w-px bg-aleet-border-strong" />
 
                         {[
                             { text: data.pickupAddress.text, note: "" },
@@ -128,9 +134,9 @@ export function StepConfirm({ data, serverPrice, priceLoading, freeAddons, paidA
                                     {i === 0 ? (
                                         <span className="h-2 w-2 rounded-full bg-aleet-gold" />
                                     ) : i === arr.length - 1 ? (
-                                        <span className="h-2 w-2 rounded-full bg-white/40" />
+                                        <span className="h-2 w-2 rounded-full bg-aleet-text-subtle" />
                                     ) : (
-                                        <span className="h-1.5 w-1.5 rounded-full bg-white/20" />
+                                        <span className="h-1.5 w-1.5 rounded-full bg-aleet-border-strong" />
                                     )}
                                 </span>
                                 <div className="min-w-0">

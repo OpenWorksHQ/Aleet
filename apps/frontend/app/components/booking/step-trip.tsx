@@ -200,15 +200,15 @@ export function StepTrip({ data, onChange, onNext, priceBar, isMember = false, s
                     />
                     {/* Duration + cost indicator */}
                     <div className="col-span-2 flex items-end">
-                        <div className={`flex h-11 w-full items-center gap-2 rounded-lg border px-3 sm:h-12 ${durationHours !== null && !isDurationValid ? "border-red-500/40 bg-red-950/20" : "border-aleet-border bg-aleet-cream"}`}>
+                        <div className={`flex h-11 w-full items-center gap-2 rounded-lg border px-3 sm:h-12 ${durationHours !== null && !isDurationValid ? "border-red-300 bg-red-50" : "border-aleet-border bg-aleet-cream"}`}>
                             <span className="text-aleet-gold/60">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-4 w-4"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></svg>
                             </span>
                             {durationHours !== null ? (
-                                <span className={`text-[13px] ${isDurationValid ? "text-aleet-text-muted" : "text-red-400/80"}`}>
+                                <span className={`text-[13px] ${isDurationValid ? "text-aleet-text-muted" : "text-red-600"}`}>
                                     {durationHours.toFixed(1)}h duration
                                     {!isDurationValid && (
-                                        <span className="ml-1 text-red-400/60">
+                                        <span className="ml-1 text-red-500">
                                             (min 3h)
                                         </span>
                                     )}
