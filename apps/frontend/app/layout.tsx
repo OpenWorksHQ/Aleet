@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Karla, Playfair_Display } from "next/font/google";
+import { Suspense } from "react";
 import { Toaster } from "sonner";
+import { GoogleAnalytics } from "./components/google-analytics";
 import { GoogleMapsProvider } from "./components/google-maps-provider";
 import { getSiteUrl } from "@/lib/site-url";
 import "./globals.css";
@@ -10,6 +12,7 @@ const karla = Karla({
   subsets: ["latin"],
 });
 
+const gscVerification = process.env.NEXT_PUBLIC_GSC_VERIFICATION?.trim();
 const playfair = Playfair_Display({
   variable: "--font-playfair",
   subsets: ["latin"],
@@ -24,6 +27,9 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
+  ...(gscVerification
+    ? { verification: { google: gscVerification } }
+    : {}),
 };
 
 export default function RootLayout({
@@ -37,6 +43,9 @@ export default function RootLayout({
       className={`${karla.variable} ${playfair.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-aleet-cream text-aleet-text">
+        <Suspense fallback={null}>
+          <GoogleAnalytics />
+        </Suspense>
         <GoogleMapsProvider>
           {children}
         </GoogleMapsProvider>
