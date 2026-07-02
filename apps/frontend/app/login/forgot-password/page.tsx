@@ -3,8 +3,8 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { AuthFooter, AuthMenu } from "../../components/auth-shell";
-import { Button, Container, Input, toast } from "../../components/ui";
+import { AuthPageShell } from "../../components/auth-page-shell";
+import { Button, Input, toast } from "../../components/ui";
 import { cn } from "@/lib/utils";
 import { forgotPassword, resetPassword } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api";
@@ -31,68 +31,64 @@ function ForgotPasswordContent() {
     }
   }, [searchParams]);
 
+  const titles: Record<Step, string> = {
+    1: "Reset Password",
+    2: "Check Your Email",
+    3: "New Password",
+    4: "All Done!",
+  };
+
+  const subtitles: Record<Step, string> = {
+    1: "Enter your email to receive a reset link",
+    2: "We sent a reset link to your inbox",
+    3: "Choose your new password",
+    4: "Your password has been updated",
+  };
+
   return (
-    <div className="flex min-h-screen flex-col bg-aleet-cream px-5 pt-6 pb-4.5 text-aleet-text sm:px-14 sm:pt-14 sm:pb-6">
-      <AuthMenu />
+    <AuthPageShell
+      eyebrow="Account Security"
+      title="Reset your password."
+      subtitle="We'll help you get back into your account quickly and securely."
+    >
+      <header className="mb-6 text-center sm:mb-7">
+        <h2 className="font-serif text-[28px] leading-[1.1] text-aleet-text sm:text-[32px]">
+          {titles[step]}
+        </h2>
+        <p className="mt-2 text-[14px] text-aleet-text-muted sm:text-[15px]">
+          {subtitles[step]}
+        </p>
+      </header>
 
-      <div className="flex flex-1 items-center justify-center py-8">
-        <main className="w-full">
-          <Container className="max-w-140">
-            <section className="rounded-3xl border border-aleet-border bg-aleet-card px-4 py-6 shadow-[0_14px_44px_rgba(26,21,16,0.08)] sm:px-8 sm:py-9">
-              <header className="mb-7 text-center sm:mb-8">
-                <h1 className="mb-2 font-serif text-[30px] leading-[1.1] font-medium text-aleet-text sm:text-[40px]">
-                  {step === 1 && "Reset Password"}
-                  {step === 2 && "Check Your Email"}
-                  {step === 3 && "New Password"}
-                  {step === 4 && "All Done!"}
-                </h1>
-                <p className="text-[14px] font-semibold text-aleet-text-muted sm:text-[16px]">
-                  {step === 1 && "Enter your email to receive a reset link"}
-                  {step === 2 && "We sent a reset link to your inbox"}
-                  {step === 3 && "Choose your new password"}
-                  {step === 4 && "Your password has been updated"}
-                </p>
-              </header>
-
-              <div className="mb-6 flex items-center gap-2">
-                {([1, 2, 3, 4] as const).map((s) => (
-                  <div
-                    key={s}
-                    className={cn(
-                      "h-0.75 flex-1 rounded-full transition-colors duration-300",
-                      step >= s ? "bg-aleet-gold" : "bg-aleet-border",
-                    )}
-                  />
-                ))}
-              </div>
-
-              <div className="overflow-hidden">
-                <AnimatePresence mode="wait" initial={false}>
-                  {step === 1 && (
-                    <ForgotStep key="step-1" onSuccess={() => setStep(2)} />
-                  )}
-                  {step === 2 && (
-                    <CheckEmailStep key="step-2" />
-                  )}
-                  {step === 3 && (
-                    <ResetStep
-                      key="step-3"
-                      token={searchParams.get("token") ?? ""}
-                      onSuccess={() => setStep(4)}
-                    />
-                  )}
-                  {step === 4 && (
-                    <SuccessStep key="step-4" onLogin={() => router.push("/login")} />
-                  )}
-                </AnimatePresence>
-              </div>
-            </section>
-          </Container>
-        </main>
+      <div className="mb-6 flex items-center gap-2">
+        {([1, 2, 3, 4] as const).map((s) => (
+          <div
+            key={s}
+            className={cn(
+              "h-0.75 flex-1 rounded-full transition-colors duration-300",
+              step >= s ? "bg-aleet-gold" : "bg-aleet-border",
+            )}
+          />
+        ))}
       </div>
 
-      <AuthFooter />
-    </div>
+      <div className="overflow-hidden">
+        <AnimatePresence mode="wait" initial={false}>
+          {step === 1 && <ForgotStep key="step-1" onSuccess={() => setStep(2)} />}
+          {step === 2 && <CheckEmailStep key="step-2" />}
+          {step === 3 && (
+            <ResetStep
+              key="step-3"
+              token={searchParams.get("token") ?? ""}
+              onSuccess={() => setStep(4)}
+            />
+          )}
+          {step === 4 && (
+            <SuccessStep key="step-4" onLogin={() => router.push("/login")} />
+          )}
+        </AnimatePresence>
+      </div>
+    </AuthPageShell>
   );
 }
 
@@ -265,7 +261,7 @@ function ResetStep({ token, onSuccess }: { token: string; onSuccess: () => void 
       <button
         type="button"
         onClick={() => router.push("/login")}
-        className="text-center text-[13px] font-semibold text-aleet-text-muted transition-colors hover:text-aleet-text"
+        className="cursor-pointer text-center text-[13px] font-semibold text-aleet-text-muted transition-colors hover:text-aleet-text"
       >
         ← Back to Login
       </button>

@@ -115,12 +115,12 @@ export function HeaderAuthActions() {
         >
           Log in
         </Link>
-        <Link
-          href="/login"
-          className="rounded-md bg-aleet-gold px-4 py-2 text-[12px] font-semibold text-black no-underline transition-opacity hover:opacity-90 sm:px-5 sm:py-2.5 sm:text-[13px]"
-        >
-          Join Aleet
-        </Link>
+          <Link
+            href="/membership"
+            className="rounded-md bg-aleet-gold px-4 py-2 text-[12px] font-semibold text-black no-underline transition-opacity hover:opacity-90 sm:px-5 sm:py-2.5 sm:text-[13px]"
+          >
+            Join Aleet
+          </Link>
       </div>
     );
   }
