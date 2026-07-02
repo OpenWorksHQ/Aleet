@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
-import { AuthFooter, AuthMenu } from "../components/auth-shell";
-import { Container, toast } from "../components/ui";
+import { AuthPageShell } from "../components/auth-page-shell";
+import { toast } from "../components/ui";
 import { cn } from "@/lib/utils";
 import {
   checkUserExists,
@@ -26,13 +26,12 @@ import {
 } from "../components/auth";
 
 type Step =
-  | "identifier"  // Step 1:  enter phone or email
-  | "phone"       // Step 1b: email entered → ask for phone number
-  | "password"    // Step 2a: existing user — enter password
-  | "otp"         // Step 2b: new user — verify OTP
-  | "passcode"    // Step 3b: new user — set password
-  | "complete";   // Step 4b: new user — name + email
-
+  | "identifier"
+  | "phone"
+  | "password"
+  | "otp"
+  | "passcode"
+  | "complete";
 
 export default function LoginPage() {
   return (
@@ -43,7 +42,7 @@ export default function LoginPage() {
 }
 
 const HEADINGS: Record<Step, { title: string; subtitle: string }> = {
-  identifier: { title: "Welcome", subtitle: "Enter your phone number or email" },
+  identifier: { title: "Welcome", subtitle: "Enter your phone number or email to continue" },
   phone: { title: "Phone Number", subtitle: "Enter your phone number to receive a code" },
   password: { title: "Welcome Back", subtitle: "Enter your password to continue" },
   otp: { title: "Verify", subtitle: "Enter the code we just sent you" },
@@ -60,6 +59,47 @@ const PROGRESS: Record<Step, [number, number]> = {
   complete: [3, 3],
 };
 
+const SHELL_COPY: Record<Step, { eyebrow: string; title: ReactNode; subtitle: string }> = {
+  identifier: {
+    eyebrow: "Member Access",
+    title: (
+      <>
+        Transportation and services that fit{" "}
+        <em className="font-serif not-italic text-aleet-gold" style={{ fontStyle: "italic" }}>
+          your life.
+        </em>
+      </>
+    ),
+    subtitle:
+      "Sign in or create your account to book premium transportation, event access, and concierge services.",
+  },
+  phone: {
+    eyebrow: "Member Access",
+    title: "One more step.",
+    subtitle: "Add your phone number so we can verify your account securely.",
+  },
+  password: {
+    eyebrow: "Welcome Back",
+    title: "Good to see you again.",
+    subtitle: "Enter your password to access your bookings, membership, and account settings.",
+  },
+  otp: {
+    eyebrow: "Verification",
+    title: "Confirm it’s you.",
+    subtitle: "Enter the verification code we sent to keep your account secure.",
+  },
+  passcode: {
+    eyebrow: "Create Account",
+    title: "Secure your account.",
+    subtitle: "Choose a password to protect your membership and booking history.",
+  },
+  complete: {
+    eyebrow: "Create Account",
+    title: "Finish setting up.",
+    subtitle: "Tell us a little about yourself so we can personalize your experience.",
+  },
+};
+
 function AuthFlow() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -72,7 +112,6 @@ function AuthFlow() {
   const [signupToken, setSignupToken] = useState("");
   const [tempToken, setTempToken] = useState("");
 
-  // ── Step 1: Identifier
   const handleIdentifier = async (value: string) => {
     setIsLoading(true);
     try {
@@ -81,7 +120,6 @@ function AuthFlow() {
       if (res.data!.exists) {
         setStep("password");
       } else {
-        // Email entered → collect phone first before sending OTP
         const isEmail = value.includes("@");
         if (isEmail) {
           setEmailForComplete(value);
@@ -99,7 +137,6 @@ function AuthFlow() {
     }
   };
 
-  // ── Step 1b: Phone (only when email was entered first)
   const handlePhone = async (phone: string) => {
     setIsLoading(true);
     try {
@@ -114,7 +151,6 @@ function AuthFlow() {
     }
   };
 
-  // ── Step 2a: Password 
   const handlePassword = async (password: string) => {
     setIsLoading(true);
     try {
@@ -129,7 +165,6 @@ function AuthFlow() {
     }
   };
 
-  // ── Step 2b: OTP ─────
   const handleOtp = async (code: string) => {
     setIsLoading(true);
     try {
@@ -143,7 +178,6 @@ function AuthFlow() {
     }
   };
 
-  // ── Step 3b: Passcode 
   const handlePasscode = async (password: string) => {
     setIsLoading(true);
     try {
@@ -157,7 +191,6 @@ function AuthFlow() {
     }
   };
 
-  // ── Step 4b: Complete 
   const handleComplete = async (name: string, email: string) => {
     setIsLoading(true);
     try {
@@ -177,102 +210,93 @@ function AuthFlow() {
   };
 
   const { title, subtitle } = HEADINGS[step];
+  const shellCopy = SHELL_COPY[step];
   const [progress, total] = PROGRESS[step];
   const showProgress = total > 0;
 
   return (
-    <div className="flex min-h-screen flex-col bg-aleet-cream px-5 pt-6 pb-4.5 text-aleet-text sm:px-14 sm:pt-14 sm:pb-6">
-      <AuthMenu />
+    <AuthPageShell
+      eyebrow={shellCopy.eyebrow}
+      title={shellCopy.title}
+      subtitle={shellCopy.subtitle}
+    >
+      <header className="mb-6 text-center sm:mb-7">
+        <h2 className="font-serif text-[28px] leading-[1.1] text-aleet-text sm:text-[32px]">
+          {title}
+        </h2>
+        <p className="mt-2 text-[14px] text-aleet-text-muted sm:text-[15px]">
+          {subtitle}
+        </p>
+      </header>
 
-      <div className="flex flex-1 items-center justify-center py-8">
-        <main className="w-full">
-          <Container className="max-w-140">
-            <section className="rounded-3xl border border-aleet-border bg-aleet-card px-4 py-6 shadow-[0_14px_44px_rgba(26,21,16,0.08)] sm:px-8 sm:py-9">
-
-              <header className="mb-7 text-center sm:mb-8">
-                <h1 className="mb-2 font-serif text-[30px] leading-[1.1] font-medium text-aleet-text sm:text-[40px]">
-                  {title}
-                </h1>
-                <p className="text-[14px] font-semibold text-aleet-text-muted sm:text-[16px]">
-                  {subtitle}
-                </p>
-              </header>
-
-              {showProgress && (
-                <div className="mb-6 flex items-center gap-2">
-                  {Array.from({ length: total }).map((_, i) => (
-                    <div
-                      key={i}
-                      className={cn(
-                        "h-0.75 flex-1 rounded-full transition-colors duration-300",
-                        i < progress ? "bg-aleet-gold" : "bg-aleet-border",
-                      )}
-                    />
-                  ))}
-                </div>
+      {showProgress && (
+        <div className="mb-6 flex items-center gap-2">
+          {Array.from({ length: total }).map((_, i) => (
+            <div
+              key={i}
+              className={cn(
+                "h-0.75 flex-1 rounded-full transition-colors duration-300",
+                i < progress ? "bg-aleet-gold" : "bg-aleet-border",
               )}
+            />
+          ))}
+        </div>
+      )}
 
-              <div className="overflow-hidden">
-                <AnimatePresence mode="wait" initial={false}>
-                  {step === "identifier" && (
-                    <IdentifierStep
-                      key="identifier"
-                      isLoading={isLoading}
-                      onSubmit={handleIdentifier}
-                    />
-                  )}
-                  {step === "phone" && (
-                    <PhoneStep
-                      key="phone"
-                      isLoading={isLoading}
-                      onSubmit={handlePhone}
-                      onBack={() => setStep("identifier")}
-                    />
-                  )}
-                  {step === "password" && (
-                    <PasswordStep
-                      key="password"
-                      identifier={identifier}
-                      isLoading={isLoading}
-                      onSubmit={handlePassword}
-                      onBack={() => setStep("identifier")}
-                    />
-                  )}
-                  {step === "otp" && (
-                    <OtpStep
-                      key="otp"
-                      identifier={identifier}
-                      isLoading={isLoading}
-                      onSubmit={handleOtp}
-                      onBack={() => setStep(emailForComplete ? "phone" : "identifier")}
-                    />
-                  )}
-                  {step === "passcode" && (
-                    <PasscodeStep
-                      key="passcode"
-                      isLoading={isLoading}
-                      onSubmit={handlePasscode}
-                      onBack={() => setStep("otp")}
-                    />
-                  )}
-                  {step === "complete" && (
-                    <CompleteStep
-                      key="complete"
-                      isLoading={isLoading}
-                      defaultEmail={emailForComplete}
-                      onSubmit={handleComplete}
-                      onBack={() => setStep("passcode")}
-                    />
-                  )}
-                </AnimatePresence>
-              </div>
-
-            </section>
-          </Container>
-        </main>
+      <div className="overflow-hidden">
+        <AnimatePresence mode="wait" initial={false}>
+          {step === "identifier" && (
+            <IdentifierStep
+              key="identifier"
+              isLoading={isLoading}
+              onSubmit={handleIdentifier}
+            />
+          )}
+          {step === "phone" && (
+            <PhoneStep
+              key="phone"
+              isLoading={isLoading}
+              onSubmit={handlePhone}
+              onBack={() => setStep("identifier")}
+            />
+          )}
+          {step === "password" && (
+            <PasswordStep
+              key="password"
+              identifier={identifier}
+              isLoading={isLoading}
+              onSubmit={handlePassword}
+              onBack={() => setStep("identifier")}
+            />
+          )}
+          {step === "otp" && (
+            <OtpStep
+              key="otp"
+              identifier={identifier}
+              isLoading={isLoading}
+              onSubmit={handleOtp}
+              onBack={() => setStep(emailForComplete ? "phone" : "identifier")}
+            />
+          )}
+          {step === "passcode" && (
+            <PasscodeStep
+              key="passcode"
+              isLoading={isLoading}
+              onSubmit={handlePasscode}
+              onBack={() => setStep("otp")}
+            />
+          )}
+          {step === "complete" && (
+            <CompleteStep
+              key="complete"
+              isLoading={isLoading}
+              defaultEmail={emailForComplete}
+              onSubmit={handleComplete}
+              onBack={() => setStep("passcode")}
+            />
+          )}
+        </AnimatePresence>
       </div>
-
-      <AuthFooter />
-    </div>
+    </AuthPageShell>
   );
 }

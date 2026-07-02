@@ -14,9 +14,9 @@ export function DashboardShell({ children, activeNav = "dashboard" }: DashboardS
     <div className="min-h-screen bg-aleet-cream pb-10 text-aleet-text">
       <AppHeader />
 
-      <main className="mx-auto mt-8 w-full px-5 sm:px-10">
-        <section className="grid gap-4 lg:grid-cols-[92px_1fr]">
-          <aside className="overflow-hidden rounded-xl border border-aleet-border bg-aleet-card p-1.5 shadow-sm">
+      <main className="mx-auto mt-6 w-full px-5 sm:mt-8 sm:px-10">
+        <section className="grid gap-5 lg:grid-cols-[240px_1fr] lg:gap-8">
+          <aside className="rounded-2xl border border-aleet-border bg-aleet-card p-3 shadow-sm lg:p-4">
             <SideNav initialActive={activeNav} />
           </aside>
 

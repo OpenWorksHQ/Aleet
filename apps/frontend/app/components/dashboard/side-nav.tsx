@@ -1,108 +1,56 @@
 "use client";
 
-import { useRef, useState, useLayoutEffect, useEffect, type JSX } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { DASHBOARD_NAV } from "@/lib/nav-config";
 import {
-    DashboardIcon,
-    TripHistoryIcon,
-    BookTripIcon,
-    PaymentsIcon,
-    SubscriptionIcon,
+  DashboardIcon,
+  TripHistoryIcon,
+  BookTripIcon,
+  PaymentsIcon,
+  SubscriptionIcon,
 } from "@/app/components/ui/icons";
 
-type NavItem = {
-    key: string;
-    label: string;
-    icon: (props: { className?: string }) => JSX.Element;
-};
-
-const NAV_ITEMS: NavItem[] = [
-    { key: "dashboard", label: "Dashboard", icon: DashboardIcon },
-    { key: "history", label: "Trip History", icon: TripHistoryIcon },
-    { key: "book", label: "Book Trip", icon: BookTripIcon },
-    { key: "payments", label: "Payments & Billing", icon: PaymentsIcon },
-    { key: "subscription", label: "Subscription", icon: SubscriptionIcon },
-];
+const ICONS = {
+  dashboard: DashboardIcon,
+  history: TripHistoryIcon,
+  book: BookTripIcon,
+  payments: PaymentsIcon,
+  subscription: SubscriptionIcon,
+} as const;
 
 export function SideNav({ initialActive = "dashboard" }: { initialActive?: string }) {
-    const router = useRouter();
-    const [active, setActive] = useState(initialActive);
-    const [indicatorStyle, setIndicatorStyle] = useState<{ top: number; height: number } | null>(null);
-    const [animated, setAnimated] = useState(false);
-    const itemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const pathname = usePathname();
 
-    // On first render — set position instantly (no transition)
-    useLayoutEffect(() => {
-        const el = itemRefs.current.get(active);
-        if (el) {
-            setIndicatorStyle({ top: el.offsetTop, height: el.offsetHeight });
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+  const activeKey =
+    DASHBOARD_NAV.find((item) => pathname.startsWith(item.href))?.key ??
+    initialActive;
 
-    // After mount — enable transition
-    useEffect(() => {
-        const t = setTimeout(() => setAnimated(true), 50);
-        return () => clearTimeout(t);
-    }, []);
+  return (
+    <nav aria-label="Dashboard navigation">
+      <div className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
+        {DASHBOARD_NAV.map(({ key, label, href }) => {
+          const Icon = ICONS[key];
+          const isActive = activeKey === key;
 
-    const handleSelect = (key: string) => {
-        // Update indicator first so animation plays, then navigate
-        setActive(key);
-        const el = itemRefs.current.get(key);
-        if (el) {
-            setIndicatorStyle({ top: el.offsetTop, height: el.offsetHeight });
-        }
-
-        const routes: Record<string, string> = {
-            book: "/booking",
-            history: "/trip-history",
-            dashboard: "/dashboard",
-            payments: "/billing",
-            subscription: "/subscription",
-        };
-        if (routes[key]) {
-            // Delay navigation to let the slide animation finish (300ms = transition duration)
-            setTimeout(() => router.push(routes[key]), 280);
-        }
-    };
-
-    return (
-        <nav className="relative flex flex-col gap-1 w-full min-w-0" aria-label="Dashboard navigation">
-            {/* Sliding indicator */}
-            {indicatorStyle && (
-                <div
-                    className={cn(
-                        "pointer-events-none absolute left-0 right-0 hidden lg:block",
-                        "rounded-xl border border-aleet-gold/25 bg-linear-to-r from-aleet-gold/15 to-aleet-gold/5",
-                        animated ? "transition-all duration-300 ease-in-out" : "",
-                    )}
-                    style={{ top: indicatorStyle.top, height: indicatorStyle.height }}
-                />
-            )}
-
-            {NAV_ITEMS.map(({ key, label, icon: Icon }) => {
-                const isActive = active === key;
-                return (
-                    <button
-                        key={key}
-                        ref={(el) => {
-                            if (el) itemRefs.current.set(key, el);
-                            else itemRefs.current.delete(key);
-                        }}
-                        type="button"
-                        onClick={() => handleSelect(key)}
-                        className={cn(
-                            "relative inline-flex w-full flex-col items-center cursor-pointer justify-center gap-1 rounded-xl px-1.5 py-2 text-center transition-colors duration-200 lg:aspect-square",
-                            isActive ? "text-aleet-gold" : "text-aleet-text-subtle hover:text-aleet-text-muted",
-                        )}
-                    >
-                        <Icon className="h-5 w-5 shrink-0" />
-                        <span className="text-[11px] leading-tight font-medium w-full truncate">{label}</span>
-                    </button>
-                );
-            })}
-        </nav>
-    );
+          return (
+            <Link
+              key={key}
+              href={href}
+              className={cn(
+                "inline-flex min-w-[132px] shrink-0 items-center gap-3 rounded-xl border px-4 py-3 text-[13px] font-medium no-underline transition-colors lg:min-w-0 lg:w-full",
+                isActive
+                  ? "border-aleet-gold/30 bg-aleet-gold/10 text-aleet-gold"
+                  : "border-transparent bg-transparent text-aleet-text-muted hover:border-aleet-border hover:bg-aleet-cream hover:text-aleet-text",
+              )}
+            >
+              <Icon className="h-4.5 w-4.5 shrink-0" />
+              <span className="truncate">{label}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
+  );
 }

@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { SiteMenu } from "./site-menu";
 import { HeaderAuthActions } from "./header-auth-actions";
-
-const NAV_ITEMS = ["Membership", "Business", "For Partners", "About"] as const;
+import { MARKETING_NAV } from "@/lib/nav-config";
 
 type AppHeaderProps = {
   /** Show centered marketing nav links (homepage). Default: hidden on app pages. */
@@ -30,13 +29,13 @@ export function AppHeader({ showMarketingNav = false }: AppHeaderProps) {
             className="hidden items-center gap-7 lg:flex lg:justify-self-center xl:gap-9"
             aria-label="Main navigation"
           >
-            {NAV_ITEMS.map((item) => (
+            {MARKETING_NAV.map((item) => (
               <Link
-                key={item}
-                href="#"
+                key={item.label}
+                href={item.href}
                 className="text-[13px] text-white/85 no-underline transition-colors hover:text-white xl:text-[14px]"
               >
-                {item}
+                {item.label}
               </Link>
             ))}
           </nav>

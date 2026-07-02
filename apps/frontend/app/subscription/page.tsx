@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { DashboardShell } from "../components/dashboard-shell";
 import { cn } from "@/lib/utils";
+import { MEMBERSHIP_PLANS, MEMBERSHIP_SAVINGS } from "@/lib/membership-plans";
 
 // ─── Mock Data ───────────────────────────────────────────────────────────────
 
@@ -17,64 +18,7 @@ const CURRENT_PLAN = {
     hoursUsed: 4.2,
 };
 
-const SAVINGS_BREAKDOWN = [
-    { vehicle: "Black Truck", regularPrice: 150, memberPrice: 89.8, savings: 60 },
-    { vehicle: "Luxury Sedan", regularPrice: 120, memberPrice: 89.08, savings: 30 },
-    { vehicle: "Sprinter & Stretch", regularPrice: 200, memberPrice: 89.8, savings: 110 },
-];
-
-const PLAN_FEATURES = [
-    "5 hours per month at locked-in rates",
-    "No peak-hour add-ons or extra fees",
-    "Priority booking and support",
-    "Additional hours at member rates",
-];
-
-const ALL_PLANS = [
-    {
-        key: "basic",
-        name: "Basic",
-        price: 199,
-        billedQuarterly: 597,
-        hours: 2,
-        features: [
-            "2 hours per month",
-            "Standard rates apply",
-            "Email support",
-        ],
-        highlight: false,
-    },
-    {
-        key: "pro",
-        name: "Premium Membership",
-        price: 449,
-        billedQuarterly: 1347,
-        hours: 5,
-        features: [
-            "5 hours per month at locked-in rates",
-            "No peak-hour add-ons or extra fees",
-            "Priority booking and support",
-            "Additional hours at member rates",
-        ],
-        highlight: true,
-        current: true,
-    },
-    {
-        key: "elite",
-        name: "Elite",
-        price: 799,
-        billedQuarterly: 2397,
-        hours: 10,
-        features: [
-            "10 hours per month at locked-in rates",
-            "No peak-hour add-ons or extra fees",
-            "Dedicated concierge support",
-            "Additional hours at member rates",
-            "Exclusive vehicle access",
-        ],
-        highlight: false,
-    },
-];
+const PLAN_FEATURES = MEMBERSHIP_PLANS.find((plan) => plan.key === "pro")?.features ?? [];
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -141,7 +85,7 @@ export default function SubscriptionPage() {
                                     <p className="text-base font-medium text-aleet-text">
                                         💰 Your Savings Breakdown:
                                     </p>
-                                    {SAVINGS_BREAKDOWN.map((item) => (
+                                    {MEMBERSHIP_SAVINGS.map((item) => (
                                         <div
                                             key={item.vehicle}
                                             className="flex items-center justify-between gap-3 rounded-2xl border border-aleet-border bg-aleet-cream px-5 py-4"
@@ -246,7 +190,7 @@ export default function SubscriptionPage() {
                                 </div>
 
                                 <div className="grid gap-3 sm:grid-cols-3">
-                                    {ALL_PLANS.map((plan) => (
+                                    {MEMBERSHIP_PLANS.map((plan) => (
                                         <div
                                             key={plan.key}
                                             className={cn(
@@ -256,14 +200,14 @@ export default function SubscriptionPage() {
                                                     : "border-aleet-border bg-aleet-cream",
                                             )}
                                         >
-                                            {plan.current && (
+                                            {plan.key === "pro" && (
                                                 <span className="absolute right-3 top-3 rounded-full bg-aleet-gold/20 px-2 py-0.5 text-[10px] font-bold text-aleet-gold">
                                                     Current
                                                 </span>
                                             )}
-                                            {plan.highlight && !plan.current && (
+                                            {plan.tag && plan.key !== "pro" && (
                                                 <span className="absolute right-3 top-3 rounded-full bg-aleet-gold px-2 py-0.5 text-[10px] font-bold text-aleet-text">
-                                                    Popular
+                                                    {plan.tag}
                                                 </span>
                                             )}
 
@@ -296,15 +240,15 @@ export default function SubscriptionPage() {
                                                 type="button"
                                                 className={cn(
                                                     "mt-5 w-full cursor-pointer rounded-xl py-2.5 text-sm font-semibold transition-opacity hover:opacity-80",
-                                                    plan.current
+                                                    plan.key === "pro"
                                                         ? "border border-aleet-border bg-transparent text-aleet-text-subtle cursor-default"
                                                         : plan.highlight
                                                             ? "bg-aleet-gold text-aleet-text"
                                                             : "border border-aleet-gold/30 bg-transparent text-aleet-gold",
                                                 )}
-                                                disabled={plan.current}
+                                                disabled={plan.key === "pro"}
                                             >
-                                                {plan.current ? "Current Plan" : "Select Plan"}
+                                                {plan.key === "pro" ? "Current Plan" : "Select Plan"}
                                             </button>
                                         </div>
                                     ))}
