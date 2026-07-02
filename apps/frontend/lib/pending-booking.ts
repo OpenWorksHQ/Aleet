@@ -14,6 +14,7 @@ export type PendingBooking = {
   bookingMode?: "buy_hours" | "multi_day" | "buy-hours" | "multi-day";
   dropoffLocationText?: string;
   dropoffLocationPlaceId?: string;
+  promoCode?: string;
   _savedAt: number;
 };
 
