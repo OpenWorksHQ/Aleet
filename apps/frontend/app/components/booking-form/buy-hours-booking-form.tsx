@@ -11,6 +11,10 @@ import {
   slotFromTimeStr,
   combineDateAndTime,
 } from "@/lib/booking-constraints";
+import {
+  loadPartnerContext,
+  PARTNER_CHANGED_EVENT,
+} from "@/lib/partner/attribution";
 import type { SelectOption } from "../ui/select";
 
 type VehicleOption = SelectOption & { _id: string; hourlyPrice: number };
@@ -127,6 +131,7 @@ export function BuyHoursBookingForm({
   const [durationHours, setDurationHours] = useState(3);
   const [dropoffTime, setDropoffTime] = useState("");
   const [promoCode, setPromoCode] = useState("");
+  const [partnerLabel, setPartnerLabel] = useState<string | null>(null);
 
   const isMultiDay = !!(
     startDate &&
@@ -153,6 +158,22 @@ export function BuyHoursBookingForm({
       /* ignore */
     }
   }, [state]);
+
+  useEffect(() => {
+    const syncPartner = () => {
+      const partner = loadPartnerContext();
+      if (!partner) {
+        setPartnerLabel(null);
+        return;
+      }
+      setPartnerLabel(partner.partnerName);
+      setPromoCode((prev) => prev || partner.partnerCode);
+    };
+
+    syncPartner();
+    window.addEventListener(PARTNER_CHANGED_EVENT, syncPartner);
+    return () => window.removeEventListener(PARTNER_CHANGED_EVENT, syncPartner);
+  }, []);
 
   const handleDateSelect = useCallback((range: DateRange | undefined) => {
     if (!range?.from) {
@@ -260,14 +281,20 @@ export function BuyHoursBookingForm({
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="hidden text-[11px] text-white/45 sm:inline">
-            Promo / Partner Code
-          </span>
+          {partnerLabel ? (
+            <span className="hidden max-w-[140px] truncate text-[11px] text-[#c5a386] sm:inline">
+              via {partnerLabel}
+            </span>
+          ) : (
+            <span className="hidden text-[11px] text-white/45 sm:inline">
+              Promo / Partner Code
+            </span>
+          )}
           <input
             type="text"
             value={promoCode}
-            onChange={(e) => setPromoCode(e.target.value)}
-            placeholder="Enter code"
+            onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+            placeholder={partnerLabel ? partnerLabel : "Enter code"}
             aria-label="Promo or partner code"
             className="h-8 w-[108px] rounded-md border border-white/15 bg-[#141414] px-2.5 text-[11px] text-white placeholder:text-white/30 outline-none transition-colors focus:border-[#c5a386]/60 sm:w-[120px] sm:text-[12px]"
           />

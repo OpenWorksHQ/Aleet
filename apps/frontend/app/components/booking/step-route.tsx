@@ -1,14 +1,20 @@
 "use client";
 
 import { Plus, Trash2, Navigation, Check } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button, Toggle, AddressAutocomplete, TimePicker, toast } from "@/app/components/ui";
 import type { BookingData } from "./booking-types";
 import type { ApiAddon } from "@/lib/api/addons";
+import type { BookingPriceResult } from "@/lib/api/bookings";
+import { VenueAccessSummary } from "@/app/components/partner/venue-access-summary";
+import { estimateRoute } from "@/lib/partner/route-estimate";
+import { applyRouteEstimateToBooking } from "@/lib/partner/venue-access";
 
 type Props = {
     data: BookingData;
-    quickBookingMode: "buy_hours" | "multi_day" | null;
+    quickBookingMode: "buy_hours" | "multi_day" | "venue_access" | null;
+    serverPrice?: BookingPriceResult | null;
+    priceLoading?: boolean;
     onChange: (patch: Partial<BookingData>) => void;
     onNext: () => void;
     onBack?: () => void;
@@ -22,8 +28,42 @@ function nanoid() {
     return Math.random().toString(36).slice(2, 500);
 }
 
-export function StepRoute({ data, quickBookingMode, onChange, onNext, onBack, priceBar, freeAddons, paidAddons, addonsLoading }: Props) {
+export function StepRoute({ data, quickBookingMode, serverPrice, priceLoading, onChange, onNext, onBack, priceBar, freeAddons, paidAddons, addonsLoading }: Props) {
     const [isLocating, setIsLocating] = useState(false);
+    const [isEstimatingRoute, setIsEstimatingRoute] = useState(false);
+    const routeRequestRef = useRef(0);
+
+    const isVenueAccess = data.bookingMode === "venue_access" || quickBookingMode === "venue_access";
+    const pickupLocked = isVenueAccess && data.pickupLocked !== false;
+
+    async function recalculateRoute(dropoff: { text: string; placeId: string }) {
+        if (!isVenueAccess || !data.pickupAddress.text || !dropoff.text) return;
+
+        const requestId = ++routeRequestRef.current;
+        setIsEstimatingRoute(true);
+
+        try {
+            const estimate = await estimateRoute(data.pickupAddress, dropoff);
+            if (!estimate || requestId !== routeRequestRef.current) return;
+
+            onChange({
+                ...applyRouteEstimateToBooking(data, estimate.durationHours),
+                routeDistanceMiles: estimate.distanceMiles,
+                routeDurationText: estimate.durationText,
+            });
+        } catch {
+            toast.error("Could not estimate route. Please try again.");
+        } finally {
+            if (requestId === routeRequestRef.current) {
+                setIsEstimatingRoute(false);
+            }
+        }
+    }
+
+    function handleDropoffPlaceChange(place: { text: string; placeId: string }) {
+        onChange({ dropoffAddress: place });
+        void recalculateRoute(place);
+    }
 
     function addStop() {
         onChange({ stops: [...data.stops, { id: nanoid(), address: { text: "", placeId: "" }, time: "", notes: "" }] });
@@ -146,20 +186,34 @@ export function StepRoute({ data, quickBookingMode, onChange, onNext, onBack, pr
 
     const isBuyHours = quickBookingMode === "buy_hours";
     const fromHomepage = quickBookingMode !== null;
-    const isValid = isBuyHours
-        ? !!data.pickupAddress.text && !!data.dropoffAddress.text
-        : !!data.pickupAddress.text && (data.freeRouting || !!data.dropoffAddress.text);
+    const isValid = isVenueAccess
+        ? !!data.pickupAddress.text && !!data.dropoffAddress.text && !!data.estimatedDurationHours
+        : isBuyHours
+            ? !!data.pickupAddress.text && !!data.dropoffAddress.text
+            : !!data.pickupAddress.text && (data.freeRouting || !!data.dropoffAddress.text);
 
     return (
         <div>
             <h2 className="mb-1 font-serif text-[22px] font-medium tracking-tight text-aleet-text sm:text-[26px]">
-                Route & Add-ons
+                {isVenueAccess ? "Venue Access Booking" : "Route & Add-ons"}
             </h2>
             <p className="mb-6 text-[13px] text-aleet-text-muted sm:text-[15px]">
-                Set your drop-off location, stops, and any extras for the trip.
+                {isVenueAccess
+                    ? "Your partner venue is already attached. Enter your destination and we’ll calculate the rest."
+                    : "Set your drop-off location, stops, and any extras for the trip."}
             </p>
 
+            {isVenueAccess ? (
+                <VenueAccessSummary
+                    data={data}
+                    serverPrice={serverPrice ?? null}
+                    priceLoading={priceLoading || isEstimatingRoute}
+                    className="mb-5"
+                />
+            ) : null}
+
             {/* ─── Fleet Size ─── */}
+            {!isVenueAccess ? (
             <div className="my-3 rounded-2xl border border-aleet-border bg-aleet-card p-4 sm:p-6">
                 <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-aleet-text-subtle">Fleet Size</p>
                 <div className="flex items-center gap-3">
@@ -185,12 +239,13 @@ export function StepRoute({ data, quickBookingMode, onChange, onNext, onBack, pr
                     </button>
                 </div>
             </div>
+            ) : null}
 
             {/* ─── Locations ─── */}
             <div className="rounded-2xl border border-aleet-border bg-aleet-card p-4 sm:p-6">
                 <p className="mb-4 text-[11px] font-semibold uppercase tracking-widest text-aleet-text-subtle">Locations</p>
 
-                {!isBuyHours && (
+                {!isBuyHours && !isVenueAccess && (
                     <div className="mb-4 flex items-start justify-between gap-4 rounded-xl border border-aleet-border bg-aleet-cream p-3.5">
                         <div className="flex items-start gap-3">
                             <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aleet-gold/10 text-aleet-gold">
@@ -215,12 +270,14 @@ export function StepRoute({ data, quickBookingMode, onChange, onNext, onBack, pr
                 <div className="flex flex-col gap-3">
                     {/* Pickup address — editable */}
                     <AddressAutocomplete
-                        label="Pickup Address"
+                        label={isVenueAccess ? "Partner Venue (Pickup)" : "Pickup Address"}
                         value={data.pickupAddress.text}
                         onChange={(v) => onChange({ pickupAddress: { ...data.pickupAddress, text: v } })}
                         onPlaceChange={(place) => onChange({ pickupAddress: place })}
                         placeholder="123 Main St, New York, NY"
+                        disabled={pickupLocked}
                     />
+                    {!pickupLocked && !isVenueAccess ? (
                     <button
                         type="button"
                         onClick={handleUseCurrentLocation}
@@ -229,9 +286,10 @@ export function StepRoute({ data, quickBookingMode, onChange, onNext, onBack, pr
                     >
                         {isLocating ? "Detecting..." : "Use Current Location"}
                     </button>
+                    ) : null}
 
                     {/* Stops */}
-                    {!data.freeRouting && data.stops.map((stop, i) => (
+                    {!data.freeRouting && !isVenueAccess && data.stops.map((stop, i) => (
                         <div key={stop.id} className="flex flex-col gap-2">
                             <div className="flex items-end gap-2">
                                 <div className="flex-1">
@@ -246,7 +304,7 @@ export function StepRoute({ data, quickBookingMode, onChange, onNext, onBack, pr
                                 <button
                                     type="button"
                                     onClick={() => removeStop(stop.id)}
-                                    className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-aleet-border-strong bg-aleet-cream text-aleet-text-subtle transition-colors hover:border-red-500/30 hover:bg-red-950/30 hover:text-red-400 sm:h-12 sm:w-12"
+                                    className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-aleet-border-strong bg-aleet-cream text-aleet-text-subtle transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600 sm:h-12 sm:w-12"
                                 >
                                     <Trash2 className="h-4 w-4" />
                                 </button>
@@ -268,16 +326,19 @@ export function StepRoute({ data, quickBookingMode, onChange, onNext, onBack, pr
                     ))}
 
                     <AddressAutocomplete
-                        label="Drop-off Address"
+                        label={isVenueAccess ? "Where are you going?" : "Drop-off Address"}
                         value={data.dropoffAddress.text}
                         onChange={(v) => onChange({ dropoffAddress: { ...data.dropoffAddress, text: v } })}
-                        onPlaceChange={(place) => onChange({ dropoffAddress: place })}
-                        placeholder="456 Park Ave, New York, NY"
+                        onPlaceChange={isVenueAccess ? handleDropoffPlaceChange : (place) => onChange({ dropoffAddress: place })}
+                        placeholder={isVenueAccess ? "Enter your destination" : "456 Park Ave, New York, NY"}
                     />
+                    {isVenueAccess && isEstimatingRoute ? (
+                        <p className="text-[12px] text-aleet-text-subtle">Calculating route and price…</p>
+                    ) : null}
                 </div>
 
                 {/* Add stop button */}
-                {!data.freeRouting && (
+                {!data.freeRouting && !isVenueAccess && (
                     <button
                         type="button"
                         onClick={addStop}
@@ -411,8 +472,8 @@ export function StepRoute({ data, quickBookingMode, onChange, onNext, onBack, pr
                             ← Back
                         </Button>
                     )}
-                    <Button className="flex-1" disabled={!isValid} onClick={onNext}>
-                        {fromHomepage ? "Complete Booking" : "Review Booking →"}
+                    <Button className="flex-1" disabled={!isValid || isEstimatingRoute} onClick={onNext}>
+                        {isVenueAccess ? "Review & Complete →" : fromHomepage ? "Complete Booking" : "Review Booking →"}
                     </Button>
                 </div>
             </div>

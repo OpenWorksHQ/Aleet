@@ -12,6 +12,7 @@
   --aleet-border-strong: #d4cbbf;
   --aleet-card: #ffffff;
   --aleet-black: #000000;
+  --aleet-footer: #f3f0ea;
 
   --background: var(--aleet-cream);
   --foreground: var(--aleet-text);
@@ -32,6 +33,7 @@
   --color-aleet-border-strong: var(--aleet-border-strong);
   --color-aleet-card: var(--aleet-card);
   --color-aleet-black: var(--aleet-black);
+  --color-aleet-footer: var(--aleet-footer);
   --font-sans: var(--font-karla);
   --font-serif: var(--font-playfair);
 }

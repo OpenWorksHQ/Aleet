@@ -7,6 +7,10 @@ import { getRegions, type Region } from "@/lib/api/regions";
 import { savePendingBooking } from "@/lib/pending-booking";
 import { getToken } from "@/lib/auth";
 import { getProfile } from "@/lib/api/users";
+import { loadPartnerContext, savePartnerContext } from "@/lib/partner/attribution";
+import { validatePartnerCode } from "@/lib/api/partners";
+import { buildVenueAccessPendingBooking } from "@/lib/partner/venue-access";
+import { toast } from "./ui";
 import {
     BuyHoursBookingForm,
     type BuyHoursPayload,
@@ -79,7 +83,7 @@ export function BookingForm() {
     }, []);
 
     const handleContinue = useCallback(
-        (payload: BuyHoursPayload) => {
+        async (payload: BuyHoursPayload) => {
             const selectedVehicle = vehicleList.find((v) => {
                 const display = v.price
                     ? `${v.label} ${v.price}`
@@ -89,6 +93,42 @@ export function BookingForm() {
             const selectedRegion = regionList.find(
                 (r) => r.label === payload.regionDisplay,
             );
+
+            let partner = loadPartnerContext();
+
+            if (payload.promoCode?.trim()) {
+                const res = await validatePartnerCode(payload.promoCode.trim());
+                if (!res.data) {
+                    toast.error("Partner code not recognized.");
+                    return;
+                }
+                partner = res.data;
+                savePartnerContext(partner);
+
+                if (partner.bookingMode === "venue_access") {
+                    savePendingBooking(
+                        buildVenueAccessPendingBooking(partner, {
+                            pickupDate: payload.pickupDate.toISOString(),
+                            dropoffDate: payload.dropoffDate.toISOString(),
+                            pickupTime: payload.pickupTime,
+                            dropoffTime: payload.dropoffTime,
+                            vehicleType:
+                                selectedVehicle?.label ?? payload.vehicleDisplay,
+                            vehicleTypeId: selectedVehicle?._id ?? "",
+                            vehicleHourlyRate: selectedVehicle?.hourlyPrice ?? 0,
+                            region:
+                                selectedRegion?.label ?? payload.regionDisplay,
+                            regionId: selectedRegion?._id ?? "",
+                            dropoffLocationText: payload.dropoffLocation.text,
+                            dropoffLocationPlaceId: payload.dropoffLocation.placeId,
+                            promoCode: payload.promoCode.trim(),
+                        }),
+                    );
+                    const token = getToken();
+                    router.push(token ? "/booking" : "/login?next=/booking");
+                    return;
+                }
+            }
 
             savePendingBooking({
                 pickupDate: payload.pickupDate.toISOString(),
@@ -105,7 +145,12 @@ export function BookingForm() {
                 bookingMode: payload.durationHours > 0 ? "buy_hours" : "multi_day",
                 dropoffLocationText: payload.dropoffLocation.text,
                 dropoffLocationPlaceId: payload.dropoffLocation.placeId,
-                promoCode: payload.promoCode,
+                promoCode: payload.promoCode?.trim() || partner?.partnerCode,
+                partnerId: partner?.partnerId,
+                partnerCode: partner?.partnerCode,
+                partnerName: partner?.partnerName,
+                venueId: partner?.venueId,
+                discountPct: partner?.discountPct,
             });
 
             const token = getToken();
