@@ -3,33 +3,41 @@
 import { useState } from "react";
 import { Button, Input, toast } from "@/app/components/ui";
 import { submitPartnerApplication } from "@/lib/api/partners";
+import { ApiError } from "@/lib/api";
 
 export function PartnerApplicationForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    setFormError(null);
     const form = new FormData(e.currentTarget);
 
     setIsLoading(true);
     try {
       const res = await submitPartnerApplication({
-        businessName: String(form.get("businessName") ?? ""),
-        businessType: String(form.get("businessType") ?? ""),
-        contactName: String(form.get("contactName") ?? ""),
-        contactEmail: String(form.get("contactEmail") ?? ""),
-        contactPhone: String(form.get("contactPhone") ?? ""),
-        address: String(form.get("address") ?? ""),
-        city: String(form.get("city") ?? ""),
-        state: String(form.get("state") ?? ""),
-        website: String(form.get("website") ?? "") || undefined,
-        notes: String(form.get("notes") ?? "") || undefined,
+        businessName: String(form.get("businessName") ?? "").trim(),
+        businessType: String(form.get("businessType") ?? "").trim(),
+        contactName: String(form.get("contactName") ?? "").trim(),
+        contactEmail: String(form.get("contactEmail") ?? "").trim(),
+        contactPhone: String(form.get("contactPhone") ?? "").trim(),
+        address: String(form.get("address") ?? "").trim(),
+        city: String(form.get("city") ?? "").trim(),
+        state: String(form.get("state") ?? "").trim(),
+        website: String(form.get("website") ?? "").trim() || undefined,
+        notes: String(form.get("notes") ?? "").trim() || undefined,
       });
       toast.success(res.message ?? "Application submitted.");
       setSubmitted(true);
-    } catch {
-      toast.error("Could not submit application. Please try again.");
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : "Could not submit application. Please try again.";
+      setFormError(message);
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -89,6 +97,9 @@ export function PartnerApplicationForm() {
         <Button type="submit" isLoading={isLoading}>
           Submit Application
         </Button>
+        {formError ? (
+          <p className="text-[13px] text-red-600">{formError}</p>
+        ) : null}
       </form>
     </aside>
   );

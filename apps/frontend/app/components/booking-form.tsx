@@ -99,7 +99,7 @@ export function BookingForm() {
             if (payload.promoCode?.trim()) {
                 const res = await validatePartnerCode(payload.promoCode.trim());
                 if (!res.data) {
-                    toast.error("Partner code not recognized.");
+                    toast.error(res.message || "Partner code not recognized.");
                     return;
                 }
                 partner = res.data;

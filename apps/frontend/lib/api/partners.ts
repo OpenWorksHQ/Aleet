@@ -1,4 +1,4 @@
-import { apiFetch } from "@/lib/api";
+import { apiFetch, ApiError } from "@/lib/api";
 import type {
   PartnerApplicationPayload,
   PartnerApplicationRecord,
@@ -12,6 +12,16 @@ import {
 } from "@/lib/partner/registry";
 
 const APPLICATIONS_KEY = "aleet_partner_applications";
+
+export type PartnerApiResult<T> = {
+  data: T | null;
+  message: string;
+  fromApi: boolean;
+};
+
+function isPartnerApiConfigured() {
+  return Boolean(process.env.NEXT_PUBLIC_API_URL?.trim());
+}
 
 function loadLocalApplications(): PartnerApplicationRecord[] {
   try {
@@ -30,87 +40,131 @@ function saveLocalApplications(records: PartnerApplicationRecord[]) {
   }
 }
 
-/** Resolve slug or code — tries API first pattern, falls back to mock registry. */
-export async function resolvePartnerBySlug(slug: string) {
-  const tracking = resolveTrackingSlug(slug);
-  if (tracking) return { data: tracking };
-
-  const venue = resolveVenueSlug(slug);
-  if (venue) return { data: venue };
-
-  return apiFetch<PartnerContext>(`/partners/resolve/${encodeURIComponent(slug)}`, {
-    method: "GET",
-  }).catch(() => ({ data: null as unknown as PartnerContext, message: "Not found" }));
+function registryResolve(slug: string): PartnerContext | null {
+  return resolveTrackingSlug(slug) ?? resolveVenueSlug(slug) ?? null;
 }
 
-export async function validatePartnerCode(code: string) {
-  const local = resolvePartnerCode(code);
-  if (local) return { data: local, message: "Partner recognized" };
+/** Resolve tracking or venue slug — API first, local registry only when API is not configured. */
+export async function resolvePartnerBySlug(
+  slug: string,
+): Promise<PartnerApiResult<PartnerContext>> {
+  const normalized = slug.trim().toLowerCase();
+  if (!normalized) {
+    return { data: null, message: "Invalid link", fromApi: false };
+  }
 
-  return apiFetch<PartnerContext>("/partners/validate-code", {
-    method: "POST",
-    body: { code },
-  }).catch(() => ({ data: null as unknown as PartnerContext, message: "Invalid code" }));
+  if (isPartnerApiConfigured()) {
+    try {
+      const api = await apiFetch<PartnerContext>(
+        `/partners/resolve/${encodeURIComponent(normalized)}`,
+        { method: "GET" },
+      );
+      if (api.data) {
+        return { data: api.data, message: api.message, fromApi: true };
+      }
+      return { data: null, message: api.message ?? "Partner not found", fromApi: true };
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : "Could not reach partner service";
+      return { data: null, message, fromApi: true };
+    }
+  }
+
+  const local = registryResolve(normalized);
+  return local
+    ? { data: local, message: "Partner recognized", fromApi: false }
+    : { data: null, message: "Partner not found", fromApi: false };
+}
+
+export async function validatePartnerCode(
+  code: string,
+): Promise<PartnerApiResult<PartnerContext>> {
+  const trimmed = code.trim();
+  if (!trimmed) {
+    return { data: null, message: "Enter a partner code", fromApi: false };
+  }
+
+  if (isPartnerApiConfigured()) {
+    try {
+      const api = await apiFetch<PartnerContext>("/partners/validate-code", {
+        method: "POST",
+        body: { code: trimmed },
+      });
+      if (api.data) {
+        return { data: api.data, message: api.message, fromApi: true };
+      }
+      return {
+        data: null,
+        message: api.message ?? "Partner code not recognized",
+        fromApi: true,
+      };
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : "Could not validate partner code";
+      return { data: null, message, fromApi: true };
+    }
+  }
+
+  const local = resolvePartnerCode(trimmed);
+  return local
+    ? { data: local, message: "Partner recognized", fromApi: false }
+    : { data: null, message: "Partner code not recognized", fromApi: false };
 }
 
 export async function submitPartnerApplication(payload: PartnerApplicationPayload) {
-  try {
-    return await apiFetch<PartnerApplicationRecord>("/partners/applications", {
+  if (isPartnerApiConfigured()) {
+    return apiFetch<PartnerApplicationRecord>("/partners/applications", {
       method: "POST",
       body: payload,
     });
-  } catch {
-    const record: PartnerApplicationRecord = {
-      ...payload,
-      id: `app_${Date.now()}`,
-      status: "pending",
-      submittedAt: new Date().toISOString(),
-    };
-    const existing = loadLocalApplications();
-    saveLocalApplications([record, ...existing]);
-    return { data: record, message: "Application submitted for review." };
   }
+
+  const record: PartnerApplicationRecord = {
+    ...payload,
+    id: `app_${Date.now()}`,
+    status: "pending",
+    submittedAt: new Date().toISOString(),
+  };
+  saveLocalApplications([record, ...loadLocalApplications()]);
+  return { data: record, message: "Application submitted for review.", success: true };
 }
 
-export async function getPartnerDashboard(partnerId: string) {
-  try {
-    return await apiFetch<PartnerDashboardStats>(`/partners/${partnerId}/dashboard`, {
-      method: "GET",
-      token: undefined,
-    });
-  } catch {
-    const mock: PartnerDashboardStats = {
-      partnerName: "Demo Partner Venue",
-      partnerCode: "DEMO",
-      venueSlug: "mgm-grand",
-      commissionPct: 12,
-      totalBookings: 47,
-      completedBookings: 41,
-      pendingPayout: 842.5,
-      lifetimeEarnings: 6240,
-      recentBookings: [
-        {
-          id: "bk_1",
-          date: "2026-06-28",
-          route: "MGM Grand → Harry Reid Airport",
-          amount: 185,
-          commission: 22.2,
-          status: "completed",
-        },
-        {
-          id: "bk_2",
-          date: "2026-06-29",
-          route: "MGM Grand → Caesars Palace",
-          amount: 95,
-          commission: 11.4,
-          status: "upcoming",
-        },
-      ],
-    };
-    return { data: mock, message: "Mock dashboard data" };
+export async function getPartnerDashboard(
+  partnerId: string,
+): Promise<PartnerApiResult<PartnerDashboardStats>> {
+  if (!partnerId?.trim()) {
+    return { data: null, message: "No partner selected", fromApi: false };
   }
+
+  if (isPartnerApiConfigured()) {
+    try {
+      const api = await apiFetch<PartnerDashboardStats>(
+        `/partners/${encodeURIComponent(partnerId)}/dashboard`,
+        { method: "GET" },
+      );
+      return {
+        data: api.data ?? null,
+        message: api.message,
+        fromApi: true,
+      };
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : "Could not load partner dashboard";
+      return { data: null, message, fromApi: true };
+    }
+  }
+
+  return {
+    data: null,
+    message: "Connect NEXT_PUBLIC_API_URL to load live dashboard data",
+    fromApi: false,
+  };
 }
 
 export function getLocalPartnerApplications() {
   return loadLocalApplications();
+}
+
+export function isPartnerApiEnabled() {
+  return isPartnerApiConfigured();
 }

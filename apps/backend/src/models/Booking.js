@@ -125,7 +125,20 @@ const bookingSchema = new mongoose.Schema({
   stripePaymentIntentId: { type: String, default: null },
   paidAt: { type: Date, default: null },
   refundId: { type: String, default: null },
-  PaidToDriver: { type: Boolean, default: false }
+  PaidToDriver: { type: Boolean, default: false },
+
+  // Partner / venue attribution
+  partner: {
+    partner: { type: mongoose.Schema.Types.ObjectId, ref: 'Partner', default: null },
+    partnerCode: { type: String, default: null },
+    partnerName: { type: String, default: null },
+    partnerType: { type: String, enum: ['venue', 'affiliate', 'marketer'], default: null },
+    venueId: { type: mongoose.Schema.Types.ObjectId, ref: 'Partner', default: null },
+    discountPct: { type: Number, default: 0 },
+    discountAmount: { type: Number, default: 0 },
+    commissionPct: { type: Number, default: 0 },
+    commissionAmount: { type: Number, default: 0 },
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Booking', bookingSchema);

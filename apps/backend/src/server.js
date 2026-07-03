@@ -38,6 +38,8 @@ const payoutRoutes = require('./routes/payoutRoutes');
 const regionRoutes = require('./routes/regionRoutes');
 const teamsRoutes = require('./routes/teamsRoutes');
 const investorDocumentRoutes = require('./routes/investorDocumentRoutes');
+const partnerRoutes = require('./routes/partnerRoutes');
+const adminPartnerRoutes = require('./routes/adminPartnerRoutes');
 const PaymentsController = require('./controllers/payments.controller');
 
 // Raw-body routes MUST come before express.json() so the body stream is not consumed
@@ -67,7 +69,9 @@ app.use('/api/payments', paymentsRoutes);
 app.use('/api/payout', payoutRoutes);
 app.use('/api/regions', regionRoutes);
 app.use('/api/teams', teamsRoutes);
+app.use('/api/partners', partnerRoutes);
 app.use('/api/admin/investor-documents', investorDocumentRoutes);
+app.use('/api/admin/partners', adminPartnerRoutes);
 
 // Error handlers
 app.use(notFound);

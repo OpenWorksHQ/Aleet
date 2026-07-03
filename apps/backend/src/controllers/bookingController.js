@@ -42,6 +42,13 @@ const {
     resolveMemberRate,
     calculateBookingPrice
 } = require('../utils/bookingHelpers');
+const {
+    resolveBookingPartner,
+    computePartnerAdjustments,
+    buildPartnerBookingSnapshot,
+    recordPartnerBookingStarted,
+    recordPartnerBookingCompleted,
+} = require('../services/partnerService');
 
 // ---------------------------------------------------------------------------
 // Shared: distance surcharge breakdown builder
@@ -248,6 +255,15 @@ const previewBooking = asyncHandler(async (req, res) => {
         const subTotal = Number((subscriberPrice + distanceSurcharge).toFixed(2));
         const total    = isSubscriber ? subTotal : regTotal;
 
+        const partnerDoc = await resolveBookingPartner(req.body);
+        let partnerSnapshot = null;
+        let finalTotal = total;
+        if (partnerDoc) {
+            const adjustments = computePartnerAdjustments(partnerDoc, tierSettings, total);
+            finalTotal = adjustments.finalPrice;
+            partnerSnapshot = buildPartnerBookingSnapshot(partnerDoc, adjustments);
+        }
+
         return sendSuccess(res, 200, 'Booking preview calculated', {
             vehicleType,
             bookingMode: resolvedBookingMode,
@@ -258,10 +274,12 @@ const previewBooking = asyncHandler(async (req, res) => {
             hours: bookingHours,
             regularPrice: regTotal,
             subscriptionPrice: isSubscriber ? subTotal : undefined,
-            total,
+            total: finalTotal,
+            partner: partnerSnapshot,
             breakdown: {
                 ...breakdown,
-                distance: buildDistanceBreakdown(baseToPickupMiles, distanceSurcharge)
+                distance: buildDistanceBreakdown(baseToPickupMiles, distanceSurcharge),
+                partnerDiscount: partnerSnapshot?.discountAmount || 0,
             },
             routeValidation
         });
@@ -403,8 +421,17 @@ const startBooking = asyncHandler(async (req, res) => {
 
         const adjustedRegular    = Number((regularPrice + distanceSurcharge).toFixed(2));
         const adjustedSubscriber = Number((subscriberPrice + distanceSurcharge).toFixed(2));
-        const finalPrice         = isSubscriber ? adjustedSubscriber : adjustedRegular;
+        const baseFinalPrice     = isSubscriber ? adjustedSubscriber : adjustedRegular;
         const savings            = isSubscriber ? Number((adjustedRegular - adjustedSubscriber).toFixed(2)) : 0;
+
+        const partnerDoc = await resolveBookingPartner(req.body);
+        let partnerSnapshot = null;
+        let finalPrice = baseFinalPrice;
+        if (partnerDoc) {
+            const adjustments = computePartnerAdjustments(partnerDoc, tierSettings, baseFinalPrice);
+            finalPrice = adjustments.finalPrice;
+            partnerSnapshot = buildPartnerBookingSnapshot(partnerDoc, adjustments);
+        }
 
         const booking = await Booking.create({
             user: req.user.id,
@@ -431,11 +458,16 @@ const startBooking = asyncHandler(async (req, res) => {
             subscriptionPrice: isSubscriber ? adjustedSubscriber : undefined,
             finalPrice,
             savings,
+            partner: partnerSnapshot || undefined,
             status: 'Pending',
             routeValidation: routeValidation || undefined,
             adminOverride: _adminOverride,
             dispatchFlag:  _dispatchFlag
         });
+
+        if (partnerSnapshot?.partner) {
+            await recordPartnerBookingStarted(partnerSnapshot.partner);
+        }
 
         sendTripAlert(user, 'guest_booking_received', {
             when: formatTripTime(effectiveStartDate)
@@ -839,6 +871,13 @@ const completeBooking = asyncHandler(async (req, res) => {
         booking.status      = 'Completed';
         booking.completedAt = now;
         await booking.save();
+
+        if (booking.partner?.partner && booking.partner.commissionAmount > 0) {
+            await recordPartnerBookingCompleted(
+                booking.partner.partner,
+                booking.partner.commissionAmount,
+            );
+        }
 
         (async () => {
             try {
