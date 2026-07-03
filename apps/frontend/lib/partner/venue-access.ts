@@ -51,6 +51,8 @@ export function buildVenueAccessPendingBooking(
     partnerName: partner.partnerName,
     venueId: partner.venueId,
     pickupLocked: partner.pickupLocked ?? true,
+    dropoffLocked: partner.dropoffLocked,
+    venueAccessBookingType: partner.venueAccessBookingType,
     discountPct: partner.discountPct,
     promoCode: partner.partnerCode,
     ...overrides,
@@ -69,8 +71,14 @@ export function applyPartnerToBookingData(
     partnerName: partner.partnerName,
     venueId: partner.venueId,
     pickupLocked: partner.pickupLocked,
+    dropoffLocked: partner.dropoffLocked === true,
+    venueAccessBookingType: partner.venueAccessBookingType,
+    allowedVehicleTypeIds: partner.allowedVehicleTypeIds,
     discountPct: partner.discountPct,
     pickupAddress: partner.pickupLocation ?? data.pickupAddress,
+    dropoffAddress: partner.dropoffLocation?.text
+      ? partner.dropoffLocation
+      : data.dropoffAddress,
     region: partner.regionName ?? data.region,
     regionId: partner.regionId ?? data.regionId,
     vehicleType: partner.vehicleName ?? data.vehicleType,
@@ -95,4 +103,14 @@ export function applyRouteEstimateToBooking(
     dropoffTime,
     estimatedDurationHours: durationHours,
   };
+}
+
+/** Restrict vehicle list when partner specifies allowed types. */
+export function filterVehiclesByPartner<T extends { _id: string }>(
+  vehicles: T[],
+  allowedIds?: string[],
+): T[] {
+  if (!allowedIds?.length) return vehicles;
+  const allowed = new Set(allowedIds);
+  return vehicles.filter((v) => allowed.has(v._id));
 }

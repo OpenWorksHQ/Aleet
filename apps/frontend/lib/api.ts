@@ -14,6 +14,7 @@ export type ApiResponse<T = undefined> = {
 type RequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
   token?: string;
+  skipAuthRedirect?: boolean;
 };
 
 export class ApiError extends Error {
@@ -30,7 +31,7 @@ export class ApiError extends Error {
 
 export async function apiFetch<T = undefined>(
   path: string,
-  { body, token, headers, ...init }: RequestOptions = {},
+  { body, token, headers, skipAuthRedirect, ...init }: RequestOptions = {},
 ): Promise<ApiResponse<T>> {
   const res = await fetch(`${BASE_URL}/api${path}`, {
     ...init,
@@ -47,6 +48,7 @@ export async function apiFetch<T = undefined>(
   if (!res.ok || !json.success) {
     if (
       res.status === 401 &&
+      !skipAuthRedirect &&
       typeof document !== "undefined" &&
       !path.startsWith("/auth/")
     ) {

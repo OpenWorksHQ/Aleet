@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus, Trash2, Navigation, Check } from "lucide-react";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Button, Toggle, AddressAutocomplete, TimePicker, toast } from "@/app/components/ui";
 import type { BookingData } from "./booking-types";
 import type { ApiAddon } from "@/lib/api/addons";
@@ -35,6 +35,13 @@ export function StepRoute({ data, quickBookingMode, serverPrice, priceLoading, o
 
     const isVenueAccess = data.bookingMode === "venue_access" || quickBookingMode === "venue_access";
     const pickupLocked = isVenueAccess && data.pickupLocked !== false;
+    const dropoffLocked = isVenueAccess && data.dropoffLocked === true;
+
+    useEffect(() => {
+        if (!isVenueAccess || !data.dropoffAddress.placeId || !data.pickupAddress.text) return;
+        void recalculateRoute(data.dropoffAddress);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isVenueAccess, data.pickupAddress.text, data.dropoffAddress.placeId]);
 
     async function recalculateRoute(dropoff: { text: string; placeId: string }) {
         if (!isVenueAccess || !data.pickupAddress.text || !dropoff.text) return;
@@ -188,8 +195,8 @@ export function StepRoute({ data, quickBookingMode, serverPrice, priceLoading, o
     const fromHomepage = quickBookingMode !== null;
     const isValid = isVenueAccess
         ? !!data.pickupAddress.text &&
-          !!data.dropoffAddress.placeId &&
           !!data.dropoffAddress.text &&
+          (dropoffLocked ? true : !!data.dropoffAddress.placeId) &&
           !!data.estimatedDurationHours &&
           !priceLoading
         : isBuyHours
@@ -335,6 +342,7 @@ export function StepRoute({ data, quickBookingMode, serverPrice, priceLoading, o
                         onChange={(v) => onChange({ dropoffAddress: { ...data.dropoffAddress, text: v } })}
                         onPlaceChange={isVenueAccess ? handleDropoffPlaceChange : (place) => onChange({ dropoffAddress: place })}
                         placeholder={isVenueAccess ? "Enter your destination" : "456 Park Ave, New York, NY"}
+                        disabled={dropoffLocked}
                     />
                     {isVenueAccess && isEstimatingRoute ? (
                         <p className="text-[12px] text-aleet-text-subtle">Calculating route and price…</p>

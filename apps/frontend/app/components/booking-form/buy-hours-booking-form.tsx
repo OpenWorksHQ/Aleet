@@ -15,6 +15,10 @@ import {
   loadPartnerContext,
   PARTNER_CHANGED_EVENT,
 } from "@/lib/partner/attribution";
+import { validatePartnerCode } from "@/lib/api/partners";
+import { estimateRoute } from "@/lib/partner/route-estimate";
+import { filterVehiclesByPartner } from "@/lib/partner/venue-access";
+import type { PartnerContext } from "@/lib/partner/types";
 import type { SelectOption } from "../ui/select";
 
 type VehicleOption = SelectOption & { _id: string; hourlyPrice: number };
@@ -132,6 +136,18 @@ export function BuyHoursBookingForm({
   const [dropoffTime, setDropoffTime] = useState("");
   const [promoCode, setPromoCode] = useState("");
   const [partnerLabel, setPartnerLabel] = useState<string | null>(null);
+  const [partnerContext, setPartnerContext] = useState<PartnerContext | null>(null);
+  const [routeMiles, setRouteMiles] = useState<number | null>(null);
+  const [routeDistanceText, setRouteDistanceText] = useState("");
+  const [routeLoading, setRouteLoading] = useState(false);
+
+  const isVenueAccess = partnerContext?.bookingMode === "venue_access";
+  const venuePickup = partnerContext?.pickupLocation;
+
+  const filteredVehicleList = useMemo(
+    () => filterVehiclesByPartner(vehicleList, partnerContext?.allowedVehicleTypeIds),
+    [vehicleList, partnerContext?.allowedVehicleTypeIds],
+  );
 
   const isMultiDay = !!(
     startDate &&
@@ -140,7 +156,7 @@ export function BuyHoursBookingForm({
   );
   const minHours = isMember ? 1 : 3;
 
-  const vehicle = vehicleValue || pickDefaultVehicle(vehicleList);
+  const vehicle = vehicleValue || pickDefaultVehicle(filteredVehicleList);
   const state = stateValue || pickDefaultRegion(regionList);
 
   useEffect(() => {
@@ -164,17 +180,72 @@ export function BuyHoursBookingForm({
       const partner = loadPartnerContext();
       if (!partner) {
         setPartnerLabel(null);
+        setPartnerContext(null);
         setPromoCode("");
+        setRouteMiles(null);
+        setRouteDistanceText("");
         return;
       }
       setPartnerLabel(partner.partnerName);
+      setPartnerContext(partner);
       setPromoCode((prev) => prev || partner.partnerCode);
+      if (partner.bookingMode === "venue_access" && !startDate) {
+        setStartDate(today);
+        setEndDate(today);
+      }
     };
 
     syncPartner();
     window.addEventListener(PARTNER_CHANGED_EVENT, syncPartner);
     return () => window.removeEventListener(PARTNER_CHANGED_EVENT, syncPartner);
-  }, []);
+  }, [startDate, today]);
+
+  useEffect(() => {
+    const code = promoCode.trim();
+    if (!code || code.length < 3) return;
+
+    const timer = setTimeout(async () => {
+      const res = await validatePartnerCode(code);
+      if (res.data?.bookingMode === "venue_access") {
+        setPartnerContext(res.data);
+        setPartnerLabel(res.data.partnerName);
+        if (!startDate) {
+          setStartDate(today);
+          setEndDate(today);
+        }
+      } else if (res.data) {
+        setPartnerContext(res.data);
+        setPartnerLabel(res.data.partnerName);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [promoCode, startDate, today]);
+
+  useEffect(() => {
+    if (!isVenueAccess || !venuePickup?.text || !dropoffPlaceId || !dropoffText) {
+      setRouteMiles(null);
+      setRouteDistanceText("");
+      return;
+    }
+
+    let cancelled = false;
+    setRouteLoading(true);
+    void estimateRoute(venuePickup, { text: dropoffText, placeId: dropoffPlaceId }).then(
+      (estimate) => {
+        if (cancelled) return;
+        if (estimate) {
+          setRouteMiles(estimate.distanceMiles);
+          setRouteDistanceText(estimate.distanceText);
+        }
+        setRouteLoading(false);
+      },
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isVenueAccess, venuePickup, dropoffPlaceId, dropoffText]);
 
   const handleDateSelect = useCallback((range: DateRange | undefined) => {
     if (!range?.from) {
@@ -190,12 +261,13 @@ export function BuyHoursBookingForm({
     setDropoffTime((prev) => (multiDay ? prev || "12:00 PM" : ""));
   }, []);
 
-  const isValid =
-    !!startDate &&
-    !!dropoffText &&
-    !!vehicle &&
-    !!state &&
-    (isMultiDay ? !!dropoffTime : durationHours >= minHours);
+  const isValid = isVenueAccess
+    ? !!startDate && !!dropoffText && !!dropoffPlaceId && !!vehicle && !!state
+    : !!startDate &&
+      !!dropoffText &&
+      !!vehicle &&
+      !!state &&
+      (isMultiDay ? !!dropoffTime : durationHours >= minHours);
 
   const handleContinue = useCallback(() => {
     if (!isValid || !startDate) return;
@@ -305,6 +377,7 @@ export function BuyHoursBookingForm({
       {/* Fields */}
       <div className="grid grid-cols-1 gap-3 px-5 pb-5 sm:grid-cols-2 sm:px-6 lg:grid-cols-[1.45fr_0.95fr_0.8fr_1fr_0.8fr_auto] lg:gap-2.5 lg:px-7 lg:pb-6">
         <BarAddress
+          label={isVenueAccess ? "Drop-off destination" : undefined}
           value={dropoffText}
           onChange={(v) => {
             setDropoffText(v);
@@ -326,6 +399,12 @@ export function BuyHoursBookingForm({
 
         {isMultiDay ? (
           <BarTimeSelect value={dropoffTime} onChange={setDropoffTime} />
+        ) : isVenueAccess ? (
+          <BarRouteMiles
+            miles={routeMiles}
+            distanceText={routeDistanceText}
+            loading={routeLoading}
+          />
         ) : (
           <BarDuration
             value={durationHours}
@@ -334,22 +413,31 @@ export function BuyHoursBookingForm({
           />
         )}
 
-        <BarSelect
-          label="Vehicle Type"
-          options={vehicleList}
-          value={vehicle}
-          onChange={onVehicleChange}
-          placeholder="Select vehicle"
-          icon="car"
-        />
+        {!isVenueAccess ? (
+          <>
+            <BarSelect
+              label="Vehicle Type"
+              options={filteredVehicleList}
+              value={vehicle}
+              onChange={onVehicleChange}
+              placeholder="Select vehicle"
+              icon="car"
+            />
 
-        <BarSelect
-          label="State"
-          options={regionList}
-          value={state}
-          onChange={onStateChange}
-          placeholder="Select state"
-        />
+            <BarSelect
+              label="State"
+              options={regionList}
+              value={state}
+              onChange={onStateChange}
+              placeholder="Select state"
+            />
+          </>
+        ) : (
+          <>
+            <BarVenueMeta label="Vehicle" value={partnerContext?.vehicleName ?? vehicle.split(" $")[0]} />
+            <BarVenueMeta label="Venue Access" value="Route-based pricing" />
+          </>
+        )}
 
         <div className="flex items-end sm:col-span-2 lg:col-span-1">
           <button
@@ -411,10 +499,12 @@ function BarAddress({
   value,
   onChange,
   onPlaceSelect,
+  label,
 }: {
   value: string;
   onChange: (v: string) => void;
   onPlaceSelect: (text: string, placeId: string) => void;
+  label?: string;
 }) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [open, setOpen] = useState(false);
@@ -720,6 +810,44 @@ function BarDateRange({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function BarRouteMiles({
+  miles,
+  distanceText,
+  loading,
+}: {
+  miles: number | null;
+  distanceText: string;
+  loading: boolean;
+}) {
+  const display = loading
+    ? "Calculating…"
+    : miles != null
+      ? distanceText || `${miles} mi`
+      : "Enter destination";
+
+  return (
+    <div>
+      <p className={LABEL}>Miles / Distance</p>
+      <div className={cn(FIELD, "justify-center px-4")}>
+        <span className={cn("text-[14px] font-semibold tabular-nums", FIELD_VALUE)}>
+          {display}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function BarVenueMeta({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className={LABEL}>{label}</p>
+      <div className={cn(FIELD, "px-4")}>
+        <span className={cn("truncate text-[13px] font-medium", FIELD_VALUE)}>{value}</span>
+      </div>
     </div>
   );
 }

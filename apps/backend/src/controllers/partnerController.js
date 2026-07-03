@@ -9,6 +9,7 @@ const {
   resolvePartnerBySlug,
   resolvePartnerByCode,
   getPartnerDashboard,
+  authenticatePartnerDashboard,
 } = require('../services/partnerService');
 
 const resolvePartner = asyncHandler(async (req, res) => {
@@ -95,9 +96,24 @@ const getDashboard = asyncHandler(async (req, res) => {
   return sendSuccess(res, 200, 'Partner dashboard loaded', dashboard);
 });
 
+const dashboardAuth = asyncHandler(async (req, res) => {
+  const { partnerCode, contactEmail } = req.body || {};
+  if (!partnerCode || !contactEmail) {
+    return sendValidationError(res, 'Partner code and contact email are required');
+  }
+
+  const result = await authenticatePartnerDashboard(partnerCode, contactEmail);
+  if (!result) {
+    return sendNotFound(res, 'Partner not found or credentials do not match');
+  }
+
+  return sendSuccess(res, 200, 'Partner authenticated', result);
+});
+
 module.exports = {
   resolvePartner,
   validateCode,
   submitApplication,
   getDashboard,
+  dashboardAuth,
 };

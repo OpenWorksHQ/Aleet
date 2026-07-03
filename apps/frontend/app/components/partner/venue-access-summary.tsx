@@ -57,11 +57,16 @@ export function VenueAccessSummary({
   const hasPickup = !!data.pickupAddress.text;
   const hasDropoff = !!data.dropoffAddress.text;
   const hasDuration = !!data.estimatedDurationHours || !!data.routeDurationText;
+  const hasMiles = data.routeDistanceMiles != null && data.routeDistanceMiles > 0;
   const hasPrice = !!serverPrice?.total;
 
   const durationLabel =
     data.routeDurationText ??
     (data.estimatedDurationHours ? `${data.estimatedDurationHours}h estimated` : "Calculating…");
+
+  const milesLabel = hasMiles
+    ? `${data.routeDistanceMiles} mi`
+    : "Enter drop-off to calculate";
 
   const priceLabel = priceLoading
     ? "Calculating…"
@@ -70,7 +75,7 @@ export function VenueAccessSummary({
       : "Enter drop-off to see price";
 
   return (
-    <div className={cn("grid gap-3 sm:grid-cols-2 xl:grid-cols-4", className)}>
+    <div className={cn("grid gap-3 sm:grid-cols-2 xl:grid-cols-5", className)}>
       <SummaryItem
         label="Pickup"
         value={data.pickupAddress.text || "Partner venue"}
@@ -81,6 +86,12 @@ export function VenueAccessSummary({
         label="Drop-off"
         value={data.dropoffAddress.text || "Enter destination"}
         done={hasDropoff}
+        icon={<Route className="h-4 w-4" />}
+      />
+      <SummaryItem
+        label="Distance"
+        value={milesLabel}
+        done={hasMiles}
         icon={<Route className="h-4 w-4" />}
       />
       <SummaryItem

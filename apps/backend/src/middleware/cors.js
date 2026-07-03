@@ -59,6 +59,7 @@ const ALLOW_HEADERS = [
   'Content-Type',
   'Accept',
   'Authorization',
+  'X-Partner-Token',
   'ngrok-skip-browser-warning',
 ].join(', ');
 
@@ -102,7 +103,7 @@ function getSocketCorsConfig() {
       }
     },
     methods: ['GET', 'POST'],
-    allowedHeaders: ['Authorization', 'Content-Type', 'ngrok-skip-browser-warning'],
+    allowedHeaders: ['Authorization', 'Content-Type', 'X-Partner-Token', 'ngrok-skip-browser-warning'],
     credentials: true,
   };
 }

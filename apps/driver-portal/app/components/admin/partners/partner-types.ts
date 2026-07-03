@@ -41,6 +41,8 @@ export type ApprovePartnerApplicationBody = {
   discountPct?: number;
   commissionPct?: number;
   pricingNote?: string;
+  pickupLocked?: boolean;
+  dropoffLocked?: boolean;
   pickupLocation?: { text: string; placeId?: string };
 };
 

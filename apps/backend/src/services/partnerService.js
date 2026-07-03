@@ -4,6 +4,7 @@ const Booking = require('../models/Booking');
 const Region = require('../models/Region');
 const VehicleType = require('../models/Vehicle');
 const TierSettings = require('../models/TierSettings');
+const crypto = require('crypto');
 
 function slugify(value) {
   return String(value || '')
@@ -137,6 +138,19 @@ async function populatePartnerContext(partnerDoc) {
   return toPartnerContextDTO(partner, region, vehicle);
 }
 
+function generateDashboardAccessToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+function resolveVenueAccessBookingType(partner) {
+  const pickupLocked = partner.pickupLocked !== false;
+  const dropoffLocked = partner.dropoffLocked === true;
+  if (pickupLocked && dropoffLocked) return 'venue_to_venue';
+  if (pickupLocked) return 'venue_to_custom';
+  if (dropoffLocked) return 'custom_to_venue';
+  return 'custom_to_custom';
+}
+
 function toPartnerContextDTO(partner, region = null, vehicle = null) {
   const isVenue = partner.partnerType === 'venue';
   return {
@@ -150,6 +164,9 @@ function toPartnerContextDTO(partner, region = null, vehicle = null) {
     venueId: isVenue ? String(partner._id) : undefined,
     pickupLocation: partner.pickupLocation || undefined,
     pickupLocked: partner.pickupLocked,
+    dropoffLocation: partner.dropoffLocation || undefined,
+    dropoffLocked: partner.dropoffLocked === true,
+    venueAccessBookingType: resolveVenueAccessBookingType(partner),
     regionId: partner.region ? String(partner.region) : undefined,
     regionName: region?.name,
     vehicleTypeId: partner.defaultVehicleType ? String(partner.defaultVehicleType) : undefined,
@@ -288,6 +305,7 @@ async function getPartnerDashboard(partnerId) {
     partnerName: partner.partnerName,
     partnerCode: partner.partnerCode,
     venueSlug: partner.venueSlug || undefined,
+    trackingSlug: partner.trackingSlug || undefined,
     commissionPct: partner.commissionPct ?? defaultPct,
     totalBookings: partner.stats?.totalBookings || 0,
     completedBookings: partner.stats?.completedBookings || 0,
@@ -319,25 +337,34 @@ async function createPartnerFromApplication(application, adminUserId, overrides 
   const rawVenueSlug = isVenue
     ? (overrides.venueSlug || await ensureUniqueVenueSlug(application.businessName))
     : undefined;
-  const rawTrackingSlug = !isVenue && overrides.trackingSlug
-    ? overrides.trackingSlug
-    : undefined;
+  const partnerType = overrides.partnerType || (isVenue ? 'venue' : 'affiliate');
+  const isAffiliateType = partnerType === 'affiliate' || partnerType === 'marketer';
+  const rawTrackingSlug = !isVenue && isAffiliateType
+    ? (overrides.trackingSlug || await ensureUniqueTrackingSlug(application.businessName))
+    : (!isVenue && overrides.trackingSlug ? overrides.trackingSlug : undefined);
 
   const slugs = await assertUniquePartnerSlugs({
     trackingSlug: rawTrackingSlug,
     venueSlug: rawVenueSlug,
   });
 
+  const pickupLocation = overrides.pickupLocation || {
+    text: `${application.address}, ${application.city}, ${application.state}`,
+    placeId: '',
+  };
+
   const payload = {
     partnerCode,
     partnerName: application.businessName,
     partnerType: overrides.partnerType || (isVenue ? 'venue' : 'affiliate'),
     bookingMode: isVenue ? 'venue_access' : 'standard',
-    pickupLocation: overrides.pickupLocation || {
-      text: `${application.address}, ${application.city}, ${application.state}`,
-      placeId: '',
-    },
-    pickupLocked: isVenue,
+    pickupLocation,
+    pickupLocked: overrides.pickupLocked ?? isVenue,
+    dropoffLocation: overrides.dropoffLocked
+      ? (overrides.dropoffLocation || pickupLocation)
+      : (overrides.dropoffLocation || null),
+    dropoffLocked: overrides.dropoffLocked ?? false,
+    dashboardAccessToken: generateDashboardAccessToken(),
     discountPct: overrides.discountPct ?? 5,
     commissionPct: overrides.commissionPct ?? null,
     pricingNote: overrides.pricingNote || null,
@@ -368,6 +395,38 @@ async function createPartnerFromApplication(application, adminUserId, overrides 
   return partner;
 }
 
+async function authenticatePartnerDashboard(partnerCode, contactEmail) {
+  const code = String(partnerCode || '').trim().toUpperCase();
+  const email = String(contactEmail || '').trim().toLowerCase();
+  if (!code || !email) return null;
+
+  const partner = await Partner.findOne({
+    partnerCode: code,
+    contactEmail: email,
+    status: 'active',
+  }).select('+dashboardAccessToken');
+
+  if (!partner) return null;
+
+  if (!partner.dashboardAccessToken) {
+    partner.dashboardAccessToken = generateDashboardAccessToken();
+    await partner.save();
+  }
+
+  const context = await populatePartnerContext(partner);
+  return {
+    partner: context,
+    dashboardAccessToken: partner.dashboardAccessToken,
+  };
+}
+
+async function verifyPartnerDashboardAccess(partnerId, token) {
+  if (!partnerId || !token) return false;
+  const partner = await Partner.findById(partnerId).select('+dashboardAccessToken');
+  if (!partner || partner.status !== 'active') return false;
+  return partner.dashboardAccessToken === String(token).trim();
+}
+
 module.exports = {
   slugify,
   normalizeSlug,
@@ -390,4 +449,8 @@ module.exports = {
   recordPartnerBookingCompleted,
   getPartnerDashboard,
   createPartnerFromApplication,
+  authenticatePartnerDashboard,
+  verifyPartnerDashboardAccess,
+  generateDashboardAccessToken,
+  resolveVenueAccessBookingType,
 };

@@ -6,6 +6,7 @@ import { CarIcon, MapPinIcon } from "@/app/components/ui/icons";
 import type { SelectOption } from "@/app/components/ui/select";
 import { getVehicleTypes, type VehicleType } from "@/lib/api/vehicle-types";
 import { getRegions, type Region } from "@/lib/api/regions";
+import { filterVehiclesByPartner } from "@/lib/partner/venue-access";
 import { Button } from "@/app/components/ui";
 import {
     isPickupTimeDisabled,
@@ -35,11 +36,12 @@ export function StepTrip({ data, onChange, onNext, priceBar, isMember = false, s
         getVehicleTypes()
             .then((res) => {
                 const types = res.data ?? [];
-                setVehicleTypes(types);
-                setVehicleOptions(types.map((v) => ({ label: v.name, price: `$${v.hourlyPrice}/hr` })));
+                const filtered = filterVehiclesByPartner(types, data.allowedVehicleTypeIds);
+                setVehicleTypes(filtered);
+                setVehicleOptions(filtered.map((v) => ({ label: v.name, price: `$${v.hourlyPrice}/hr` })));
             })
             .catch(() => { });
-    }, []);
+    }, [data.allowedVehicleTypeIds]);
 
     useEffect(() => {
         getRegions()

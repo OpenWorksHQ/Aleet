@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { approvePartnerApplicationClient } from "@/lib/admin-api";
-import { getSiteUrl } from "@/lib/site-url";
+import { getCustomerSiteUrl } from "@/lib/site-url";
 import type {
   AdminPartner,
   ApprovePartnerApplicationBody,
@@ -32,6 +32,8 @@ export function ApproveApplicationModal({ application, onClose, onApproved }: Pr
   const [venueSlug, setVenueSlug] = useState("");
   const [trackingSlug, setTrackingSlug] = useState("");
   const [pickupText, setPickupText] = useState(defaultPickup);
+  const [pickupLocked, setPickupLocked] = useState(isVenue);
+  const [dropoffLocked, setDropoffLocked] = useState(false);
   const [discountPct, setDiscountPct] = useState("5");
   const [commissionPct, setCommissionPct] = useState("");
   const [pricingNote, setPricingNote] = useState("");
@@ -57,6 +59,8 @@ export function ApproveApplicationModal({ application, onClose, onApproved }: Pr
     if (pickupText.trim()) {
       body.pickupLocation = { text: pickupText.trim(), placeId: "" };
     }
+    body.pickupLocked = pickupLocked;
+    body.dropoffLocked = dropoffLocked;
 
     try {
       const result = await approvePartnerApplicationClient(application.id, body);
@@ -69,7 +73,7 @@ export function ApproveApplicationModal({ application, onClose, onApproved }: Pr
     }
   }
 
-  const siteUrl = getSiteUrl();
+  const siteUrl = getCustomerSiteUrl();
   const bookingLink = success?.partner?.venueSlug
     ? `${siteUrl}/access/${success.partner.venueSlug}`
     : success?.partner?.trackingSlug
@@ -185,11 +189,30 @@ export function ApproveApplicationModal({ application, onClose, onApproved }: Pr
                 <input
                   value={trackingSlug}
                   onChange={(e) => setTrackingSlug(e.target.value)}
-                  placeholder="e.g. welcome"
+                  placeholder="Auto-generated if empty"
                   className={inputClass}
                 />
               </Field>
             )}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="flex items-center gap-2 text-sm text-muted">
+                <input
+                  type="checkbox"
+                  checked={pickupLocked}
+                  onChange={(e) => setPickupLocked(e.target.checked)}
+                />
+                Lock pickup location
+              </label>
+              <label className="flex items-center gap-2 text-sm text-muted">
+                <input
+                  type="checkbox"
+                  checked={dropoffLocked}
+                  onChange={(e) => setDropoffLocked(e.target.checked)}
+                />
+                Lock drop-off at partner venue
+              </label>
+            </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Discount %">
