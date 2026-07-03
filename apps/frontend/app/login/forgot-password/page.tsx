@@ -46,11 +46,7 @@ function ForgotPasswordContent() {
   };
 
   return (
-    <AuthPageShell
-      eyebrow="Account Security"
-      title="Reset your password."
-      subtitle="We'll help you get back into your account quickly and securely."
-    >
+    <AuthPageShell>
       <header className="mb-6 text-center sm:mb-7">
         <h2 className="font-serif text-[28px] leading-[1.1] text-aleet-text sm:text-[32px]">
           {titles[step]}
