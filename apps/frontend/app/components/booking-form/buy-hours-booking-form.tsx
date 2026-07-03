@@ -164,6 +164,7 @@ export function BuyHoursBookingForm({
       const partner = loadPartnerContext();
       if (!partner) {
         setPartnerLabel(null);
+        setPromoCode("");
         return;
       }
       setPartnerLabel(partner.partnerName);

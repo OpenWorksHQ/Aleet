@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { seedAdmins, clearAdmins } = require('./adminSeeder');
+const { seedPartners } = require('./partnerSeeder');
 const VehicleType = require('../models/Vehicle');
 const User = require('../models/User');
 require('dotenv').config();
@@ -184,6 +185,10 @@ const seedAll = async () => {
     await seedSampleUsers(vehicleTypes);
     console.log('');
 
+    // Seed demo partners (tracking slugs + venue access venues)
+    await seedPartners();
+    console.log('');
+
     console.log('🎉 Complete seeding process finished successfully!');
 
   } catch (error) {
@@ -211,6 +216,9 @@ const main = async () => {
       case 'seed:users':
         const vehicleTypes = await VehicleType.find();
         await seedSampleUsers(vehicleTypes);
+        break;
+      case 'seed:partners':
+        await seedPartners();
         break;
       case 'clear':
         await clearAllData();
@@ -257,6 +265,7 @@ module.exports = {
   seedAdmins,
   seedVehicleTypes,
   seedSampleUsers,
+  seedPartners,
   clearAllData,
   clearAdmins,
   connectDB

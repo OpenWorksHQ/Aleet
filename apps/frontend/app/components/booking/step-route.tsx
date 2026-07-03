@@ -187,7 +187,11 @@ export function StepRoute({ data, quickBookingMode, serverPrice, priceLoading, o
     const isBuyHours = quickBookingMode === "buy_hours";
     const fromHomepage = quickBookingMode !== null;
     const isValid = isVenueAccess
-        ? !!data.pickupAddress.text && !!data.dropoffAddress.text && !!data.estimatedDurationHours
+        ? !!data.pickupAddress.text &&
+          !!data.dropoffAddress.placeId &&
+          !!data.dropoffAddress.text &&
+          !!data.estimatedDurationHours &&
+          !priceLoading
         : isBuyHours
             ? !!data.pickupAddress.text && !!data.dropoffAddress.text
             : !!data.pickupAddress.text && (data.freeRouting || !!data.dropoffAddress.text);
