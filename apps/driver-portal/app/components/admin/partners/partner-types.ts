@@ -33,6 +33,14 @@ export type AdminPartner = {
   status?: string;
 };
 
+export type UpdatePartnerBody = {
+  partnerType?: "venue" | "affiliate" | "marketer";
+  bookingMode?: "venue_access" | "standard";
+  discountPct?: number;
+  commissionPct?: number | null;
+  pricingNote?: string;
+};
+
 export type ApprovePartnerApplicationBody = {
   partnerCode?: string;
   partnerType?: "venue" | "affiliate" | "marketer";

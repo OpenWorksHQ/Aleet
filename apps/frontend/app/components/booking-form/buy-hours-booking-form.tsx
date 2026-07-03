@@ -13,8 +13,11 @@ import {
 } from "@/lib/booking-constraints";
 import {
   loadPartnerContext,
+  clearPartnerContext,
+  savePartnerContext,
   PARTNER_CHANGED_EVENT,
 } from "@/lib/partner/attribution";
+import { hydratePartnerContext } from "@/lib/partner/hydrate";
 import { validatePartnerCode } from "@/lib/api/partners";
 import { estimateRoute } from "@/lib/partner/route-estimate";
 import { filterVehiclesByPartner } from "@/lib/partner/venue-access";
@@ -176,8 +179,10 @@ export function BuyHoursBookingForm({
   }, [state]);
 
   useEffect(() => {
-    const syncPartner = () => {
-      const partner = loadPartnerContext();
+    let cancelled = false;
+
+    const applyPartner = (partner: PartnerContext | null) => {
+      if (cancelled) return;
       if (!partner) {
         setPartnerLabel(null);
         setPartnerContext(null);
@@ -195,10 +200,26 @@ export function BuyHoursBookingForm({
       }
     };
 
-    syncPartner();
+    const syncPartner = async () => {
+      const partner = await hydratePartnerContext();
+      applyPartner(partner);
+    };
+
+    void syncPartner();
     window.addEventListener(PARTNER_CHANGED_EVENT, syncPartner);
-    return () => window.removeEventListener(PARTNER_CHANGED_EVENT, syncPartner);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(PARTNER_CHANGED_EVENT, syncPartner);
+    };
   }, [startDate, today]);
+
+  const handlePromoChange = useCallback((value: string) => {
+    const code = value.toUpperCase();
+    setPromoCode(code);
+    if (!code.trim() && loadPartnerContext()) {
+      clearPartnerContext();
+    }
+  }, []);
 
   useEffect(() => {
     const code = promoCode.trim();
@@ -206,16 +227,19 @@ export function BuyHoursBookingForm({
 
     const timer = setTimeout(async () => {
       const res = await validatePartnerCode(code);
-      if (res.data?.bookingMode === "venue_access") {
+      if (res.data) {
+        savePartnerContext(res.data);
         setPartnerContext(res.data);
         setPartnerLabel(res.data.partnerName);
-        if (!startDate) {
+        if (res.data.bookingMode === "venue_access" && !startDate) {
           setStartDate(today);
           setEndDate(today);
         }
-      } else if (res.data) {
-        setPartnerContext(res.data);
-        setPartnerLabel(res.data.partnerName);
+        return;
+      }
+
+      if (loadPartnerContext()) {
+        clearPartnerContext();
       }
     }, 400);
 
@@ -366,7 +390,7 @@ export function BuyHoursBookingForm({
           <input
             type="text"
             value={promoCode}
-            onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+            onChange={(e) => handlePromoChange(e.target.value)}
             placeholder={partnerLabel ? partnerLabel : "Enter code"}
             aria-label="Promo or partner code"
             className="h-8 w-[108px] rounded-md border border-white/15 bg-[#141414] px-2.5 text-[11px] text-white placeholder:text-white/30 outline-none transition-colors focus:border-[#c5a386]/60 sm:w-[120px] sm:text-[12px]"

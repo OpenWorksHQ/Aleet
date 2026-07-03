@@ -5,6 +5,7 @@ const {
   sendValidationError,
   sendNotFound,
 } = require('../utils/responseHelper');
+const { normalizeWebsiteUrl } = require('../utils/normalizeWebsite');
 const {
   resolvePartnerBySlug,
   resolvePartnerByCode,
@@ -60,6 +61,15 @@ const submitApplication = asyncHandler(async (req, res) => {
     }
   }
 
+  let normalizedWebsite = null;
+  if (website && String(website).trim()) {
+    try {
+      normalizedWebsite = normalizeWebsiteUrl(website);
+    } catch (err) {
+      return sendValidationError(res, err.message);
+    }
+  }
+
   const application = await PartnerApplication.create({
     businessName: String(businessName).trim(),
     businessType: String(businessType).trim(),
@@ -69,7 +79,7 @@ const submitApplication = asyncHandler(async (req, res) => {
     address: String(address).trim(),
     city: String(city).trim(),
     state: String(state).trim(),
-    website: website ? String(website).trim() : null,
+    website: normalizedWebsite,
     notes: notes ? String(notes).trim() : null,
   });
 

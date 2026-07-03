@@ -7,7 +7,7 @@ import { getRegions, type Region } from "@/lib/api/regions";
 import { savePendingBooking } from "@/lib/pending-booking";
 import { getToken } from "@/lib/auth";
 import { getProfile } from "@/lib/api/users";
-import { loadPartnerContext, savePartnerContext } from "@/lib/partner/attribution";
+import { loadPartnerContext, savePartnerContext, PARTNER_CHANGED_EVENT } from "@/lib/partner/attribution";
 import { validatePartnerCode } from "@/lib/api/partners";
 import { buildVenueAccessPendingBooking, filterVehiclesByPartner } from "@/lib/partner/venue-access";
 import { toast } from "./ui";
@@ -40,32 +40,47 @@ export function BookingForm() {
     }, []);
 
     useEffect(() => {
-        getVehicleTypes()
-            .then((res) => {
-                const partner = loadPartnerContext();
-                const types = res.data ?? [];
-                const filtered = filterVehiclesByPartner(types, partner?.allowedVehicleTypeIds);
-                const opts: VehicleOption[] = filtered.map(
-                    (v: VehicleType) => ({
-                        label: v.name,
-                        price: `$${v.hourlyPrice}/hr`,
-                        _id: v._id,
-                        hourlyPrice: v.hourlyPrice,
-                    }),
-                );
-                setVehicleList(opts);
-                const suv = opts.find(
-                    (v) => v.label.toLowerCase() === "suv",
-                );
-                const first = suv ?? opts[0];
-                if (first) {
-                    const display = first.price
-                        ? `${first.label} ${first.price}`
-                        : first.label;
-                    setBuyHoursVehicle((prev) => prev || display);
-                }
-            })
-            .catch(() => {});
+        function applyVehicleList(partner = loadPartnerContext()) {
+            getVehicleTypes()
+                .then((res) => {
+                    const types = res.data ?? [];
+                    const filtered = filterVehiclesByPartner(types, partner?.allowedVehicleTypeIds);
+                    const opts: VehicleOption[] = filtered.map(
+                        (v: VehicleType) => ({
+                            label: v.name,
+                            price: `$${v.hourlyPrice}/hr`,
+                            _id: v._id,
+                            hourlyPrice: v.hourlyPrice,
+                        }),
+                    );
+                    setVehicleList(opts);
+                    const suv = opts.find(
+                        (v) => v.label.toLowerCase() === "suv",
+                    );
+                    const first = suv ?? opts[0];
+                    if (first) {
+                        const display = first.price
+                            ? `${first.label} ${first.price}`
+                            : first.label;
+                        setBuyHoursVehicle((prev) => {
+                            if (!prev) return display;
+                            const stillValid = opts.some((v) => {
+                                const d = v.price ? `${v.label} ${v.price}` : v.label;
+                                return d === prev;
+                            });
+                            return stillValid ? prev : display;
+                        });
+                    } else {
+                        setBuyHoursVehicle("");
+                    }
+                })
+                .catch(() => {});
+        }
+
+        applyVehicleList();
+        const onPartnerChanged = () => applyVehicleList();
+        window.addEventListener(PARTNER_CHANGED_EVENT, onPartnerChanged);
+        return () => window.removeEventListener(PARTNER_CHANGED_EVENT, onPartnerChanged);
     }, []);
 
     useEffect(() => {

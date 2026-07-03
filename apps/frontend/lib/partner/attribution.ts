@@ -23,6 +23,19 @@ function clearCookie() {
   document.cookie = `${COOKIE_KEY}=; path=/; max-age=0`;
 }
 
+export function getPartnerCodeFromCookie(): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie
+    .split("; ")
+    .find((c) => c.startsWith(`${COOKIE_KEY}=`));
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match.split("=")[1] ?? "");
+  } catch {
+    return null;
+  }
+}
+
 export function savePartnerContext(context: PartnerContext): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(context));
