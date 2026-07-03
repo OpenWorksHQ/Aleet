@@ -27,6 +27,7 @@ import {
 } from "@/lib/booking-constraints";
 import { loadPendingBooking, clearPendingBooking } from "@/lib/pending-booking";
 import { loadPartnerContext } from "@/lib/partner/attribution";
+import { filterVehiclesByPartner } from "@/lib/partner/venue-access";
 import { useSameDayAvailability } from "@/lib/use-same-day-availability";
 import { SameDayNotice } from "./same-day-notice";
 import { PartnerContextBanner } from "@/app/components/partner/partner-context-banner";
@@ -60,7 +61,7 @@ function TripSummaryBar({
     useEffect(() => {
         getVehicleTypes()
             .then((res) => {
-                const types = res.data ?? [];
+                const types = filterVehiclesByPartner(res.data ?? [], data.allowedVehicleTypeIds);
                 setVehicleTypes(types);
                 setVehicleOptions(types.map((v) => ({ label: v.name, price: `$${v.hourlyPrice}/hr` })));
             })
@@ -72,7 +73,7 @@ function TripSummaryBar({
                 setRegionOptions(list.map((r: Region) => ({ label: r.name })));
             })
             .catch(() => { });
-    }, []);
+    }, [data.allowedVehicleTypeIds]);
 
     const hasFullData = data.pickupDate && data.pickupTime && data.dropoffDate && data.dropoffTime;
     const isBuyHours = quickBookingMode === "buy_hours";
@@ -409,8 +410,12 @@ export function BookingWizard({ onStepChange, renderIndicator }: { onStepChange?
                     partnerName: partner.partnerName,
                     venueId: partner.venueId,
                     pickupLocked: partner.pickupLocked,
+                    dropoffLocked: partner.dropoffLocked,
+                    venueAccessBookingType: partner.venueAccessBookingType,
+                    allowedVehicleTypeIds: partner.allowedVehicleTypeIds,
                     discountPct: partner.discountPct,
                     pickupAddress: partner.pickupLocation ?? EMPTY_BOOKING.pickupAddress,
+                    dropoffAddress: partner.dropoffLocation ?? EMPTY_BOOKING.dropoffAddress,
                     region: partner.regionName ?? "",
                     regionId: partner.regionId ?? "",
                     vehicleType: partner.vehicleName ?? "",
@@ -457,14 +462,18 @@ export function BookingWizard({ onStepChange, renderIndicator }: { onStepChange?
             partnerName: pending.partnerName ?? partner?.partnerName,
             venueId: pending.venueId ?? partner?.venueId,
             pickupLocked: pending.pickupLocked ?? partner?.pickupLocked,
+            dropoffLocked: pending.dropoffLocked ?? partner?.dropoffLocked,
+            venueAccessBookingType:
+                pending.venueAccessBookingType ?? partner?.venueAccessBookingType,
+            allowedVehicleTypeIds: partner?.allowedVehicleTypeIds,
             discountPct: pending.discountPct ?? partner?.discountPct,
             pickupAddress: {
                 text: pending.pickupLocationText ?? partner?.pickupLocation?.text ?? "",
                 placeId: pending.pickupLocationPlaceId ?? partner?.pickupLocation?.placeId ?? "",
             },
             dropoffAddress: {
-                text: pending.dropoffLocationText ?? "",
-                placeId: pending.dropoffLocationPlaceId ?? "",
+                text: pending.dropoffLocationText ?? partner?.dropoffLocation?.text ?? "",
+                placeId: pending.dropoffLocationPlaceId ?? partner?.dropoffLocation?.placeId ?? "",
             },
             freeRouting: false,
         };

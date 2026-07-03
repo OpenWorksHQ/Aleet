@@ -1,4 +1,5 @@
 import { apiFetch, ApiError } from "@/lib/api";
+import { loadPartnerDashboardToken } from "@/lib/partner/attribution";
 import type {
   PartnerApplicationPayload,
   PartnerApplicationRecord,
@@ -138,9 +139,16 @@ export async function getPartnerDashboard(
 
   if (isPartnerApiConfigured()) {
     try {
+      const dashboardToken = loadPartnerDashboardToken();
       const api = await apiFetch<PartnerDashboardStats>(
         `/partners/${encodeURIComponent(partnerId)}/dashboard`,
-        { method: "GET" },
+        {
+          method: "GET",
+          skipAuthRedirect: true,
+          headers: dashboardToken
+            ? { "X-Partner-Token": dashboardToken }
+            : undefined,
+        },
       );
       return {
         data: api.data ?? null,
@@ -159,6 +167,19 @@ export async function getPartnerDashboard(
     message: "Connect NEXT_PUBLIC_API_URL to load live dashboard data",
     fromApi: false,
   };
+}
+
+export async function authenticatePartnerDashboard(partnerCode: string, contactEmail: string) {
+  if (!isPartnerApiConfigured()) {
+    throw new ApiError(503, "Partner dashboard requires API connection");
+  }
+  return apiFetch<{
+    partner: PartnerContext;
+    dashboardAccessToken: string;
+  }>("/partners/dashboard-auth", {
+    method: "POST",
+    body: { partnerCode, contactEmail },
+  });
 }
 
 export function getLocalPartnerApplications() {

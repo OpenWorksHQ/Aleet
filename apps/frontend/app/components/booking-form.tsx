@@ -9,7 +9,7 @@ import { getToken } from "@/lib/auth";
 import { getProfile } from "@/lib/api/users";
 import { loadPartnerContext, savePartnerContext } from "@/lib/partner/attribution";
 import { validatePartnerCode } from "@/lib/api/partners";
-import { buildVenueAccessPendingBooking } from "@/lib/partner/venue-access";
+import { buildVenueAccessPendingBooking, filterVehiclesByPartner } from "@/lib/partner/venue-access";
 import { toast } from "./ui";
 import {
     BuyHoursBookingForm,
@@ -42,7 +42,10 @@ export function BookingForm() {
     useEffect(() => {
         getVehicleTypes()
             .then((res) => {
-                const opts: VehicleOption[] = (res.data ?? []).map(
+                const partner = loadPartnerContext();
+                const types = res.data ?? [];
+                const filtered = filterVehiclesByPartner(types, partner?.allowedVehicleTypeIds);
+                const opts: VehicleOption[] = filtered.map(
                     (v: VehicleType) => ({
                         label: v.name,
                         price: `$${v.hourlyPrice}/hr`,

@@ -2,10 +2,18 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { getPartnerDashboard } from "@/lib/api/partners";
+import { getSiteUrl } from "@/lib/site-url";
+import {
+  authenticatePartnerDashboard,
+  getPartnerDashboard,
+} from "@/lib/api/partners";
+import { ApiError } from "@/lib/api";
 import {
   loadPartnerContext,
+  loadPartnerDashboardToken,
   PARTNER_CHANGED_EVENT,
+  savePartnerContext,
+  savePartnerDashboardToken,
 } from "@/lib/partner/attribution";
 import type { PartnerContext, PartnerDashboardStats } from "@/lib/partner/types";
 import {
@@ -14,18 +22,57 @@ import {
 } from "@/app/components/marketing-page-shell";
 import { toast } from "@/app/components/ui";
 
+function buildBookingUrl(stats: PartnerDashboardStats): string {
+  const base = getSiteUrl();
+  if (stats.venueSlug) return `${base}/access/${stats.venueSlug}`;
+  if (stats.trackingSlug) return `${base}/${stats.trackingSlug}`;
+  return base;
+}
+
 export default function PartnerDashboardPage() {
   const [partner, setPartner] = useState<PartnerContext | null>(null);
   const [stats, setStats] = useState<PartnerDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [bookingUrl, setBookingUrl] = useState("");
+  const [authCode, setAuthCode] = useState("");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [needsAuth, setNeedsAuth] = useState(false);
 
   useEffect(() => {
-    const refreshPartner = () => setPartner(loadPartnerContext());
+    const refreshPartner = () => {
+      const ctx = loadPartnerContext();
+      setPartner(ctx);
+      if (ctx?.partnerCode) setAuthCode(ctx.partnerCode);
+    };
     refreshPartner();
     window.addEventListener(PARTNER_CHANGED_EVENT, refreshPartner);
     return () => window.removeEventListener(PARTNER_CHANGED_EVENT, refreshPartner);
+  }, []);
+
+  const loadDashboard = useCallback(async (partnerId: string) => {
+    setLoading(true);
+    setError(null);
+    setNeedsAuth(false);
+
+    const res = await getPartnerDashboard(partnerId);
+    if (res.data) {
+      setStats(res.data);
+      setBookingUrl(buildBookingUrl(res.data));
+      setLoading(false);
+      return;
+    }
+
+    if (res.message.toLowerCase().includes("access denied") || res.message.toLowerCase().includes("sign in")) {
+      setNeedsAuth(true);
+      setStats(null);
+      setError(null);
+    } else {
+      setStats(null);
+      setError(res.message || "Could not load dashboard.");
+    }
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -33,28 +80,34 @@ export default function PartnerDashboardPage() {
       setLoading(false);
       setStats(null);
       setError(null);
+      setNeedsAuth(!loadPartnerDashboardToken());
       return;
     }
 
-    setLoading(true);
-    setError(null);
+    void loadDashboard(partner.partnerId);
+  }, [partner?.partnerId, loadDashboard]);
 
-    getPartnerDashboard(partner.partnerId).then((res) => {
-      if (res.data) {
-        setStats(res.data);
-        const slug = res.data.venueSlug;
-        setBookingUrl(
-          slug
-            ? `${window.location.origin}/access/${slug}`
-            : `${window.location.origin}/?partner=1`,
-        );
-      } else {
-        setStats(null);
-        setError(res.message || "Could not load dashboard.");
-      }
-      setLoading(false);
-    });
-  }, [partner?.partnerId]);
+  async function handlePartnerSignIn(e: React.FormEvent) {
+    e.preventDefault();
+    setAuthLoading(true);
+    setError(null);
+    try {
+      const res = await authenticatePartnerDashboard(authCode.trim(), authEmail.trim());
+      if (!res.data) throw new Error("Authentication failed");
+
+      savePartnerDashboardToken(res.data.dashboardAccessToken);
+      savePartnerContext(res.data.partner);
+      setPartner(res.data.partner);
+      toast.success("Signed in to partner dashboard.");
+      await loadDashboard(res.data.partner.partnerId);
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "Could not sign in.";
+      setError(message);
+      toast.error(message);
+    } finally {
+      setAuthLoading(false);
+    }
+  }
 
   const copyLink = useCallback(async () => {
     if (!bookingUrl) return;
@@ -93,17 +146,57 @@ export default function PartnerDashboardPage() {
           </Link>
         </div>
 
-        {!partner?.partnerId ? (
+        {needsAuth && !loadPartnerDashboardToken() ? (
+          <div className="mx-auto max-w-md rounded-2xl border border-aleet-border bg-aleet-card px-6 py-8 shadow-sm">
+            <h2 className="font-serif text-xl text-aleet-text">Partner sign in</h2>
+            <p className="mt-2 text-sm text-aleet-text-muted">
+              Enter your partner code and the contact email from your application to view your dashboard.
+            </p>
+            <form onSubmit={handlePartnerSignIn} className="mt-6 space-y-4">
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-aleet-text-subtle">
+                  Partner code
+                </span>
+                <input
+                  value={authCode}
+                  onChange={(e) => setAuthCode(e.target.value.toUpperCase())}
+                  className="w-full rounded-xl border border-aleet-border bg-aleet-cream px-3 py-2.5 text-sm text-aleet-text outline-none focus:border-aleet-gold/40"
+                  required
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-aleet-text-subtle">
+                  Contact email
+                </span>
+                <input
+                  type="email"
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  className="w-full rounded-xl border border-aleet-border bg-aleet-cream px-3 py-2.5 text-sm text-aleet-text outline-none focus:border-aleet-gold/40"
+                  required
+                />
+              </label>
+              {error ? <p className="text-sm text-red-600">{error}</p> : null}
+              <button
+                type="submit"
+                disabled={authLoading}
+                className="w-full rounded-xl bg-aleet-gold px-4 py-2.5 text-sm font-semibold text-black disabled:opacity-60"
+              >
+                {authLoading ? "Signing in…" : "View dashboard"}
+              </button>
+            </form>
+          </div>
+        ) : !partner?.partnerId ? (
           <EmptyState
             title="No partner selected"
-            text="Visit your venue access link or enter a partner code on the homepage first, then return here."
+            text="Visit your partner link first, or sign in with your partner code and contact email."
             actionHref="/partners"
             actionLabel="Partner program"
           />
         ) : loading ? (
           <p className="text-sm text-aleet-text-muted">Loading dashboard…</p>
         ) : error ? (
-          <EmptyState title="Dashboard unavailable" text={error} actionHref="/" actionLabel="Go to homepage" />
+          <EmptyState title="Dashboard unavailable" text={error} actionHref="/partners" actionLabel="Partner program" />
         ) : stats ? (
           <>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -117,7 +210,7 @@ export default function PartnerDashboardPage() {
               <section className="rounded-2xl border border-aleet-border bg-aleet-card p-6 shadow-sm">
                 <h2 className="font-serif text-xl text-aleet-text">Your QR code</h2>
                 <p className="mt-2 text-[13px] leading-relaxed text-aleet-text-muted">
-                  Place this at your venue so guests book with pickup pre-filled.
+                  Share this link or QR code so bookings are attributed to your partner account.
                 </p>
                 {qrUrl ? (
                   <div className="mt-5 flex justify-center rounded-xl border border-aleet-border bg-aleet-cream p-4">

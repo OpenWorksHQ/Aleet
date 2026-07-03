@@ -36,6 +36,9 @@ export type BookingData = {
   partnerName?: string;
   venueId?: string;
   pickupLocked?: boolean;
+  dropoffLocked?: boolean;
+  venueAccessBookingType?: string;
+  allowedVehicleTypeIds?: string[];
   discountPct?: number;
   estimatedDurationHours?: number;
   routeDistanceMiles?: number;

@@ -15,6 +15,7 @@ const {
   ensureUniquePartnerCode,
   assertUniquePartnerSlugs,
   applyPartnerSlugFields,
+  generateDashboardAccessToken,
 } = require('../services/partnerService');
 
 const listApplications = asyncHandler(async (req, res) => {
@@ -169,6 +170,7 @@ const createPartner = asyncHandler(async (req, res) => {
   };
 
   applyPartnerSlugFields(payload, slugs);
+  payload.dashboardAccessToken = generateDashboardAccessToken();
 
   const partner = await Partner.create(payload);
 

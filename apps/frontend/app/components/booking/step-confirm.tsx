@@ -103,6 +103,9 @@ export function StepConfirm({ data, serverPrice, priceLoading, freeAddons, paidA
                 {hours > 0 && (
                     <Row icon={<Clock className="h-3.5 w-3.5" />} label="Duration" value={`${hours.toFixed(1)} hr${hours !== 1 ? "s" : ""}`} />
                 )}
+                {data.routeDistanceMiles != null && data.routeDistanceMiles > 0 ? (
+                    <Row icon={<MapPin className="h-3.5 w-3.5" />} label="Distance" value={`${data.routeDistanceMiles} mi`} />
+                ) : null}
             </div>
 
             {/* ─── Route ─── */}

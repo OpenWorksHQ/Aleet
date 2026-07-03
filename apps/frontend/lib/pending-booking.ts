@@ -22,6 +22,9 @@ export type PendingBooking = {
   partnerName?: string;
   venueId?: string;
   pickupLocked?: boolean;
+  dropoffLocked?: boolean;
+  venueAccessBookingType?: string;
+  allowedVehicleTypeIds?: string[];
   discountPct?: number;
   _savedAt: number;
 };

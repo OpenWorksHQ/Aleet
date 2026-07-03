@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { getSiteUrl } from "@/lib/site-url";
+import { getCustomerSiteUrl } from "@/lib/site-url";
 import type { AdminPartnersPage } from "@/lib/admin-api";
 import type { AdminPartner } from "./partner-types";
 
@@ -11,7 +11,7 @@ type Props = {
 
 export function ActivePartnersList({ initialData }: Props) {
   const [partners] = useState(initialData.partners);
-  const siteUrl = getSiteUrl();
+  const siteUrl = getCustomerSiteUrl();
 
   if (partners.length === 0) {
     return (
