@@ -39,6 +39,7 @@ const regionRoutes = require('./routes/regionRoutes');
 const teamsRoutes = require('./routes/teamsRoutes');
 const investorDocumentRoutes = require('./routes/investorDocumentRoutes');
 const PaymentsController = require('./controllers/payments.controller');
+const { logEmailConfig } = require('./services/emailService');
 
 // Raw-body routes MUST come before express.json() so the body stream is not consumed
 app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), PaymentsController.webhook);
@@ -98,4 +99,7 @@ setInterval(() => {
   });
 }, 5 * 60 * 1000);
 
-httpServer.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
+httpServer.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  logEmailConfig();
+});
