@@ -69,9 +69,13 @@ jobs:
 
           # ─── Email ────────────────────────────────────────────────────
           GMAIL_USER=${{ secrets.GMAIL_USER }}
+          GMAIL_FROM_EMAIL=${{ vars.GMAIL_FROM_EMAIL }}
           GMAIL_APP_PASSWORD=${{ secrets.GMAIL_APP_PASSWORD }}
+          INVESTOR_INBOX_EMAIL=${{ vars.INVESTOR_INBOX_EMAIL }}
+          API_URL=${{ vars.API_URL }}
 
           FRONTEND_URL=${{ vars.FRONTEND_URL }}
+          ALLOWED_ORIGINS=${{ vars.ALLOWED_ORIGINS }}
           EOF
 
       - name: Install dependencies
