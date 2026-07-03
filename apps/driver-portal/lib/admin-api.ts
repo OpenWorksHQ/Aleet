@@ -4,6 +4,7 @@ import type {
   AdminPartner,
   ApprovePartnerApplicationBody,
   PartnerApplication,
+  UpdatePartnerBody,
 } from "@/app/components/admin/partners/partner-types";
 import {
   normalizeAdminPartner,
@@ -1270,4 +1271,22 @@ export async function fetchAdminPartnersClient(
 
   const parsed = parsePaginated(json, page, limit, normalizeAdminPartner);
   return { partners: parsed.items, pagination: parsed.pagination };
+}
+
+/** PATCH /api/admin/partners/:id — client-safe */
+export async function updatePartnerClient(
+  id: string,
+  body: UpdatePartnerBody,
+): Promise<AdminPartner> {
+  const res = await fetch(`${BASE_URL}/api/admin/partners/${id}`, {
+    method: "PATCH",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(body),
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    throw new Error(json.message ?? "Failed to update partner");
+  }
+
+  return normalizeAdminPartner((json.data ?? {}) as Record<string, unknown>);
 }

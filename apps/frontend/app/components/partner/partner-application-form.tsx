@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button, Input, toast } from "@/app/components/ui";
 import { submitPartnerApplication } from "@/lib/api/partners";
 import { ApiError } from "@/lib/api";
+import { normalizeWebsiteUrl } from "@/lib/normalize-website";
 
 export function PartnerApplicationForm() {
   const [isLoading, setIsLoading] = useState(false);
@@ -17,6 +18,20 @@ export function PartnerApplicationForm() {
 
     setIsLoading(true);
     try {
+      const websiteRaw = String(form.get("website") ?? "").trim();
+      let website: string | undefined;
+      if (websiteRaw) {
+        try {
+          website = normalizeWebsiteUrl(websiteRaw) ?? undefined;
+        } catch (err) {
+          const message =
+            err instanceof Error ? err.message : "Enter a valid website address.";
+          setFormError(message);
+          toast.error(message);
+          return;
+        }
+      }
+
       const res = await submitPartnerApplication({
         businessName: String(form.get("businessName") ?? "").trim(),
         businessType: String(form.get("businessType") ?? "").trim(),
@@ -26,7 +41,7 @@ export function PartnerApplicationForm() {
         address: String(form.get("address") ?? "").trim(),
         city: String(form.get("city") ?? "").trim(),
         state: String(form.get("state") ?? "").trim(),
-        website: String(form.get("website") ?? "").trim() || undefined,
+        website,
         notes: String(form.get("notes") ?? "").trim() || undefined,
       });
       toast.success(res.message ?? "Application submitted.");
@@ -81,7 +96,7 @@ export function PartnerApplicationForm() {
           <Field label="City" name="city" required />
           <Field label="State" name="state" required />
         </div>
-        <Field label="Website" name="website" type="url" placeholder="https://" />
+        <Field label="Website" name="website" placeholder="mango.com or https://mango.com" />
         <div>
           <label htmlFor="notes" className="mb-2 block text-sm text-aleet-text-muted">
             Additional notes

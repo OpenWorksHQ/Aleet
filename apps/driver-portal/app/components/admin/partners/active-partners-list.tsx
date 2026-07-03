@@ -4,13 +4,15 @@ import { useState } from "react";
 import { getCustomerSiteUrl } from "@/lib/site-url";
 import type { AdminPartnersPage } from "@/lib/admin-api";
 import type { AdminPartner } from "./partner-types";
+import { EditPartnerModal } from "./edit-partner-modal";
 
 type Props = {
   initialData: AdminPartnersPage;
 };
 
 export function ActivePartnersList({ initialData }: Props) {
-  const [partners] = useState(initialData.partners);
+  const [partners, setPartners] = useState(initialData.partners);
+  const [editingPartner, setEditingPartner] = useState<AdminPartner | null>(null);
   const siteUrl = getCustomerSiteUrl();
 
   if (partners.length === 0) {
@@ -22,29 +24,58 @@ export function ActivePartnersList({ initialData }: Props) {
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card-bg">
-      <div className="hidden grid-cols-[minmax(0,1.2fr)_100px_120px_minmax(0,1fr)_100px] gap-4 border-b border-border px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted lg:grid">
-        <span>Partner</span>
-        <span>Code</span>
-        <span>Type</span>
-        <span>Links</span>
-        <span>Discount</span>
+    <>
+      <div className="overflow-hidden rounded-2xl border border-border bg-card-bg">
+        <div className="hidden grid-cols-[minmax(0,1.2fr)_100px_120px_minmax(0,1fr)_80px_80px_72px] gap-4 border-b border-border px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted lg:grid">
+          <span>Partner</span>
+          <span>Code</span>
+          <span>Type</span>
+          <span>Links</span>
+          <span>Discount</span>
+          <span>Commission</span>
+          <span />
+        </div>
+        <div className="divide-y divide-border">
+          {partners.map((partner) => (
+            <PartnerRow
+              key={partner.partnerId}
+              partner={partner}
+              siteUrl={siteUrl}
+              onEdit={() => setEditingPartner(partner)}
+            />
+          ))}
+        </div>
       </div>
-      <div className="divide-y divide-border">
-        {partners.map((partner) => (
-          <PartnerRow key={partner.partnerId} partner={partner} siteUrl={siteUrl} />
-        ))}
-      </div>
-    </div>
+
+      {editingPartner ? (
+        <EditPartnerModal
+          partner={editingPartner}
+          onClose={() => setEditingPartner(null)}
+          onUpdated={(updated) => {
+            setPartners((prev) =>
+              prev.map((p) => (p.partnerId === updated.partnerId ? updated : p)),
+            );
+          }}
+        />
+      ) : null}
+    </>
   );
 }
 
-function PartnerRow({ partner, siteUrl }: { partner: AdminPartner; siteUrl: string }) {
+function PartnerRow({
+  partner,
+  siteUrl,
+  onEdit,
+}: {
+  partner: AdminPartner;
+  siteUrl: string;
+  onEdit: () => void;
+}) {
   const venueLink = partner.venueSlug ? `${siteUrl}/access/${partner.venueSlug}` : null;
   const trackingLink = partner.trackingSlug ? `${siteUrl}/${partner.trackingSlug}` : null;
 
   return (
-    <div className="grid gap-3 px-5 py-4 lg:grid-cols-[minmax(0,1.2fr)_100px_120px_minmax(0,1fr)_100px] lg:items-center lg:gap-4">
+    <div className="grid gap-3 px-5 py-4 lg:grid-cols-[minmax(0,1.2fr)_100px_120px_minmax(0,1fr)_80px_80px_72px] lg:items-center lg:gap-4">
       <div>
         <p className="font-medium text-text">{partner.partnerName}</p>
         <p className="text-[12px] text-muted lg:hidden">{partner.partnerCode}</p>
@@ -65,6 +96,18 @@ function PartnerRow({ partner, siteUrl }: { partner: AdminPartner; siteUrl: stri
         {!venueLink && !trackingLink ? <span className="text-muted">—</span> : null}
       </div>
       <p className="text-sm text-text">{partner.discountPct ?? 0}%</p>
+      <p className="text-sm text-text">
+        {partner.commissionPct != null ? `${partner.commissionPct}%` : "—"}
+      </p>
+      <div className="flex justify-end lg:justify-center">
+        <button
+          type="button"
+          onClick={onEdit}
+          className="rounded-lg border border-border px-3 py-1.5 text-[12px] font-medium text-muted transition-colors hover:border-gold/30 hover:text-gold"
+        >
+          Edit
+        </button>
+      </div>
     </div>
   );
 }

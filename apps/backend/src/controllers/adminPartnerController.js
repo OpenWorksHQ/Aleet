@@ -219,6 +219,15 @@ const updatePartner = asyncHandler(async (req, res) => {
     }
   }
 
+  if (req.body.partnerType !== undefined) {
+    partner.bookingMode = req.body.bookingMode
+      ?? (partner.partnerType === 'venue' ? 'venue_access' : 'standard');
+  }
+
+  if (req.body.commissionPct === null) {
+    partner.commissionPct = undefined;
+  }
+
   if (req.body.partnerCode !== undefined) {
     partner.partnerCode = String(req.body.partnerCode).trim().toUpperCase();
   }
