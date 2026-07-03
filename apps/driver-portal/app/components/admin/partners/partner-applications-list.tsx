@@ -24,7 +24,7 @@ type Props = {
 export function PartnerApplicationsList({ initialData }: Props) {
   const [applications, setApplications] = useState(initialData.applications);
   const [pagination, setPagination] = useState(initialData.pagination);
-  const [statusFilter, setStatusFilter] = useState<PartnerApplicationStatus | "all">("pending");
+  const [statusFilter, setStatusFilter] = useState<PartnerApplicationStatus | "all">("all");
   const [search, setSearch] = useState("");
   const [approveTarget, setApproveTarget] = useState<PartnerApplication | null>(null);
   const [rejectTarget, setRejectTarget] = useState<PartnerApplication | null>(null);
