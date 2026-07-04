@@ -9,3 +9,11 @@ export function getSiteUrl(): string {
 
   return raw.replace(/\/+$/, "");
 }
+
+export function getPartnerDashboardUrl(): string {
+  return `${getSiteUrl()}/partners/dashboard`;
+}
+
+export function getPartnerLoginUrl(): string {
+  return `${getSiteUrl()}/partners/login`;
+}

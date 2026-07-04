@@ -19,7 +19,6 @@ import {
 } from "@/lib/partner/attribution";
 import { hydratePartnerContext } from "@/lib/partner/hydrate";
 import { validatePartnerCode } from "@/lib/api/partners";
-import { estimateRoute } from "@/lib/partner/route-estimate";
 import { filterVehiclesByPartner } from "@/lib/partner/venue-access";
 import type { PartnerContext } from "@/lib/partner/types";
 import type { SelectOption } from "../ui/select";
@@ -140,12 +139,6 @@ export function BuyHoursBookingForm({
   const [promoCode, setPromoCode] = useState("");
   const [partnerLabel, setPartnerLabel] = useState<string | null>(null);
   const [partnerContext, setPartnerContext] = useState<PartnerContext | null>(null);
-  const [routeMiles, setRouteMiles] = useState<number | null>(null);
-  const [routeDistanceText, setRouteDistanceText] = useState("");
-  const [routeLoading, setRouteLoading] = useState(false);
-
-  const isVenueAccess = partnerContext?.bookingMode === "venue_access";
-  const venuePickup = partnerContext?.pickupLocation;
 
   const filteredVehicleList = useMemo(
     () => filterVehiclesByPartner(vehicleList, partnerContext?.allowedVehicleTypeIds),
@@ -187,17 +180,11 @@ export function BuyHoursBookingForm({
         setPartnerLabel(null);
         setPartnerContext(null);
         setPromoCode("");
-        setRouteMiles(null);
-        setRouteDistanceText("");
         return;
       }
       setPartnerLabel(partner.partnerName);
       setPartnerContext(partner);
       setPromoCode((prev) => prev || partner.partnerCode);
-      if (partner.bookingMode === "venue_access" && !startDate) {
-        setStartDate(today);
-        setEndDate(today);
-      }
     };
 
     const syncPartner = async () => {
@@ -211,7 +198,7 @@ export function BuyHoursBookingForm({
       cancelled = true;
       window.removeEventListener(PARTNER_CHANGED_EVENT, syncPartner);
     };
-  }, [startDate, today]);
+  }, []);
 
   const handlePromoChange = useCallback((value: string) => {
     const code = value.toUpperCase();
@@ -231,10 +218,6 @@ export function BuyHoursBookingForm({
         savePartnerContext(res.data);
         setPartnerContext(res.data);
         setPartnerLabel(res.data.partnerName);
-        if (res.data.bookingMode === "venue_access" && !startDate) {
-          setStartDate(today);
-          setEndDate(today);
-        }
         return;
       }
 
@@ -244,32 +227,7 @@ export function BuyHoursBookingForm({
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [promoCode, startDate, today]);
-
-  useEffect(() => {
-    if (!isVenueAccess || !venuePickup?.text || !dropoffPlaceId || !dropoffText) {
-      setRouteMiles(null);
-      setRouteDistanceText("");
-      return;
-    }
-
-    let cancelled = false;
-    setRouteLoading(true);
-    void estimateRoute(venuePickup, { text: dropoffText, placeId: dropoffPlaceId }).then(
-      (estimate) => {
-        if (cancelled) return;
-        if (estimate) {
-          setRouteMiles(estimate.distanceMiles);
-          setRouteDistanceText(estimate.distanceText);
-        }
-        setRouteLoading(false);
-      },
-    );
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isVenueAccess, venuePickup, dropoffPlaceId, dropoffText]);
+  }, [promoCode]);
 
   const handleDateSelect = useCallback((range: DateRange | undefined) => {
     if (!range?.from) {
@@ -285,13 +243,12 @@ export function BuyHoursBookingForm({
     setDropoffTime((prev) => (multiDay ? prev || "12:00 PM" : ""));
   }, []);
 
-  const isValid = isVenueAccess
-    ? !!startDate && !!dropoffText && !!dropoffPlaceId && !!vehicle && !!state
-    : !!startDate &&
-      !!dropoffText &&
-      !!vehicle &&
-      !!state &&
-      (isMultiDay ? !!dropoffTime : durationHours >= minHours);
+  const isValid =
+    !!startDate &&
+    !!dropoffText &&
+    !!vehicle &&
+    !!state &&
+    (isMultiDay ? !!dropoffTime : durationHours >= minHours);
 
   const handleContinue = useCallback(() => {
     if (!isValid || !startDate) return;
@@ -401,7 +358,6 @@ export function BuyHoursBookingForm({
       {/* Fields */}
       <div className="grid grid-cols-1 gap-3 px-5 pb-5 sm:grid-cols-2 sm:px-6 lg:grid-cols-[1.45fr_0.95fr_0.8fr_1fr_0.8fr_auto] lg:gap-2.5 lg:px-7 lg:pb-6">
         <BarAddress
-          label={isVenueAccess ? "Drop-off destination" : undefined}
           value={dropoffText}
           onChange={(v) => {
             setDropoffText(v);
@@ -423,12 +379,6 @@ export function BuyHoursBookingForm({
 
         {isMultiDay ? (
           <BarTimeSelect value={dropoffTime} onChange={setDropoffTime} />
-        ) : isVenueAccess ? (
-          <BarRouteMiles
-            miles={routeMiles}
-            distanceText={routeDistanceText}
-            loading={routeLoading}
-          />
         ) : (
           <BarDuration
             value={durationHours}
@@ -437,31 +387,22 @@ export function BuyHoursBookingForm({
           />
         )}
 
-        {!isVenueAccess ? (
-          <>
-            <BarSelect
-              label="Vehicle Type"
-              options={filteredVehicleList}
-              value={vehicle}
-              onChange={onVehicleChange}
-              placeholder="Select vehicle"
-              icon="car"
-            />
+        <BarSelect
+          label="Vehicle Type"
+          options={filteredVehicleList}
+          value={vehicle}
+          onChange={onVehicleChange}
+          placeholder="Select vehicle"
+          icon="car"
+        />
 
-            <BarSelect
-              label="State"
-              options={regionList}
-              value={state}
-              onChange={onStateChange}
-              placeholder="Select state"
-            />
-          </>
-        ) : (
-          <>
-            <BarVenueMeta label="Vehicle" value={partnerContext?.vehicleName ?? vehicle.split(" $")[0]} />
-            <BarVenueMeta label="Venue Access" value="Route-based pricing" />
-          </>
-        )}
+        <BarSelect
+          label="State"
+          options={regionList}
+          value={state}
+          onChange={onStateChange}
+          placeholder="Select state"
+        />
 
         <div className="flex items-end sm:col-span-2 lg:col-span-1">
           <button
@@ -523,12 +464,10 @@ function BarAddress({
   value,
   onChange,
   onPlaceSelect,
-  label,
 }: {
   value: string;
   onChange: (v: string) => void;
   onPlaceSelect: (text: string, placeId: string) => void;
-  label?: string;
 }) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [open, setOpen] = useState(false);
@@ -834,44 +773,6 @@ function BarDateRange({
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function BarRouteMiles({
-  miles,
-  distanceText,
-  loading,
-}: {
-  miles: number | null;
-  distanceText: string;
-  loading: boolean;
-}) {
-  const display = loading
-    ? "Calculating…"
-    : miles != null
-      ? distanceText || `${miles} mi`
-      : "Enter destination";
-
-  return (
-    <div>
-      <p className={LABEL}>Miles / Distance</p>
-      <div className={cn(FIELD, "justify-center px-4")}>
-        <span className={cn("text-[14px] font-semibold tabular-nums", FIELD_VALUE)}>
-          {display}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function BarVenueMeta({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className={LABEL}>{label}</p>
-      <div className={cn(FIELD, "px-4")}>
-        <span className={cn("truncate text-[13px] font-medium", FIELD_VALUE)}>{value}</span>
-      </div>
     </div>
   );
 }

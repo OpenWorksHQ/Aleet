@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PartnerApplicationForm } from "@/app/components/partner/partner-application-form";
+import { PartnerPortalActions } from "@/app/components/partner/partner-portal-actions";
 import {
   MarketingPageShell,
   MarketingSection,
@@ -23,14 +24,17 @@ export default function PartnersPage() {
             </p>
             <h1 className="mt-4 font-serif text-[40px] leading-[1.08] text-aleet-text sm:text-[48px]">
               Turn guest transportation into{" "}
-              <em className="font-serif not-italic text-aleet-gold" style={{ fontStyle: "italic" }}>
+              <em
+                className="font-serif not-italic text-aleet-gold"
+                style={{ fontStyle: "italic" }}
+              >
                 partner revenue.
               </em>
             </h1>
             <p className="mt-5 max-w-2xl text-[15px] leading-[1.75] text-aleet-text-muted">
-              Venues, hotels, lounges, and event spaces can apply to become Aleet
-              partners. Once approved, you receive a unique partner page, QR code,
-              and commission on every qualifying booking.
+              Venues, hotels, lounges, and event spaces can apply to become
+              Aleet partners. Once approved, you receive a unique partner page,
+              QR code, and commission on every qualifying booking.
             </p>
 
             <div className="mt-10 grid gap-4 sm:grid-cols-3">
@@ -49,26 +53,27 @@ export default function PartnersPage() {
             </div>
 
             <div className="mt-10 rounded-2xl border border-aleet-border bg-aleet-card p-6">
-              <h2 className="font-serif text-xl text-aleet-text">How Venue Access works</h2>
+              <h2 className="font-serif text-xl text-aleet-text">
+                How Venue Access works
+              </h2>
               <ol className="mt-4 space-y-3 text-[14px] leading-relaxed text-aleet-text-muted">
-                <li>1. Guest scans your venue QR code or visits your partner page.</li>
-                <li>2. Pickup is pre-filled with your venue — they enter drop-off only.</li>
-                <li>3. Route, duration, and price are calculated automatically.</li>
-                <li>4. Booking is attributed to your venue for reporting and payout.</li>
+                <li>
+                  1. Guest scans your venue QR code or visits your partner page.
+                </li>
+                <li>
+                  2. Pickup is pre-filled with your venue — they enter drop-off
+                  only.
+                </li>
+                <li>
+                  3. Route, duration, and price are calculated automatically.
+                </li>
+                <li>
+                  4. Booking is attributed to your venue for reporting and
+                  payout.
+                </li>
               </ol>
               <div className="mt-5 flex flex-wrap gap-4">
-                <Link
-                  href="/access/mgm-grand"
-                  className="inline-flex text-[13px] font-semibold text-aleet-gold no-underline hover:underline"
-                >
-                  View demo venue flow →
-                </Link>
-                <Link
-                  href="/partners/dashboard"
-                  className="inline-flex text-[13px] font-semibold text-aleet-text no-underline hover:underline"
-                >
-                  Partner dashboard preview →
-                </Link>
+                <PartnerPortalActions />
               </div>
             </div>
           </div>
@@ -84,7 +89,9 @@ function FeatureCard({ title, text }: { title: string; text: string }) {
   return (
     <div className="rounded-2xl border border-aleet-border bg-aleet-card p-5">
       <p className="text-[14px] font-semibold text-aleet-text">{title}</p>
-      <p className="mt-2 text-[13px] leading-relaxed text-aleet-text-muted">{text}</p>
+      <p className="mt-2 text-[13px] leading-relaxed text-aleet-text-muted">
+        {text}
+      </p>
     </div>
   );
 }

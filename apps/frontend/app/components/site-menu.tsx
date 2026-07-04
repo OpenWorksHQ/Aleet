@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { MOBILE_MENU_NAV } from "@/lib/nav-config";
 import { AUTH_CHANGED_EVENT, getToken } from "@/lib/auth";
+import { PartnerAuthNavLink } from "@/app/components/partner/partner-auth-nav-link";
 
 type SiteMenuProps = {
   className?: string;
@@ -148,6 +149,7 @@ export function SiteMenu({ className }: SiteMenuProps) {
                     >
                       Dashboard
                     </Link>
+                    <PartnerAuthNavLink variant="menu" onNavigate={closeMenu} />
                     <Link
                       href="/booking"
                       className="rounded-xl px-3 py-3 text-[15px] font-medium text-aleet-text no-underline transition-colors hover:bg-aleet-cream-muted"
@@ -165,6 +167,7 @@ export function SiteMenu({ className }: SiteMenuProps) {
                   </>
                 ) : (
                   <>
+                    <PartnerAuthNavLink variant="menu" onNavigate={closeMenu} />
                     <Link
                       href="/login"
                       className="rounded-xl px-3 py-3 text-[15px] font-medium text-aleet-text no-underline transition-colors hover:bg-aleet-cream-muted"

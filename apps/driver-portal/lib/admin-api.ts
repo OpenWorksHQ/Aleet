@@ -4,6 +4,7 @@ import type {
   AdminPartner,
   ApprovePartnerApplicationBody,
   PartnerApplication,
+  PartnerUpdateRequestRecord,
   UpdatePartnerBody,
 } from "@/app/components/admin/partners/partner-types";
 import {
@@ -1289,4 +1290,97 @@ export async function updatePartnerClient(
   }
 
   return normalizeAdminPartner((json.data ?? {}) as Record<string, unknown>);
+}
+
+/** POST /api/admin/partners/:id/resend-invite — client-safe */
+export async function resendPartnerPortalInviteClient(partnerId: string) {
+  const res = await fetch(`${BASE_URL}/api/admin/partners/${partnerId}/resend-invite`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    throw new Error(json.message ?? "Failed to resend invite");
+  }
+  return json.data as {
+    email: string;
+    accountStatus: string;
+    alreadyActive?: boolean;
+    message?: string;
+  };
+}
+
+export type PartnerUpdateRequestsPage = {
+  requests: PartnerUpdateRequestRecord[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+};
+
+function normalizeUpdateRequest(raw: Record<string, unknown>): PartnerUpdateRequestRecord {
+  return {
+    _id: String(raw._id ?? raw.id ?? ""),
+    status: (raw.status as PartnerUpdateRequestRecord["status"]) ?? "pending",
+    proposedChanges: (raw.proposedChanges as Record<string, unknown>) ?? {},
+    currentSnapshot: (raw.currentSnapshot as Record<string, unknown>) ?? {},
+    rejectionReason: raw.rejectionReason ? String(raw.rejectionReason) : null,
+    createdAt: String(raw.createdAt ?? ""),
+    updatedAt: String(raw.updatedAt ?? ""),
+    partner: raw.partner as PartnerUpdateRequestRecord["partner"],
+    requestedBy: raw.requestedBy as PartnerUpdateRequestRecord["requestedBy"],
+  };
+}
+
+/** GET /api/admin/partners/update-requests — client-safe */
+export async function fetchPartnerUpdateRequestsClient(params?: {
+  status?: string;
+  page?: number;
+  limit?: number;
+}): Promise<PartnerUpdateRequestsPage> {
+  const page = params?.page ?? 1;
+  const limit = params?.limit ?? 20;
+  const query = new URLSearchParams({ page: String(page), limit: String(limit) });
+  if (params?.status) query.set("status", params.status);
+
+  const res = await fetch(`${BASE_URL}/api/admin/partners/update-requests?${query}`, {
+    headers: getAuthHeaders(),
+    cache: "no-store",
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    throw new Error(json.message ?? "Failed to fetch update requests");
+  }
+
+  const parsed = parsePaginated(json, page, limit, normalizeUpdateRequest);
+  return { requests: parsed.items, pagination: parsed.pagination };
+}
+
+/** PATCH /api/admin/partners/update-requests/:id/approve — client-safe */
+export async function approvePartnerUpdateRequestClient(id: string) {
+  const res = await fetch(`${BASE_URL}/api/admin/partners/update-requests/${id}/approve`, {
+    method: "PATCH",
+    headers: getAuthHeaders(),
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    throw new Error(json.message ?? "Failed to approve update request");
+  }
+  return json.data;
+}
+
+/** PATCH /api/admin/partners/update-requests/:id/reject — client-safe */
+export async function rejectPartnerUpdateRequestClient(id: string, reason?: string) {
+  const res = await fetch(`${BASE_URL}/api/admin/partners/update-requests/${id}/reject`, {
+    method: "PATCH",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(reason ? { reason } : {}),
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    throw new Error(json.message ?? "Failed to reject update request");
+  }
+  return json.data;
 }

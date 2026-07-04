@@ -31,6 +31,27 @@ export type AdminPartner = {
   commissionPct?: number;
   pricingNote?: string;
   status?: string;
+  portalAccountStatus?: "pending" | "active" | null;
+  portalEmail?: string | null;
+};
+
+export type PartnerUpdateRequestRecord = {
+  _id: string;
+  status: "pending" | "approved" | "rejected";
+  proposedChanges: Record<string, unknown>;
+  currentSnapshot: Record<string, unknown>;
+  rejectionReason?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  partner?: {
+    partnerName?: string;
+    partnerCode?: string;
+    partnerType?: string;
+  };
+  requestedBy?: {
+    name?: string;
+    email?: string;
+  };
 };
 
 export type UpdatePartnerBody = {
@@ -96,5 +117,7 @@ export function normalizeAdminPartner(raw: Record<string, unknown>): AdminPartne
     commissionPct: typeof raw.commissionPct === "number" ? raw.commissionPct : undefined,
     pricingNote: raw.pricingNote ? String(raw.pricingNote) : undefined,
     status: raw.status ? String(raw.status) : undefined,
+    portalAccountStatus: raw.portalAccountStatus as AdminPartner["portalAccountStatus"],
+    portalEmail: raw.portalEmail ? String(raw.portalEmail) : null,
   };
 }

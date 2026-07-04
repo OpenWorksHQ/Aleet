@@ -2,25 +2,29 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { getSiteUrl } from "@/lib/site-url";
 import {
-  authenticatePartnerDashboard,
-  getPartnerDashboard,
+  getPartnerAuthMe,
+  getPartnerDashboardMe,
+  getPartnerProfileMe,
+  isPartnerLoggedIn,
+  listPartnerUpdateRequestsMe,
+  partnerLogout,
 } from "@/lib/api/partners";
 import { ApiError } from "@/lib/api";
-import {
-  loadPartnerContext,
-  loadPartnerDashboardToken,
-  PARTNER_CHANGED_EVENT,
-  savePartnerContext,
-  savePartnerDashboardToken,
-} from "@/lib/partner/attribution";
-import type { PartnerContext, PartnerDashboardStats } from "@/lib/partner/types";
+import type {
+  PartnerDashboardStats,
+  PartnerProfile,
+  PartnerUpdateRequest,
+} from "@/lib/partner/types";
 import {
   MarketingPageShell,
   MarketingSection,
 } from "@/app/components/marketing-page-shell";
 import { toast } from "@/app/components/ui";
+import { PartnerUpdateRequestForm } from "@/app/components/partner/partner-update-request-form";
+import { PartnerUpdateRequestsList } from "@/app/components/partner/partner-update-requests-list";
 
 function buildBookingUrl(stats: PartnerDashboardStats): string {
   const base = getSiteUrl();
@@ -30,84 +34,55 @@ function buildBookingUrl(stats: PartnerDashboardStats): string {
 }
 
 export default function PartnerDashboardPage() {
-  const [partner, setPartner] = useState<PartnerContext | null>(null);
-  const [stats, setStats] = useState<PartnerDashboardStats | null>(null);
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState<PartnerDashboardStats | null>(null);
+  const [profile, setProfile] = useState<PartnerProfile | null>(null);
+  const [requests, setRequests] = useState<PartnerUpdateRequest[]>([]);
+  const [partnerName, setPartnerName] = useState("Partner Portal");
   const [bookingUrl, setBookingUrl] = useState("");
-  const [authCode, setAuthCode] = useState("");
-  const [authEmail, setAuthEmail] = useState("");
-  const [authLoading, setAuthLoading] = useState(false);
-  const [needsAuth, setNeedsAuth] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const refreshPartner = () => {
-      const ctx = loadPartnerContext();
-      setPartner(ctx);
-      if (ctx?.partnerCode) setAuthCode(ctx.partnerCode);
-    };
-    refreshPartner();
-    window.addEventListener(PARTNER_CHANGED_EVENT, refreshPartner);
-    return () => window.removeEventListener(PARTNER_CHANGED_EVENT, refreshPartner);
-  }, []);
+  const loadAll = useCallback(async () => {
+    if (!isPartnerLoggedIn()) {
+      router.replace("/partners/login");
+      return;
+    }
 
-  const loadDashboard = useCallback(async (partnerId: string) => {
     setLoading(true);
     setError(null);
-    setNeedsAuth(false);
+    try {
+      const [meRes, dashboardRes, profileRes, requestsRes] = await Promise.all([
+        getPartnerAuthMe(),
+        getPartnerDashboardMe(),
+        getPartnerProfileMe(),
+        listPartnerUpdateRequestsMe(),
+      ]);
 
-    const res = await getPartnerDashboard(partnerId);
-    if (res.data) {
-      setStats(res.data);
-      setBookingUrl(buildBookingUrl(res.data));
+      setPartnerName(
+        dashboardRes.data?.partnerName
+          ?? meRes.data?.partner?.partnerName
+          ?? "Partner Portal",
+      );
+      setStats(dashboardRes.data ?? null);
+      setProfile(profileRes.data ?? null);
+      setRequests(requestsRes.data ?? []);
+      if (dashboardRes.data) setBookingUrl(buildBookingUrl(dashboardRes.data));
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        router.replace("/partners/login");
+        return;
+      }
+      const message = err instanceof ApiError ? err.message : "Could not load dashboard.";
+      setError(message);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    if (res.message.toLowerCase().includes("access denied") || res.message.toLowerCase().includes("sign in")) {
-      setNeedsAuth(true);
-      setStats(null);
-      setError(null);
-    } else {
-      setStats(null);
-      setError(res.message || "Could not load dashboard.");
-    }
-    setLoading(false);
-  }, []);
+  }, [router]);
 
   useEffect(() => {
-    if (!partner?.partnerId) {
-      setLoading(false);
-      setStats(null);
-      setError(null);
-      setNeedsAuth(!loadPartnerDashboardToken());
-      return;
-    }
-
-    void loadDashboard(partner.partnerId);
-  }, [partner?.partnerId, loadDashboard]);
-
-  async function handlePartnerSignIn(e: React.FormEvent) {
-    e.preventDefault();
-    setAuthLoading(true);
-    setError(null);
-    try {
-      const res = await authenticatePartnerDashboard(authCode.trim(), authEmail.trim());
-      if (!res.data) throw new Error("Authentication failed");
-
-      savePartnerDashboardToken(res.data.dashboardAccessToken);
-      savePartnerContext(res.data.partner);
-      setPartner(res.data.partner);
-      toast.success("Signed in to partner dashboard.");
-      await loadDashboard(res.data.partner.partnerId);
-    } catch (err) {
-      const message = err instanceof ApiError ? err.message : "Could not sign in.";
-      setError(message);
-      toast.error(message);
-    } finally {
-      setAuthLoading(false);
-    }
-  }
+    void loadAll();
+  }, [loadAll]);
 
   const copyLink = useCallback(async () => {
     if (!bookingUrl) return;
@@ -119,6 +94,12 @@ export default function PartnerDashboardPage() {
     }
   }, [bookingUrl]);
 
+  function handleLogout() {
+    partnerLogout();
+    router.push("/partners/login");
+  }
+
+  const hasPendingRequest = requests.some((r) => r.status === "pending");
   const qrUrl = bookingUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(bookingUrl)}`
     : "";
@@ -131,73 +112,33 @@ export default function PartnerDashboardPage() {
             <p className="text-[12px] font-semibold uppercase tracking-[0.24em] text-aleet-gold">
               Partner Dashboard
             </p>
-            <h1 className="mt-2 font-serif text-3xl text-aleet-text sm:text-4xl">
-              {stats?.partnerName ?? partner?.partnerName ?? "Partner Portal"}
-            </h1>
+            <h1 className="mt-2 font-serif text-3xl text-aleet-text sm:text-4xl">{partnerName}</h1>
             <p className="mt-2 text-sm text-aleet-text-muted">
-              Track referrals, bookings, and commission performance.
+              Track referrals, bookings, commission, and request profile updates.
             </p>
           </div>
-          <Link
-            href="/partners"
-            className="text-[13px] font-semibold text-aleet-gold no-underline hover:underline"
-          >
-            ← Partner program
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="rounded-xl border border-aleet-border px-4 py-2 text-[13px] font-medium text-aleet-text-muted hover:text-aleet-text"
+            >
+              Sign out
+            </button>
+            <Link
+              href="/partners"
+              className="text-[13px] font-semibold text-aleet-gold no-underline hover:underline"
+            >
+              ← Partner program
+            </Link>
+          </div>
         </div>
 
-        {needsAuth && !loadPartnerDashboardToken() ? (
-          <div className="mx-auto max-w-md rounded-2xl border border-aleet-border bg-aleet-card px-6 py-8 shadow-sm">
-            <h2 className="font-serif text-xl text-aleet-text">Partner sign in</h2>
-            <p className="mt-2 text-sm text-aleet-text-muted">
-              Enter your partner code and the contact email from your application to view your dashboard.
-            </p>
-            <form onSubmit={handlePartnerSignIn} className="mt-6 space-y-4">
-              <label className="block">
-                <span className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-aleet-text-subtle">
-                  Partner code
-                </span>
-                <input
-                  value={authCode}
-                  onChange={(e) => setAuthCode(e.target.value.toUpperCase())}
-                  className="w-full rounded-xl border border-aleet-border bg-aleet-cream px-3 py-2.5 text-sm text-aleet-text outline-none focus:border-aleet-gold/40"
-                  required
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-aleet-text-subtle">
-                  Contact email
-                </span>
-                <input
-                  type="email"
-                  value={authEmail}
-                  onChange={(e) => setAuthEmail(e.target.value)}
-                  className="w-full rounded-xl border border-aleet-border bg-aleet-cream px-3 py-2.5 text-sm text-aleet-text outline-none focus:border-aleet-gold/40"
-                  required
-                />
-              </label>
-              {error ? <p className="text-sm text-red-600">{error}</p> : null}
-              <button
-                type="submit"
-                disabled={authLoading}
-                className="w-full rounded-xl bg-aleet-gold px-4 py-2.5 text-sm font-semibold text-black disabled:opacity-60"
-              >
-                {authLoading ? "Signing in…" : "View dashboard"}
-              </button>
-            </form>
-          </div>
-        ) : !partner?.partnerId ? (
-          <EmptyState
-            title="No partner selected"
-            text="Visit your partner link first, or sign in with your partner code and contact email."
-            actionHref="/partners"
-            actionLabel="Partner program"
-          />
-        ) : loading ? (
+        {loading ? (
           <p className="text-sm text-aleet-text-muted">Loading dashboard…</p>
         ) : error ? (
-          <EmptyState title="Dashboard unavailable" text={error} actionHref="/partners" actionLabel="Partner program" />
-        ) : stats ? (
+          <EmptyState title="Dashboard unavailable" text={error} />
+        ) : stats && profile ? (
           <>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <StatCard label="Total bookings" value={String(stats.totalBookings)} />
@@ -262,6 +203,20 @@ export default function PartnerDashboardPage() {
                 )}
               </section>
             </div>
+
+            <div className="mt-8 grid gap-6 lg:grid-cols-2">
+              <PartnerUpdateRequestForm
+                profile={profile}
+                hasPendingRequest={hasPendingRequest}
+                onSubmitted={() => void loadAll()}
+              />
+              <section className="rounded-2xl border border-aleet-border bg-aleet-card p-6 shadow-sm">
+                <h2 className="font-serif text-xl text-aleet-text">My update requests</h2>
+                <div className="mt-4">
+                  <PartnerUpdateRequestsList requests={requests} />
+                </div>
+              </section>
+            </div>
           </>
         ) : null}
       </MarketingSection>
@@ -280,27 +235,11 @@ function StatCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-function EmptyState({
-  title,
-  text,
-  actionHref,
-  actionLabel,
-}: {
-  title: string;
-  text: string;
-  actionHref: string;
-  actionLabel: string;
-}) {
+function EmptyState({ title, text }: { title: string; text: string }) {
   return (
     <div className="rounded-2xl border border-aleet-border bg-aleet-card px-6 py-10 text-center">
       <h2 className="font-serif text-xl text-aleet-text">{title}</h2>
       <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-aleet-text-muted">{text}</p>
-      <Link
-        href={actionHref}
-        className="mt-6 inline-flex text-[13px] font-semibold text-aleet-gold no-underline hover:underline"
-      >
-        {actionLabel} →
-      </Link>
     </div>
   );
 }
