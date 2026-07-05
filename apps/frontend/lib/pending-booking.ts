@@ -26,6 +26,9 @@ export type PendingBooking = {
   venueAccessBookingType?: string;
   allowedVehicleTypeIds?: string[];
   discountPct?: number;
+  estimatedDurationHours?: number;
+  routeDistanceMiles?: number;
+  routeDurationText?: string;
   _savedAt: number;
 };
 

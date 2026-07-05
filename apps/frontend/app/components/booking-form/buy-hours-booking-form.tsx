@@ -19,6 +19,7 @@ import {
 } from "@/lib/partner/attribution";
 import { hydratePartnerContext } from "@/lib/partner/hydrate";
 import { validatePartnerCode } from "@/lib/api/partners";
+import { estimateRoute } from "@/lib/partner/route-estimate";
 import { filterVehiclesByPartner } from "@/lib/partner/venue-access";
 import type { PartnerContext } from "@/lib/partner/types";
 import type { SelectOption } from "../ui/select";
@@ -36,6 +37,9 @@ type BuyHoursPayload = {
   regionDisplay: string;
   dropoffLocation: { text: string; placeId: string };
   promoCode?: string;
+  estimatedDurationHours?: number;
+  routeDistanceMiles?: number;
+  routeDurationText?: string;
 };
 
 type BuyHoursBookingFormProps = {
@@ -139,6 +143,13 @@ export function BuyHoursBookingForm({
   const [promoCode, setPromoCode] = useState("");
   const [partnerLabel, setPartnerLabel] = useState<string | null>(null);
   const [partnerContext, setPartnerContext] = useState<PartnerContext | null>(null);
+  const [routeMiles, setRouteMiles] = useState<number | null>(null);
+  const [routeDistanceText, setRouteDistanceText] = useState("");
+  const [routeDurationHours, setRouteDurationHours] = useState<number | null>(null);
+  const [routeLoading, setRouteLoading] = useState(false);
+
+  const isVenueAccess = partnerContext?.bookingMode === "venue_access";
+  const venuePickup = partnerContext?.pickupLocation;
 
   const filteredVehicleList = useMemo(
     () => filterVehiclesByPartner(vehicleList, partnerContext?.allowedVehicleTypeIds),
@@ -180,6 +191,9 @@ export function BuyHoursBookingForm({
         setPartnerLabel(null);
         setPartnerContext(null);
         setPromoCode("");
+        setRouteMiles(null);
+        setRouteDistanceText("");
+        setRouteDurationHours(null);
         return;
       }
       setPartnerLabel(partner.partnerName);
@@ -229,6 +243,37 @@ export function BuyHoursBookingForm({
     return () => clearTimeout(timer);
   }, [promoCode]);
 
+  useEffect(() => {
+    if (!isVenueAccess || !venuePickup?.text || !dropoffPlaceId || !dropoffText) {
+      setRouteMiles(null);
+      setRouteDistanceText("");
+      setRouteDurationHours(null);
+      return;
+    }
+
+    let cancelled = false;
+    setRouteLoading(true);
+    void estimateRoute(venuePickup, { text: dropoffText, placeId: dropoffPlaceId }).then(
+      (estimate) => {
+        if (cancelled) return;
+        if (estimate) {
+          setRouteMiles(estimate.distanceMiles);
+          setRouteDistanceText(estimate.distanceText);
+          setRouteDurationHours(estimate.durationHours);
+        } else {
+          setRouteMiles(null);
+          setRouteDistanceText("");
+          setRouteDurationHours(null);
+        }
+        setRouteLoading(false);
+      },
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isVenueAccess, venuePickup, dropoffPlaceId, dropoffText]);
+
   const handleDateSelect = useCallback((range: DateRange | undefined) => {
     if (!range?.from) {
       setStartDate(undefined);
@@ -243,12 +288,19 @@ export function BuyHoursBookingForm({
     setDropoffTime((prev) => (multiDay ? prev || "12:00 PM" : ""));
   }, []);
 
-  const isValid =
-    !!startDate &&
-    !!dropoffText &&
-    !!vehicle &&
-    !!state &&
-    (isMultiDay ? !!dropoffTime : durationHours >= minHours);
+  const isValid = isVenueAccess
+    ? !!startDate &&
+      !!dropoffText &&
+      !!dropoffPlaceId &&
+      !!vehicle &&
+      !!state &&
+      routeDurationHours != null &&
+      !routeLoading
+    : !!startDate &&
+      !!dropoffText &&
+      !!vehicle &&
+      !!state &&
+      (isMultiDay ? !!dropoffTime : durationHours >= minHours);
 
   const handleContinue = useCallback(() => {
     if (!isValid || !startDate) return;
@@ -262,6 +314,16 @@ export function BuyHoursBookingForm({
     if (isMultiDay && endDate) {
       computedDropoffDate = endDate;
       computedDropoffTime = dropoffTime || "12:00 PM";
+    } else if (isVenueAccess && routeDurationHours != null) {
+      const start = combineDateAndTime(pickupDate, pickupTime);
+      if (!start) return;
+      const end = new Date(start.getTime() + routeDurationHours * 3_600_000);
+      computedDropoffDate = end;
+      const h24 = end.getHours();
+      const minute = String(end.getMinutes()).padStart(2, "0");
+      const period = h24 >= 12 ? "PM" : "AM";
+      const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+      computedDropoffTime = `${String(h12).padStart(2, "0")}:${minute} ${period}`;
     } else {
       const start = combineDateAndTime(pickupDate, pickupTime);
       if (!start) return;
@@ -279,11 +341,14 @@ export function BuyHoursBookingForm({
       pickupTime,
       dropoffDate: computedDropoffDate,
       dropoffTime: computedDropoffTime,
-      durationHours: isMultiDay ? 0 : durationHours,
+      durationHours: isMultiDay ? 0 : isVenueAccess ? (routeDurationHours ?? 0) : durationHours,
       vehicleDisplay: vehicle,
       regionDisplay: state,
       dropoffLocation: { text: dropoffText, placeId: dropoffPlaceId },
       promoCode: promoCode || undefined,
+      estimatedDurationHours: routeDurationHours ?? undefined,
+      routeDistanceMiles: routeMiles ?? undefined,
+      routeDurationText: routeDistanceText || undefined,
     });
   }, [
     isValid,
@@ -298,6 +363,10 @@ export function BuyHoursBookingForm({
     promoCode,
     isMultiDay,
     isMember,
+    isVenueAccess,
+    routeDurationHours,
+    routeMiles,
+    routeDistanceText,
     onContinue,
   ]);
 
@@ -358,6 +427,7 @@ export function BuyHoursBookingForm({
       {/* Fields */}
       <div className="grid grid-cols-1 gap-3 px-5 pb-5 sm:grid-cols-2 sm:px-6 lg:grid-cols-[1.45fr_0.95fr_0.8fr_1fr_0.8fr_auto] lg:gap-2.5 lg:px-7 lg:pb-6">
         <BarAddress
+          label={isVenueAccess ? "Drop-off destination" : undefined}
           value={dropoffText}
           onChange={(v) => {
             setDropoffText(v);
@@ -379,6 +449,12 @@ export function BuyHoursBookingForm({
 
         {isMultiDay ? (
           <BarTimeSelect value={dropoffTime} onChange={setDropoffTime} />
+        ) : isVenueAccess ? (
+          <BarRouteMiles
+            miles={routeMiles}
+            distanceText={routeDistanceText}
+            loading={routeLoading}
+          />
         ) : (
           <BarDuration
             value={durationHours}
@@ -464,10 +540,12 @@ function BarAddress({
   value,
   onChange,
   onPlaceSelect,
+  label,
 }: {
   value: string;
   onChange: (v: string) => void;
   onPlaceSelect: (text: string, placeId: string) => void;
+  label?: string;
 }) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [open, setOpen] = useState(false);
@@ -528,7 +606,7 @@ function BarAddress({
 
   return (
     <div ref={containerRef} className="relative">
-      <p className={LABEL}>Drop-off Location</p>
+      <p className={LABEL}>{label ?? "Drop-off Location"}</p>
       <div className={FIELD}>
         <span className="shrink-0 text-[#c5a373]/70">
           <svg
@@ -773,6 +851,33 @@ function BarDateRange({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function BarRouteMiles({
+  miles,
+  distanceText,
+  loading,
+}: {
+  miles: number | null;
+  distanceText: string;
+  loading: boolean;
+}) {
+  const display = loading
+    ? "Calculating…"
+    : miles != null
+      ? distanceText || `${miles} mi`
+      : "Select destination";
+
+  return (
+    <div>
+      <p className={LABEL}>Miles / Distance</p>
+      <div className={cn(FIELD, "justify-center px-4")}>
+        <span className={cn("text-[14px] font-semibold tabular-nums", FIELD_VALUE)}>
+          {display}
+        </span>
+      </div>
     </div>
   );
 }
