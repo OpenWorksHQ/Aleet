@@ -140,6 +140,9 @@ export function BookingForm() {
                         dropoffLocationText: payload.dropoffLocation.text,
                         dropoffLocationPlaceId: payload.dropoffLocation.placeId,
                         promoCode: partner.partnerCode,
+                        estimatedDurationHours: payload.estimatedDurationHours,
+                        routeDistanceMiles: payload.routeDistanceMiles,
+                        routeDurationText: payload.routeDurationText,
                     }),
                 );
                 const token = getToken();

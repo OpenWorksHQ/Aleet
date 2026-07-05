@@ -475,6 +475,9 @@ export function BookingWizard({ onStepChange, renderIndicator }: { onStepChange?
                 text: pending.dropoffLocationText ?? partner?.dropoffLocation?.text ?? "",
                 placeId: pending.dropoffLocationPlaceId ?? partner?.dropoffLocation?.placeId ?? "",
             },
+            estimatedDurationHours: pending.estimatedDurationHours,
+            routeDistanceMiles: pending.routeDistanceMiles,
+            routeDurationText: pending.routeDurationText,
             freeRouting: false,
         };
 
