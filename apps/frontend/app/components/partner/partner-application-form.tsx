@@ -1,20 +1,106 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { Button, Input, toast } from "@/app/components/ui";
-import { submitPartnerApplication } from "@/lib/api/partners";
+import {
+  checkPartnerApplicationEmail,
+  submitPartnerApplication,
+} from "@/lib/api/partners";
 import { ApiError } from "@/lib/api";
 import { normalizeWebsiteUrl } from "@/lib/normalize-website";
+import {
+  getPartnerFieldError,
+  PartnerContactEmailError,
+} from "@/app/components/partner/partner-contact-email-error";
+import { PartnerDashboardNavButton } from "@/app/components/partner/partner-dashboard-nav-button";
 
 export function PartnerApplicationForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactEmailError, setContactEmailError] = useState<string | null>(null);
+  const [contactEmailDetail, setContactEmailDetail] = useState<
+    ReturnType<typeof getPartnerFieldError>
+  >(null);
+  const [checkingEmail, setCheckingEmail] = useState(false);
+  const emailCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const applyContactEmailError = useCallback((err: unknown) => {
+    if (err instanceof ApiError) {
+      const detail = getPartnerFieldError(err.errors, "contactEmail");
+      if (detail || err.message.toLowerCase().includes("email")) {
+        setContactEmailError(err.message);
+        setContactEmailDetail(detail);
+        return true;
+      }
+    }
+    return false;
+  }, []);
+
+  const validateContactEmail = useCallback(async (email: string) => {
+    const trimmed = email.trim();
+    if (!trimmed) {
+      setContactEmailError(null);
+      setContactEmailDetail(null);
+      return true;
+    }
+
+    setCheckingEmail(true);
+    try {
+      await checkPartnerApplicationEmail(trimmed);
+      setContactEmailError(null);
+      setContactEmailDetail(null);
+      return true;
+    } catch (err) {
+      applyContactEmailError(err);
+      return false;
+    } finally {
+      setCheckingEmail(false);
+    }
+  }, [applyContactEmailError]);
+
+  useEffect(() => {
+    return () => {
+      if (emailCheckTimer.current) clearTimeout(emailCheckTimer.current);
+    };
+  }, []);
+
+  function scheduleEmailCheck(email: string) {
+    if (emailCheckTimer.current) clearTimeout(emailCheckTimer.current);
+    setContactEmailError(null);
+    setContactEmailDetail(null);
+
+    const trimmed = email.trim();
+    if (!trimmed || !trimmed.includes("@")) return;
+
+    emailCheckTimer.current = setTimeout(() => {
+      void validateContactEmail(trimmed);
+    }, 500);
+  }
+
+  function handleContactEmailChange(value: string) {
+    setContactEmail(value);
+    setFormError(null);
+    scheduleEmailCheck(value);
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setFormError(null);
+
     const form = new FormData(e.currentTarget);
+    const email = contactEmail.trim();
+
+    if (!email) {
+      setContactEmailError("Contact email is required.");
+      setContactEmailDetail({ code: "required" });
+      return;
+    }
+
+    const emailOk = await validateContactEmail(email);
+    if (!emailOk) return;
 
     setIsLoading(true);
     try {
@@ -36,7 +122,7 @@ export function PartnerApplicationForm() {
         businessName: String(form.get("businessName") ?? "").trim(),
         businessType: String(form.get("businessType") ?? "").trim(),
         contactName: String(form.get("contactName") ?? "").trim(),
-        contactEmail: String(form.get("contactEmail") ?? "").trim(),
+        contactEmail: email,
         contactPhone: String(form.get("contactPhone") ?? "").trim(),
         address: String(form.get("address") ?? "").trim(),
         city: String(form.get("city") ?? "").trim(),
@@ -47,6 +133,11 @@ export function PartnerApplicationForm() {
       toast.success(res.message ?? "Application submitted.");
       setSubmitted(true);
     } catch (err) {
+      if (applyContactEmailError(err)) {
+        toast.error(err instanceof ApiError ? err.message : "Invalid email.");
+        return;
+      }
+
       const message =
         err instanceof ApiError
           ? err.message
@@ -74,6 +165,12 @@ export function PartnerApplicationForm() {
         <p className="mt-4 text-[13px] text-aleet-text-subtle">
           Typical review time: 2–3 business days.
         </p>
+        <PartnerDashboardNavButton
+          className="mt-6"
+          href="/partners/login"
+          label="Partner sign in"
+          hint="After approval, you'll receive an invite email. Then use partner sign in to access your dashboard."
+        />
       </aside>
     );
   }
@@ -84,12 +181,45 @@ export function PartnerApplicationForm() {
       <p className="mt-2 text-[14px] text-aleet-text-muted">
         Submit your venue details. Applications remain pending until admin approval.
       </p>
+      <p className="mt-3 text-[13px] text-aleet-text-subtle">
+        Already approved?{" "}
+        <Link href="/partners/login" className="font-semibold text-aleet-gold no-underline hover:underline">
+          Partner sign in
+        </Link>
+        .
+      </p>
 
       <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
         <Field label="Business name" name="businessName" required />
         <Field label="Business type" name="businessType" placeholder="Hotel, Lounge, Casino…" required />
         <Field label="Contact name" name="contactName" required />
-        <Field label="Contact email" name="contactEmail" type="email" required />
+        <div>
+          <label htmlFor="contactEmail" className="mb-2 block text-sm text-aleet-text-muted">
+            Contact email
+          </label>
+          <Input
+            id="contactEmail"
+            name="contactEmail"
+            type="email"
+            value={contactEmail}
+            onChange={(e) => handleContactEmailChange(e.target.value)}
+            onBlur={() => void validateContactEmail(contactEmail)}
+            required
+            aria-invalid={Boolean(contactEmailError)}
+            aria-describedby={contactEmailError ? "contactEmail-error" : undefined}
+          />
+          {checkingEmail ? (
+            <p className="mt-1.5 text-[12px] text-aleet-text-subtle">Checking email…</p>
+          ) : null}
+          {contactEmailError ? (
+            <div id="contactEmail-error">
+              <PartnerContactEmailError
+                message={contactEmailError}
+                detail={contactEmailDetail}
+              />
+            </div>
+          ) : null}
+        </div>
         <Field label="Contact phone" name="contactPhone" type="tel" required />
         <Field label="Street address" name="address" required />
         <div className="grid grid-cols-2 gap-3">
@@ -109,7 +239,7 @@ export function PartnerApplicationForm() {
             placeholder="Tell us about your venue and guest volume…"
           />
         </div>
-        <Button type="submit" isLoading={isLoading}>
+        <Button type="submit" isLoading={isLoading} disabled={Boolean(contactEmailError) || checkingEmail}>
           Submit Application
         </Button>
         {formError ? (

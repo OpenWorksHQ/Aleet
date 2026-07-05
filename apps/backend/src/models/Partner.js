@@ -52,6 +52,7 @@ const partnerSchema = new mongoose.Schema({
   city: { type: String, default: null },
   state: { type: String, default: null },
   website: { type: String, default: null },
+  notes: { type: String, default: null },
   application: { type: mongoose.Schema.Types.ObjectId, ref: 'PartnerApplication', default: null },
   stats: {
     totalBookings: { type: Number, default: 0 },

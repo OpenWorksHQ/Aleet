@@ -1,10 +1,153 @@
 const Partner = require('../models/Partner');
 const PartnerApplication = require('../models/PartnerApplication');
+const PartnerUpdateRequest = require('../models/PartnerUpdateRequest');
 const Booking = require('../models/Booking');
 const Region = require('../models/Region');
 const VehicleType = require('../models/Vehicle');
 const TierSettings = require('../models/TierSettings');
+const User = require('../models/User');
 const crypto = require('crypto');
+
+function normalizeContactEmail(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
+function isValidEmailFormat(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+/**
+ * Validate partner contact email for applications, profile updates, and admin actions.
+ * @returns {{ ok: true } | { ok: false, field: 'contactEmail', code: string, message: string, action?: 'login' | 'support' }}
+ */
+async function validatePartnerContactEmail(email, { excludePartnerId, excludeApplicationId } = {}) {
+  const normalized = normalizeContactEmail(email);
+  if (!normalized) {
+    return {
+      ok: false,
+      field: 'contactEmail',
+      code: 'required',
+      message: 'Contact email is required.',
+    };
+  }
+
+  if (!isValidEmailFormat(normalized)) {
+    return {
+      ok: false,
+      field: 'contactEmail',
+      code: 'invalid_format',
+      message: 'Enter a valid email address.',
+    };
+  }
+
+  const pendingQuery = {
+    contactEmail: normalized,
+    status: 'pending',
+  };
+  if (excludeApplicationId) {
+    pendingQuery._id = { $ne: excludeApplicationId };
+  }
+
+  const pendingApplication = await PartnerApplication.findOne(pendingQuery).lean();
+
+  if (pendingApplication) {
+    return {
+      ok: false,
+      field: 'contactEmail',
+      code: 'pending_application',
+      message: 'An application with this email is already under review. We will contact you once it is processed.',
+    };
+  }
+
+  const partnerQuery = { contactEmail: normalized, status: 'active' };
+  if (excludePartnerId) {
+    partnerQuery._id = { $ne: excludePartnerId };
+  }
+
+  const existingPartner = await Partner.findOne(partnerQuery).select('partnerName').lean();
+  if (existingPartner) {
+    return {
+      ok: false,
+      field: 'contactEmail',
+      code: 'partner_registered',
+      message: `This email is already registered to ${existingPartner.partnerName}. Sign in to your partner dashboard or contact support for help.`,
+      action: 'login',
+    };
+  }
+
+  const portalUser = await User.findOne({ email: normalized, role: 'partner' })
+    .select('partnerProfile')
+    .lean();
+
+  if (portalUser) {
+    const linkedId = portalUser.partnerProfile?.partnerId
+      ? String(portalUser.partnerProfile.partnerId)
+      : null;
+    const accountStatus = portalUser.partnerProfile?.accountStatus;
+
+    if (excludePartnerId && linkedId === String(excludePartnerId)) {
+      return { ok: true };
+    }
+
+    if (linkedId && excludePartnerId && linkedId !== String(excludePartnerId)) {
+      return {
+        ok: false,
+        field: 'contactEmail',
+        code: 'portal_linked_other',
+        message: 'This contact email is already linked to a different partner portal account. Use a different email or contact support.',
+        action: 'support',
+      };
+    }
+
+    if (linkedId) {
+      const linkedPartner = await Partner.findById(linkedId).select('partnerName').lean();
+      const partnerLabel = linkedPartner?.partnerName || 'another partner';
+
+      if (accountStatus === 'active') {
+        return {
+          ok: false,
+          field: 'contactEmail',
+          code: 'portal_active',
+          message: `This email already has an active partner portal account for ${partnerLabel}. Sign in instead of submitting a new application.`,
+          action: 'login',
+        };
+      }
+
+      return {
+        ok: false,
+        field: 'contactEmail',
+        code: 'portal_invite_pending',
+        message: 'A partner portal invite was already sent to this email. Check your inbox or use Forgot password on the partner sign-in page.',
+        action: 'login',
+      };
+    }
+
+    if (accountStatus === 'active') {
+      return {
+        ok: false,
+        field: 'contactEmail',
+        code: 'portal_active',
+        message: 'This email already has a partner portal account. Sign in instead of submitting a new application.',
+        action: 'login',
+      };
+    }
+  }
+
+  return { ok: true };
+}
+
+function formatContactEmailValidationError(result) {
+  if (result.ok) return null;
+  return {
+    message: result.message,
+    errors: {
+      contactEmail: {
+        code: result.code,
+        action: result.action,
+      },
+    },
+  };
+}
 
 function slugify(value) {
   return String(value || '')
@@ -377,6 +520,7 @@ async function createPartnerFromApplication(application, adminUserId, overrides 
     city: application.city,
     state: application.state,
     website: application.website,
+    notes: application.notes || null,
     application: application._id,
     region: overrides.region || null,
     defaultVehicleType: overrides.defaultVehicleType || null,
@@ -427,6 +571,199 @@ async function verifyPartnerDashboardAccess(partnerId, token) {
   return partner.dashboardAccessToken === String(token).trim();
 }
 
+const PARTNER_REQUESTABLE_FIELDS = [
+  'pickupLocation',
+  'address',
+  'city',
+  'state',
+  'contactName',
+  'contactEmail',
+  'contactPhone',
+  'businessName',
+  'website',
+  'notes',
+];
+
+function buildPartnerProfileSnapshot(partner) {
+  const p = partner.toObject ? partner.toObject() : partner;
+  return {
+    pickupLocation: p.pickupLocation || null,
+    address: p.address || '',
+    city: p.city || '',
+    state: p.state || '',
+    contactName: p.contactName || '',
+    contactEmail: p.contactEmail || '',
+    contactPhone: p.contactPhone || '',
+    businessName: p.businessName || p.partnerName || '',
+    website: p.website || '',
+    notes: p.notes || '',
+  };
+}
+
+function buildPartnerProfileDTO(partner) {
+  const snapshot = buildPartnerProfileSnapshot(partner);
+  return {
+    partnerId: String(partner._id),
+    partnerCode: partner.partnerCode,
+    partnerName: partner.partnerName,
+    partnerType: partner.partnerType,
+    bookingMode: partner.bookingMode,
+    ...snapshot,
+  };
+}
+
+function pickRequestableChanges(body = {}) {
+  const changes = {};
+  for (const field of PARTNER_REQUESTABLE_FIELDS) {
+    if (body[field] === undefined) continue;
+    if (field === 'pickupLocation') {
+      changes.pickupLocation = {
+        text: String(body.pickupLocation?.text || '').trim(),
+        placeId: String(body.pickupLocation?.placeId || '').trim(),
+      };
+    } else if (field === 'contactEmail') {
+      changes.contactEmail = String(body[field]).trim().toLowerCase();
+    } else {
+      changes[field] = String(body[field]).trim();
+    }
+  }
+  return changes;
+}
+
+async function submitPartnerUpdateRequest(partnerId, userId, body) {
+  const partner = await Partner.findById(partnerId);
+  if (!partner) {
+    const err = new Error('Partner not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const pending = await PartnerUpdateRequest.findOne({ partner: partnerId, status: 'pending' });
+  if (pending) {
+    const err = new Error('You already have a pending update request. Wait for admin review before submitting another.');
+    err.statusCode = 409;
+    throw err;
+  }
+
+  const proposedChanges = pickRequestableChanges(body);
+  if (!Object.keys(proposedChanges).length) {
+    const err = new Error('No valid changes provided');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (proposedChanges.contactEmail) {
+    const emailCheck = await validatePartnerContactEmail(proposedChanges.contactEmail, {
+      excludePartnerId: partnerId,
+    });
+    if (!emailCheck.ok) {
+      const err = new Error(emailCheck.message);
+      err.statusCode = 409;
+      err.field = emailCheck.field;
+      err.code = emailCheck.code;
+      err.action = emailCheck.action;
+      throw err;
+    }
+  }
+
+  const request = await PartnerUpdateRequest.create({
+    partner: partnerId,
+    requestedBy: userId,
+    status: 'pending',
+    proposedChanges,
+    currentSnapshot: buildPartnerProfileSnapshot(partner),
+  });
+
+  return request;
+}
+
+async function listPartnerUpdateRequestsForPartner(partnerId) {
+  return PartnerUpdateRequest.find({ partner: partnerId })
+    .sort({ createdAt: -1 })
+    .lean();
+}
+
+async function listPartnerUpdateRequestsAdmin({ status, page = 1, limit = 20 } = {}) {
+  const filter = {};
+  if (status) filter.status = status;
+  const skip = (page - 1) * limit;
+  const [items, total] = await Promise.all([
+    PartnerUpdateRequest.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('partner', 'partnerName partnerCode partnerType')
+      .populate('requestedBy', 'name email')
+      .lean(),
+    PartnerUpdateRequest.countDocuments(filter),
+  ]);
+  return { items, total, page, limit };
+}
+
+async function approvePartnerUpdateRequest(requestId, adminUserId) {
+  const request = await PartnerUpdateRequest.findById(requestId);
+  if (!request) {
+    const err = new Error('Update request not found');
+    err.statusCode = 404;
+    throw err;
+  }
+  if (request.status !== 'pending') {
+    const err = new Error('Update request is not pending');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const partner = await Partner.findById(request.partner);
+  if (!partner) {
+    const err = new Error('Partner not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const changes = request.proposedChanges?.toObject?.()
+    ? request.proposedChanges.toObject()
+    : request.proposedChanges;
+
+  for (const [field, value] of Object.entries(changes || {})) {
+    if (!PARTNER_REQUESTABLE_FIELDS.includes(field)) continue;
+    partner[field] = value;
+    if (field === 'businessName' && value) {
+      partner.partnerName = value;
+    }
+  }
+
+  await partner.save();
+
+  request.status = 'approved';
+  request.reviewedBy = adminUserId;
+  request.reviewedAt = new Date();
+  await request.save();
+
+  return { request, partner: buildPartnerProfileDTO(partner) };
+}
+
+async function rejectPartnerUpdateRequest(requestId, adminUserId, reason) {
+  const request = await PartnerUpdateRequest.findById(requestId);
+  if (!request) {
+    const err = new Error('Update request not found');
+    err.statusCode = 404;
+    throw err;
+  }
+  if (request.status !== 'pending') {
+    const err = new Error('Update request is not pending');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  request.status = 'rejected';
+  request.reviewedBy = adminUserId;
+  request.reviewedAt = new Date();
+  request.rejectionReason = reason ? String(reason).trim() : null;
+  await request.save();
+
+  return request;
+}
+
 module.exports = {
   slugify,
   normalizeSlug,
@@ -449,8 +786,18 @@ module.exports = {
   recordPartnerBookingCompleted,
   getPartnerDashboard,
   createPartnerFromApplication,
+  validatePartnerContactEmail,
+  formatContactEmailValidationError,
   authenticatePartnerDashboard,
   verifyPartnerDashboardAccess,
   generateDashboardAccessToken,
   resolveVenueAccessBookingType,
+  PARTNER_REQUESTABLE_FIELDS,
+  buildPartnerProfileSnapshot,
+  buildPartnerProfileDTO,
+  submitPartnerUpdateRequest,
+  listPartnerUpdateRequestsForPartner,
+  listPartnerUpdateRequestsAdmin,
+  approvePartnerUpdateRequest,
+  rejectPartnerUpdateRequest,
 };

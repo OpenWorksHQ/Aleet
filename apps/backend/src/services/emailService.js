@@ -57,19 +57,43 @@ const resetTransporter = () => {
   transporter = null;
 };
 
-const sendPasswordResetEmail = async (email, resetLink) => {
+const EMAIL_BUTTON_STYLE =
+  'display:inline-block;padding:14px 28px;background-color:#c5a386;color:#000000;font-weight:600;text-decoration:none;border-radius:8px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.2;';
+
+function buildEmailButton(href, label) {
+  return `<a href="${href}" style="${EMAIL_BUTTON_STYLE}">${label}</a>`;
+}
+
+function buildEmailShell({ preheader, bodyHtml }) {
+  return `
+    <div style="font-family:Arial,Helvetica,sans-serif;color:#1a1510;line-height:1.6;max-width:560px;">
+      ${preheader ? `<p style="margin:0 0 16px;color:#666;font-size:14px;">${preheader}</p>` : ''}
+      ${bodyHtml}
+    </div>
+  `;
+}
+
+const sendPasswordResetEmail = async (email, resetLink, options = {}) => {
   const mailer = getTransporter();
+  const buttonLabel = options.buttonLabel || 'Reset your password';
+  const subject = options.subject || 'Reset your Aleet password';
+  const intro =
+    options.intro ||
+    'Use the button below to reset your Aleet password. This link expires in 30 minutes.';
 
   const result = await mailer.sendMail({
     from: getMailFrom(),
     to: email,
-    subject: 'Reset your Aleet password',
-    text: `Use this link to reset your password: ${resetLink}\nThis link expires in 30 minutes.`,
-    html: `
-      <p>Use this link to reset your Aleet password:</p>
-      <p><a href="${resetLink}">${resetLink}</a></p>
-      <p>This link expires in 30 minutes.</p>
-    `,
+    subject,
+    text: `${intro}\n\n${resetLink}\n\nThis link expires in 30 minutes.`,
+    html: buildEmailShell({
+      preheader: intro,
+      bodyHtml: `
+        <p style="margin:0 0 20px;">${intro}</p>
+        <p style="margin:0 0 24px;">${buildEmailButton(resetLink, buttonLabel)}</p>
+        <p style="margin:0;color:#666;font-size:13px;">If you did not request this, you can ignore this email.</p>
+      `,
+    }),
   });
 
   return { success: true, messageId: result.messageId };
@@ -88,6 +112,33 @@ const sendVerificationCodeEmail = async (email, code) => {
       <h2 style="letter-spacing:4px;">${code}</h2>
       <p>This code expires in 10 minutes. Do not share it with anyone.</p>
     `,
+  });
+
+  return { success: true, messageId: result.messageId };
+};
+
+const sendPartnerPortalInviteEmail = async (email, inviteLink, dashboardLink) => {
+  const mailer = getTransporter();
+  const intro =
+    'Welcome to the Aleet partner program. Set your password to activate your partner portal account.';
+  const dashboardIntro =
+    'After activation, you can sign in anytime to view bookings, earnings, and your partner QR code.';
+
+  const result = await mailer.sendMail({
+    from: getMailFrom(),
+    to: email,
+    subject: 'Activate your Aleet partner portal',
+    text: `${intro}\n\nActivate your account: ${inviteLink}\n\nPartner dashboard: ${dashboardLink}\n\nThe activation link expires in 72 hours.`,
+    html: buildEmailShell({
+      preheader: intro,
+      bodyHtml: `
+        <p style="margin:0 0 20px;">${intro}</p>
+        <p style="margin:0 0 24px;">${buildEmailButton(inviteLink, 'Activate partner portal')}</p>
+        <p style="margin:0 0 20px;">${dashboardIntro}</p>
+        <p style="margin:0 0 24px;">${buildEmailButton(dashboardLink, 'Go to partner dashboard')}</p>
+        <p style="margin:0;color:#666;font-size:13px;">The activation link expires in 72 hours. Do not share these links with anyone.</p>
+      `,
+    }),
   });
 
   return { success: true, messageId: result.messageId };
@@ -177,6 +228,7 @@ const logEmailConfig = () => {
 module.exports = {
   sendPasswordResetEmail,
   sendVerificationCodeEmail,
+  sendPartnerPortalInviteEmail,
   sendInvestorSubmissionEmail,
   logEmailConfig,
 };

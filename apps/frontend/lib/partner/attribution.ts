@@ -2,7 +2,6 @@ import type { PartnerContext } from "./types";
 
 const STORAGE_KEY = "aleet_partner_context";
 const COOKIE_KEY = "aleet_partner";
-const DASHBOARD_TOKEN_KEY = "aleet_partner_dashboard_token";
 const COOKIE_MAX_AGE_DAYS = 30;
 export const PARTNER_CHANGED_EVENT = "aleet-partner-changed";
 
@@ -59,33 +58,8 @@ export function loadPartnerContext(): PartnerContext | null {
 export function clearPartnerContext(): void {
   try {
     localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(DASHBOARD_TOKEN_KEY);
     clearCookie();
     notifyPartnerChanged();
-  } catch {
-    // ignore
-  }
-}
-
-export function savePartnerDashboardToken(token: string): void {
-  try {
-    localStorage.setItem(DASHBOARD_TOKEN_KEY, token);
-  } catch {
-    // ignore
-  }
-}
-
-export function loadPartnerDashboardToken(): string | null {
-  try {
-    return localStorage.getItem(DASHBOARD_TOKEN_KEY);
-  } catch {
-    return null;
-  }
-}
-
-export function clearPartnerDashboardToken(): void {
-  try {
-    localStorage.removeItem(DASHBOARD_TOKEN_KEY);
   } catch {
     // ignore
   }

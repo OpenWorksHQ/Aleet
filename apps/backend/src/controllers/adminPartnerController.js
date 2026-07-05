@@ -6,6 +6,7 @@ const {
   sendValidationError,
   sendNotFound,
   sendPaginated,
+  sendError,
 } = require('../utils/responseHelper');
 const { getPagination } = require('../utils/queryHelper');
 const {
@@ -16,7 +17,16 @@ const {
   assertUniquePartnerSlugs,
   applyPartnerSlugFields,
   generateDashboardAccessToken,
+  validatePartnerContactEmail,
+  formatContactEmailValidationError,
 } = require('../services/partnerService');
+const {
+  createPartnerUserFromPartner,
+  resendPartnerPortalInvite,
+  getPartnerUserByPartnerId,
+  PartnerAuthError,
+  parseMongoDuplicateKeyError,
+} = require('../services/partnerAuthService');
 
 const listApplications = asyncHandler(async (req, res) => {
   const { page, limit, skip } = getPagination(req.query);
@@ -48,12 +58,32 @@ const approveApplication = asyncHandler(async (req, res) => {
     return sendValidationError(res, 'Application is already approved');
   }
 
+  const emailCheck = await validatePartnerContactEmail(application.contactEmail, {
+    excludeApplicationId: application._id,
+  });
+  if (!emailCheck.ok) {
+    const formatted = formatContactEmailValidationError(emailCheck);
+    return sendError(res, 409, formatted.message, formatted.errors);
+  }
+
   try {
     const partner = await createPartnerFromApplication(application, req.user.id, req.body || {});
     const context = await populatePartnerContext(partner);
+
+    let portalInviteWarning = null;
+    try {
+      await createPartnerUserFromPartner(partner, { sendInvite: true });
+    } catch (inviteErr) {
+      portalInviteWarning = inviteErr instanceof PartnerAuthError
+        ? inviteErr.message
+        : parseMongoDuplicateKeyError(inviteErr) || inviteErr.message;
+      console.error('Partner portal invite failed:', portalInviteWarning);
+    }
+
     return sendSuccess(res, 200, 'Partner application approved', {
       application,
       partner: context,
+      portalInviteWarning,
     });
   } catch (err) {
     if (err.code === 'SLUG_CONFLICT') {
@@ -90,7 +120,15 @@ const listPartners = asyncHandler(async (req, res) => {
     Partner.countDocuments(filter),
   ]);
 
-  const data = await Promise.all(items.map((partner) => populatePartnerContext(partner)));
+  const data = await Promise.all(items.map(async (partner) => {
+    const context = await populatePartnerContext(partner);
+    const portalUser = await getPartnerUserByPartnerId(partner._id);
+    return {
+      ...context,
+      portalAccountStatus: portalUser?.partnerProfile?.accountStatus || null,
+      portalEmail: portalUser?.email || partner.contactEmail || null,
+    };
+  }));
 
   return sendPaginated(res, 'Partners loaded', data, {
     page,
@@ -174,8 +212,18 @@ const createPartner = asyncHandler(async (req, res) => {
 
   const partner = await Partner.create(payload);
 
+  let portalInviteWarning = null;
+  try {
+    await createPartnerUserFromPartner(partner, { sendInvite: true });
+  } catch (inviteErr) {
+    portalInviteWarning = inviteErr instanceof PartnerAuthError
+      ? inviteErr.message
+      : parseMongoDuplicateKeyError(inviteErr) || inviteErr.message;
+    console.error('Partner portal invite failed:', portalInviteWarning);
+  }
+
   const context = await populatePartnerContext(partner);
-  return sendSuccess(res, 201, 'Partner created', context);
+  return sendSuccess(res, 201, 'Partner created', { ...context, portalInviteWarning });
 });
 
 const updatePartner = asyncHandler(async (req, res) => {
@@ -237,6 +285,24 @@ const updatePartner = asyncHandler(async (req, res) => {
   return sendSuccess(res, 200, 'Partner updated', context);
 });
 
+const resendPortalInvite = asyncHandler(async (req, res) => {
+  try {
+    const result = await resendPartnerPortalInvite(req.params.id);
+    const message = result.message || 'Partner portal invite sent';
+    return sendSuccess(res, 200, message, result);
+  } catch (err) {
+    if (err instanceof PartnerAuthError) {
+      if (err.statusCode === 404) return sendNotFound(res, err.message);
+      if (err.statusCode === 409) return sendValidationError(res, err.message);
+      if (err.statusCode === 502) return sendError(res, 502, err.message);
+      return sendValidationError(res, err.message);
+    }
+    const dup = parseMongoDuplicateKeyError(err);
+    if (dup) return sendValidationError(res, dup);
+    throw err;
+  }
+});
+
 module.exports = {
   listApplications,
   approveApplication,
@@ -244,4 +310,5 @@ module.exports = {
   listPartners,
   createPartner,
   updatePartner,
+  resendPortalInvite,
 };

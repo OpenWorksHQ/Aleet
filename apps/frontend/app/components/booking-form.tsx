@@ -122,30 +122,29 @@ export function BookingForm() {
                 }
                 partner = res.data;
                 savePartnerContext(partner);
+            }
 
-                if (partner.bookingMode === "venue_access") {
-                    savePendingBooking(
-                        buildVenueAccessPendingBooking(partner, {
-                            pickupDate: payload.pickupDate.toISOString(),
-                            dropoffDate: payload.dropoffDate.toISOString(),
-                            pickupTime: payload.pickupTime,
-                            dropoffTime: payload.dropoffTime,
-                            vehicleType:
-                                selectedVehicle?.label ?? payload.vehicleDisplay,
-                            vehicleTypeId: selectedVehicle?._id ?? "",
-                            vehicleHourlyRate: selectedVehicle?.hourlyPrice ?? 0,
-                            region:
-                                selectedRegion?.label ?? payload.regionDisplay,
-                            regionId: selectedRegion?._id ?? "",
-                            dropoffLocationText: payload.dropoffLocation.text,
-                            dropoffLocationPlaceId: payload.dropoffLocation.placeId,
-                            promoCode: payload.promoCode.trim(),
-                        }),
-                    );
-                    const token = getToken();
-                    router.push(token ? "/booking" : "/login?next=/booking");
-                    return;
-                }
+            if (partner?.bookingMode === "venue_access") {
+                savePendingBooking(
+                    buildVenueAccessPendingBooking(partner, {
+                        pickupDate: payload.pickupDate.toISOString(),
+                        dropoffDate: payload.dropoffDate.toISOString(),
+                        pickupTime: payload.pickupTime,
+                        dropoffTime: payload.dropoffTime,
+                        vehicleType:
+                            selectedVehicle?.label ?? payload.vehicleDisplay,
+                        vehicleTypeId: selectedVehicle?._id ?? "",
+                        vehicleHourlyRate: selectedVehicle?.hourlyPrice ?? 0,
+                        region: selectedRegion?.label ?? payload.regionDisplay,
+                        regionId: selectedRegion?._id ?? "",
+                        dropoffLocationText: payload.dropoffLocation.text,
+                        dropoffLocationPlaceId: payload.dropoffLocation.placeId,
+                        promoCode: partner.partnerCode,
+                    }),
+                );
+                const token = getToken();
+                router.push(token ? "/booking" : "/login?next=/booking");
+                return;
             }
 
             savePendingBooking({

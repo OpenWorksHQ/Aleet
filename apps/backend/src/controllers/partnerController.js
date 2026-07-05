@@ -10,7 +10,8 @@ const {
   resolvePartnerBySlug,
   resolvePartnerByCode,
   getPartnerDashboard,
-  authenticatePartnerDashboard,
+  validatePartnerContactEmail,
+  formatContactEmailValidationError,
 } = require('../services/partnerService');
 
 const resolvePartner = asyncHandler(async (req, res) => {
@@ -28,6 +29,21 @@ const validateCode = asyncHandler(async (req, res) => {
   const partner = await resolvePartnerByCode(code);
   if (!partner) return sendNotFound(res, 'Partner code not recognized');
   return sendSuccess(res, 200, 'Partner recognized', partner);
+});
+
+const checkApplicationEmail = asyncHandler(async (req, res) => {
+  const email = req.query.email;
+  if (!email || !String(email).trim()) {
+    return sendValidationError(res, 'Email is required');
+  }
+
+  const result = await validatePartnerContactEmail(email);
+  if (!result.ok) {
+    const formatted = formatContactEmailValidationError(result);
+    return sendValidationError(res, formatted.message, formatted.errors);
+  }
+
+  return sendSuccess(res, 200, 'Email is available', { available: true });
 });
 
 const submitApplication = asyncHandler(async (req, res) => {
@@ -57,8 +73,16 @@ const submitApplication = asyncHandler(async (req, res) => {
 
   for (const [field, value] of Object.entries(required)) {
     if (!value || !String(value).trim()) {
-      return sendValidationError(res, `${field} is required`);
+      return sendValidationError(res, `${field} is required`, {
+        [field]: { code: 'required' },
+      });
     }
+  }
+
+  const emailCheck = await validatePartnerContactEmail(contactEmail);
+  if (!emailCheck.ok) {
+    const formatted = formatContactEmailValidationError(emailCheck);
+    return sendValidationError(res, formatted.message, formatted.errors);
   }
 
   let normalizedWebsite = null;
@@ -66,7 +90,9 @@ const submitApplication = asyncHandler(async (req, res) => {
     try {
       normalizedWebsite = normalizeWebsiteUrl(website);
     } catch (err) {
-      return sendValidationError(res, err.message);
+      return sendValidationError(res, err.message, {
+        website: { code: 'invalid_format' },
+      });
     }
   }
 
@@ -106,24 +132,10 @@ const getDashboard = asyncHandler(async (req, res) => {
   return sendSuccess(res, 200, 'Partner dashboard loaded', dashboard);
 });
 
-const dashboardAuth = asyncHandler(async (req, res) => {
-  const { partnerCode, contactEmail } = req.body || {};
-  if (!partnerCode || !contactEmail) {
-    return sendValidationError(res, 'Partner code and contact email are required');
-  }
-
-  const result = await authenticatePartnerDashboard(partnerCode, contactEmail);
-  if (!result) {
-    return sendNotFound(res, 'Partner not found or credentials do not match');
-  }
-
-  return sendSuccess(res, 200, 'Partner authenticated', result);
-});
-
 module.exports = {
   resolvePartner,
   validateCode,
+  checkApplicationEmail,
   submitApplication,
   getDashboard,
-  dashboardAuth,
 };

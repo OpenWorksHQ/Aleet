@@ -83,3 +83,63 @@ export type PartnerDashboardStats = {
     status: "completed" | "upcoming" | "cancelled";
   }[];
 };
+
+export type PartnerAuthUser = {
+  id: string;
+  email: string;
+  name: string;
+  role: "partner";
+  accountStatus: "pending" | "active";
+};
+
+export type PartnerAuthSession = {
+  token: string;
+  user: PartnerAuthUser;
+  partner: PartnerContext | null;
+};
+
+export type PartnerProfile = {
+  partnerId: string;
+  partnerCode: string;
+  partnerName: string;
+  partnerType: PartnerType;
+  bookingMode: "venue_access" | "standard";
+  pickupLocation?: PlaceValue | null;
+  address: string;
+  city: string;
+  state: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  businessName: string;
+  website: string;
+  notes: string;
+};
+
+export type PartnerUpdateRequestStatus = "pending" | "approved" | "rejected";
+
+export type PartnerUpdateRequest = {
+  _id: string;
+  partner: string;
+  requestedBy: string;
+  status: PartnerUpdateRequestStatus;
+  proposedChanges: Partial<PartnerProfile>;
+  currentSnapshot: Partial<PartnerProfile>;
+  reviewedAt?: string | null;
+  rejectionReason?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PartnerUpdateRequestPayload = Partial<{
+  pickupLocation: PlaceValue;
+  address: string;
+  city: string;
+  state: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  businessName: string;
+  website: string;
+  notes: string;
+}>;
