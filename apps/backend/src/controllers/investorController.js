@@ -146,6 +146,8 @@ const createSubmission = asyncHandler(async (req, res) => {
       phoneOrCalendly: hasPhone ? String(phoneOrCalendly).trim() : null,
     });
 
+    console.log(`📝 Teams submission saved: ${submission._id} — ${submission.fullName} (${submission.role})`);
+
     // Email the company inbox (non-blocking on failure — lead is already saved)
     try {
       await sendInvestorSubmissionEmail({
@@ -159,7 +161,11 @@ const createSubmission = asyncHandler(async (req, res) => {
       submission.emailSent = true;
       await submission.save();
     } catch (mailErr) {
-      console.error('Investor submission email failed (lead still saved):', mailErr.message);
+      console.error(
+        '❌ Investor submission email failed (lead still saved):',
+        mailErr.message
+      );
+      if (mailErr.response) console.error('   SMTP response:', mailErr.response);
     }
 
     return sendSuccess(res, 201, 'Submission received successfully');

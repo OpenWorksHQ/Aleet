@@ -119,7 +119,7 @@ function serializeBookingData(data: BookingData) {
 
   let durationHours: number | undefined;
   if (
-    bookingMode === "buy_hours" &&
+    (bookingMode === "buy_hours" || bookingMode === "venue_access") &&
     data.pickupDate &&
     data.pickupTime &&
     data.dropoffDate
@@ -130,8 +130,12 @@ function serializeBookingData(data: BookingData) {
     if (diff > 0) durationHours = Number(diff.toFixed(2));
   }
 
+  if (bookingMode === "venue_access" && data.estimatedDurationHours) {
+    durationHours = data.estimatedDurationHours;
+  }
+
   const basePayload = {
-    bookingMode,
+    bookingMode: bookingMode === "venue_access" ? "buy_hours" : bookingMode,
     region: data.regionId || data.region,
     startDate,
     vehicleTypeId: data.vehicleTypeId,
@@ -140,6 +144,10 @@ function serializeBookingData(data: BookingData) {
     dropoffLocation: data.dropoffAddress.text || data.dropoffAddress.placeId,
     addOns: data.selectedAddons,
     specialNotes: data.specialRequests.trim() || undefined,
+    partnerId: data.partnerId,
+    partnerCode: data.partnerCode,
+    venueId: data.venueId,
+    promoCode: data.partnerCode,
   };
 
   // A stop's time is collected as "HH:MM AM/PM" and assumed to be on the
@@ -152,7 +160,7 @@ function serializeBookingData(data: BookingData) {
     ...(s.notes.trim() ? { notes: s.notes.trim() } : {}),
   });
 
-  if (bookingMode === "buy_hours") {
+  if (bookingMode === "buy_hours" || bookingMode === "venue_access") {
     return {
       ...basePayload,
       durationHours,

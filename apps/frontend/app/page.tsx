@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createPageMetadata } from "@/lib/metadata";
 import { AppHeader } from "./components/app-header";
 import { BookingForm } from "./components/booking-form";
+import { HomePartnerNotice } from "./components/partner/home-partner-notice";
 import heroImage from "@/public/images/homepage/homepage_hero.jpeg";
 
 export const metadata = createPageMetadata({
@@ -122,6 +123,7 @@ export default function HomePage() {
         {/* Booking bar — overlaps hero / features */}
         <div className="relative z-20 -mt-8 px-5  sm:px-8 lg:absolute lg:bottom-0 lg:left-0 lg:right-0 lg:mt-0 lg:translate-y-1/2 lg:px-12 xl:px-16">
           <div className="mx-auto w-full  max-w-[1440px]">
+            <HomePartnerNotice />
             <BookingForm />
           </div>
         </div>

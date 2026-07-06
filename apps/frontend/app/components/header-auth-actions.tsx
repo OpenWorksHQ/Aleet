@@ -8,6 +8,7 @@ import { AUTH_CHANGED_EVENT, getToken, removeToken } from "@/lib/auth";
 import { getProfile } from "@/lib/api/users";
 import type { User } from "@/lib/api/auth";
 import { cn } from "@/lib/utils";
+import { PartnerAuthNavLink } from "@/app/components/partner/partner-auth-nav-link";
 
 type AuthStatus = "loading" | "guest" | "authenticated";
 
@@ -115,12 +116,12 @@ export function HeaderAuthActions() {
         >
           Log in
         </Link>
-          <Link
-            href="/membership"
-            className="rounded-md bg-aleet-gold px-4 py-2 text-[12px] font-semibold text-black no-underline transition-opacity hover:opacity-90 sm:px-5 sm:py-2.5 sm:text-[13px]"
-          >
-            Join Aleet
-          </Link>
+        <Link
+          href="/membership"
+          className="rounded-md bg-aleet-gold px-4 py-2 text-[12px] font-semibold text-black no-underline transition-opacity hover:opacity-90 sm:px-5 sm:py-2.5 sm:text-[13px]"
+        >
+          Join Aleet
+        </Link>
       </div>
     );
   }
@@ -129,6 +130,7 @@ export function HeaderAuthActions() {
 
   return (
     <div className="relative flex items-center gap-3 sm:gap-4" data-auth-menu>
+      <PartnerAuthNavLink />
       <Link
         href="/dashboard"
         className="hidden text-[13px] text-white/85 no-underline transition-colors hover:text-white md:inline xl:text-[14px]"
@@ -176,14 +178,10 @@ export function HeaderAuthActions() {
               </p>
             </div>
 
-            <Link
-              href="/dashboard"
-              role="menuitem"
-              className="block px-4 py-2.5 text-[13px] text-aleet-text no-underline transition-colors hover:bg-aleet-cream"
-              onClick={() => setMenuOpen(false)}
-            >
-              Dashboard
-            </Link>
+            <PartnerAuthNavLink
+              variant="account-menu"
+              onNavigate={() => setMenuOpen(false)}
+            />
             <Link
               href="/booking"
               role="menuitem"

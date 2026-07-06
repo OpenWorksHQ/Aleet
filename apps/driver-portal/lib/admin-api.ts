@@ -1,5 +1,16 @@
 import type { AdminPermission } from "@/lib/admin-access";
 import { withNgrokHeaders } from "@/lib/ngrok-headers";
+import type {
+  AdminPartner,
+  ApprovePartnerApplicationBody,
+  PartnerApplication,
+  PartnerUpdateRequestRecord,
+  UpdatePartnerBody,
+} from "@/app/components/admin/partners/partner-types";
+import {
+  normalizeAdminPartner,
+  normalizeApplication,
+} from "@/app/components/admin/partners/partner-types";
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 function getAuthHeaders(): HeadersInit {
@@ -1059,4 +1070,317 @@ export async function fetchSidebarStats(
   if (!res.ok || json.success === false)
     throw new Error(json.message ?? "Failed to fetch sidebar stats");
   return json.data as ApiSidebarStats;
+}
+
+// ─── Partner Admin API ────────────────────────────────────────────────────────
+
+export type PartnerApplicationsPage = {
+  applications: PartnerApplication[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+};
+
+export type AdminPartnersPage = {
+  partners: AdminPartner[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+};
+
+function parsePaginated<T>(
+  json: {
+    data?: unknown[];
+    meta?: { pagination?: PartnerApplicationsPage["pagination"] };
+    pagination?: PartnerApplicationsPage["pagination"];
+  },
+  page: number,
+  limit: number,
+  mapItem: (raw: Record<string, unknown>) => T,
+): { items: T[]; pagination: PartnerApplicationsPage["pagination"] } {
+  const rows = Array.isArray(json.data) ? json.data : [];
+  const pagination =
+    json.meta?.pagination ??
+    json.pagination ?? {
+      page,
+      limit,
+      total: rows.length,
+      totalPages: 1,
+    };
+
+  return {
+    items: rows.map((row) => mapItem(row as Record<string, unknown>)),
+    pagination,
+  };
+}
+
+/** GET /api/admin/partners/applications — server-safe */
+export async function fetchPartnerApplications(
+  token: string,
+  params?: { page?: number; limit?: number; status?: string },
+): Promise<PartnerApplicationsPage> {
+  const page = params?.page ?? 1;
+  const limit = params?.limit ?? 20;
+  const query = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  });
+  if (params?.status) query.set("status", params.status);
+
+  const res = await fetch(`${BASE_URL}/api/admin/partners/applications?${query}`, {
+    headers: withNgrokHeaders({
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    }),
+    cache: "no-store",
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    throw new Error(json.message ?? "Failed to fetch partner applications");
+  }
+
+  const parsed = parsePaginated(json, page, limit, normalizeApplication);
+  return { applications: parsed.items, pagination: parsed.pagination };
+}
+
+/** GET /api/admin/partners/applications — client-safe */
+export async function fetchPartnerApplicationsClient(
+  params?: { page?: number; limit?: number; status?: string },
+): Promise<PartnerApplicationsPage> {
+  const page = params?.page ?? 1;
+  const limit = params?.limit ?? 20;
+  const query = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  });
+  if (params?.status) query.set("status", params.status);
+
+  const res = await fetch(`${BASE_URL}/api/admin/partners/applications?${query}`, {
+    headers: getAuthHeaders(),
+    cache: "no-store",
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    throw new Error(json.message ?? "Failed to fetch partner applications");
+  }
+
+  const parsed = parsePaginated(json, page, limit, normalizeApplication);
+  return { applications: parsed.items, pagination: parsed.pagination };
+}
+
+/** PATCH /api/admin/partners/applications/:id/approve — client-safe */
+export async function approvePartnerApplicationClient(
+  id: string,
+  body: ApprovePartnerApplicationBody = {},
+): Promise<{ partner: AdminPartner; application: PartnerApplication }> {
+  const res = await fetch(`${BASE_URL}/api/admin/partners/applications/${id}/approve`, {
+    method: "PATCH",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(body),
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    throw new Error(json.message ?? "Failed to approve application");
+  }
+
+  const data = json.data as {
+    partner?: Record<string, unknown>;
+    application?: Record<string, unknown>;
+  };
+
+  return {
+    partner: normalizeAdminPartner(data.partner ?? {}),
+    application: normalizeApplication(data.application ?? {}),
+  };
+}
+
+/** PATCH /api/admin/partners/applications/:id/reject — client-safe */
+export async function rejectPartnerApplicationClient(
+  id: string,
+  reason?: string,
+): Promise<PartnerApplication> {
+  const res = await fetch(`${BASE_URL}/api/admin/partners/applications/${id}/reject`, {
+    method: "PATCH",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(reason ? { reason } : {}),
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    throw new Error(json.message ?? "Failed to reject application");
+  }
+
+  return normalizeApplication((json.data ?? {}) as Record<string, unknown>);
+}
+
+/** GET /api/admin/partners — server-safe */
+export async function fetchAdminPartners(
+  token: string,
+  params?: { page?: number; limit?: number; status?: string; partnerType?: string },
+): Promise<AdminPartnersPage> {
+  const page = params?.page ?? 1;
+  const limit = params?.limit ?? 20;
+  const query = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  });
+  if (params?.status) query.set("status", params.status);
+  if (params?.partnerType) query.set("partnerType", params.partnerType);
+
+  const res = await fetch(`${BASE_URL}/api/admin/partners?${query}`, {
+    headers: withNgrokHeaders({
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    }),
+    cache: "no-store",
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    throw new Error(json.message ?? "Failed to fetch partners");
+  }
+
+  const parsed = parsePaginated(json, page, limit, normalizeAdminPartner);
+  return { partners: parsed.items, pagination: parsed.pagination };
+}
+
+/** GET /api/admin/partners — client-safe */
+export async function fetchAdminPartnersClient(
+  params?: { page?: number; limit?: number; status?: string; partnerType?: string },
+): Promise<AdminPartnersPage> {
+  const page = params?.page ?? 1;
+  const limit = params?.limit ?? 20;
+  const query = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  });
+  if (params?.status) query.set("status", params.status);
+  if (params?.partnerType) query.set("partnerType", params.partnerType);
+
+  const res = await fetch(`${BASE_URL}/api/admin/partners?${query}`, {
+    headers: getAuthHeaders(),
+    cache: "no-store",
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    throw new Error(json.message ?? "Failed to fetch partners");
+  }
+
+  const parsed = parsePaginated(json, page, limit, normalizeAdminPartner);
+  return { partners: parsed.items, pagination: parsed.pagination };
+}
+
+/** PATCH /api/admin/partners/:id — client-safe */
+export async function updatePartnerClient(
+  id: string,
+  body: UpdatePartnerBody,
+): Promise<AdminPartner> {
+  const res = await fetch(`${BASE_URL}/api/admin/partners/${id}`, {
+    method: "PATCH",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(body),
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    throw new Error(json.message ?? "Failed to update partner");
+  }
+
+  return normalizeAdminPartner((json.data ?? {}) as Record<string, unknown>);
+}
+
+/** POST /api/admin/partners/:id/resend-invite — client-safe */
+export async function resendPartnerPortalInviteClient(partnerId: string) {
+  const res = await fetch(`${BASE_URL}/api/admin/partners/${partnerId}/resend-invite`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    throw new Error(json.message ?? "Failed to resend invite");
+  }
+  return json.data as {
+    email: string;
+    accountStatus: string;
+    alreadyActive?: boolean;
+    message?: string;
+  };
+}
+
+export type PartnerUpdateRequestsPage = {
+  requests: PartnerUpdateRequestRecord[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+};
+
+function normalizeUpdateRequest(raw: Record<string, unknown>): PartnerUpdateRequestRecord {
+  return {
+    _id: String(raw._id ?? raw.id ?? ""),
+    status: (raw.status as PartnerUpdateRequestRecord["status"]) ?? "pending",
+    proposedChanges: (raw.proposedChanges as Record<string, unknown>) ?? {},
+    currentSnapshot: (raw.currentSnapshot as Record<string, unknown>) ?? {},
+    rejectionReason: raw.rejectionReason ? String(raw.rejectionReason) : null,
+    createdAt: String(raw.createdAt ?? ""),
+    updatedAt: String(raw.updatedAt ?? ""),
+    partner: raw.partner as PartnerUpdateRequestRecord["partner"],
+    requestedBy: raw.requestedBy as PartnerUpdateRequestRecord["requestedBy"],
+  };
+}
+
+/** GET /api/admin/partners/update-requests — client-safe */
+export async function fetchPartnerUpdateRequestsClient(params?: {
+  status?: string;
+  page?: number;
+  limit?: number;
+}): Promise<PartnerUpdateRequestsPage> {
+  const page = params?.page ?? 1;
+  const limit = params?.limit ?? 20;
+  const query = new URLSearchParams({ page: String(page), limit: String(limit) });
+  if (params?.status) query.set("status", params.status);
+
+  const res = await fetch(`${BASE_URL}/api/admin/partners/update-requests?${query}`, {
+    headers: getAuthHeaders(),
+    cache: "no-store",
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    throw new Error(json.message ?? "Failed to fetch update requests");
+  }
+
+  const parsed = parsePaginated(json, page, limit, normalizeUpdateRequest);
+  return { requests: parsed.items, pagination: parsed.pagination };
+}
+
+/** PATCH /api/admin/partners/update-requests/:id/approve — client-safe */
+export async function approvePartnerUpdateRequestClient(id: string) {
+  const res = await fetch(`${BASE_URL}/api/admin/partners/update-requests/${id}/approve`, {
+    method: "PATCH",
+    headers: getAuthHeaders(),
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    throw new Error(json.message ?? "Failed to approve update request");
+  }
+  return json.data;
+}
+
+/** PATCH /api/admin/partners/update-requests/:id/reject — client-safe */
+export async function rejectPartnerUpdateRequestClient(id: string, reason?: string) {
+  const res = await fetch(`${BASE_URL}/api/admin/partners/update-requests/${id}/reject`, {
+    method: "PATCH",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(reason ? { reason } : {}),
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    throw new Error(json.message ?? "Failed to reject update request");
+  }
+  return json.data;
 }

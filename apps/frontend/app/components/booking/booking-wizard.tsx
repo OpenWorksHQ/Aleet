@@ -26,8 +26,11 @@ import {
     combineDateAndTime,
 } from "@/lib/booking-constraints";
 import { loadPendingBooking, clearPendingBooking } from "@/lib/pending-booking";
+import { loadPartnerContext } from "@/lib/partner/attribution";
+import { filterVehiclesByPartner } from "@/lib/partner/venue-access";
 import { useSameDayAvailability } from "@/lib/use-same-day-availability";
 import { SameDayNotice } from "./same-day-notice";
+import { PartnerContextBanner } from "@/app/components/partner/partner-context-banner";
 
 type Step = 1 | 2 | 3;
 
@@ -46,7 +49,7 @@ function TripSummaryBar({
 }: {
     data: BookingData;
     onChange: (patch: Partial<BookingData>) => void;
-    quickBookingMode: "buy_hours" | "multi_day" | null;
+    quickBookingMode: "buy_hours" | "multi_day" | "venue_access" | null;
     isMember?: boolean;
 }) {
     const [editing, setEditing] = useState(false);
@@ -58,7 +61,7 @@ function TripSummaryBar({
     useEffect(() => {
         getVehicleTypes()
             .then((res) => {
-                const types = res.data ?? [];
+                const types = filterVehiclesByPartner(res.data ?? [], data.allowedVehicleTypeIds);
                 setVehicleTypes(types);
                 setVehicleOptions(types.map((v) => ({ label: v.name, price: `$${v.hourlyPrice}/hr` })));
             })
@@ -70,7 +73,7 @@ function TripSummaryBar({
                 setRegionOptions(list.map((r: Region) => ({ label: r.name })));
             })
             .catch(() => { });
-    }, []);
+    }, [data.allowedVehicleTypeIds]);
 
     const hasFullData = data.pickupDate && data.pickupTime && data.dropoffDate && data.dropoffTime;
     const isBuyHours = quickBookingMode === "buy_hours";
@@ -246,7 +249,7 @@ function TripSummaryBar({
                                     const current = getDurationHours() ?? 1;
                                     handleDurationChange(Math.max(1, current - 1));
                                 }}
-                                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-aleet-text-muted transition-colors hover:bg-[#2a3336] hover:text-aleet-text"
+                                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-aleet-text-muted transition-colors hover:bg-aleet-cream hover:text-aleet-text"
                             >
                                 −
                             </button>
@@ -257,7 +260,7 @@ function TripSummaryBar({
                                     const current = getDurationHours() ?? 1;
                                     handleDurationChange(Math.min(24, current + 1));
                                 }}
-                                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-aleet-text-muted transition-colors hover:bg-[#2a3336] hover:text-aleet-text"
+                                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-aleet-text-muted transition-colors hover:bg-aleet-cream hover:text-aleet-text"
                             >
                                 +
                             </button>
@@ -304,7 +307,7 @@ function StepIndicator({ current, skipFirstStep }: { current: Step; skipFirstSte
                     <Fragment key={step.label}>
                         {/* Left connector (before this node) */}
                         {i > 0 && (
-                            <div className="relative mb-6 h-0.5 flex-1 overflow-hidden rounded-full bg-[#1e2a2c]">
+                            <div className="relative mb-6 h-0.5 flex-1 overflow-hidden rounded-full bg-aleet-border-strong">
                                 <div
                                     className="absolute inset-0 origin-left rounded-full bg-aleet-gold/50 transition-transform duration-500 ease-in-out"
                                     style={{ transform: current > idx - 1 ? "scaleX(1)" : "scaleX(0)" }}
@@ -348,7 +351,7 @@ export function BookingStepIndicator({ step, skipFirstStep }: { step: Step; skip
     return <StepIndicator current={step} skipFirstStep={skipFirstStep} />;
 }
 
-function initWizard(): { step: Step; fromQuickBooking: boolean; quickBookingMode: "buy_hours" | "multi_day" | null; data: BookingData } {
+function initWizard(): { step: Step; fromQuickBooking: boolean; quickBookingMode: "buy_hours" | "multi_day" | "venue_access" | null; data: BookingData } {
     // Always start at step 1 on SSR — client-side effect will adjust
     return { step: 1, fromQuickBooking: false, quickBookingMode: null, data: EMPTY_BOOKING };
 }
@@ -395,13 +398,50 @@ export function BookingWizard({ onStepChange, renderIndicator }: { onStepChange?
     // On mount (client only): load pending booking from localStorage and jump to step 2
     useLayoutEffect(() => {
         const pending = loadPendingBooking();
+        const partner = loadPartnerContext();
+
         if (!pending) {
-            onStepChange?.(1);
+            if (partner?.bookingMode === "venue_access") {
+                const loaded: BookingData = {
+                    ...EMPTY_BOOKING,
+                    bookingMode: "venue_access",
+                    partnerId: partner.partnerId,
+                    partnerCode: partner.partnerCode,
+                    partnerName: partner.partnerName,
+                    venueId: partner.venueId,
+                    pickupLocked: partner.pickupLocked,
+                    dropoffLocked: partner.dropoffLocked,
+                    venueAccessBookingType: partner.venueAccessBookingType,
+                    allowedVehicleTypeIds: partner.allowedVehicleTypeIds,
+                    discountPct: partner.discountPct,
+                    pickupAddress: partner.pickupLocation ?? EMPTY_BOOKING.pickupAddress,
+                    dropoffAddress: partner.dropoffLocation ?? EMPTY_BOOKING.dropoffAddress,
+                    region: partner.regionName ?? "",
+                    regionId: partner.regionId ?? "",
+                    vehicleType: partner.vehicleName ?? "",
+                    vehicleTypeId: partner.vehicleTypeId ?? "",
+                    vehicleHourlyRate: partner.vehicleHourlyRate ?? 0,
+                    freeRouting: false,
+                };
+                setWizardState({
+                    step: 2,
+                    fromQuickBooking: true,
+                    quickBookingMode: "venue_access",
+                    data: loaded,
+                });
+                onStepChange?.(2);
+            } else {
+                onStepChange?.(1);
+            }
             return;
         }
+
         clearPendingBooking();
-        const normalizedMode: "buy_hours" | "multi_day" =
-            pending.bookingMode === "buy_hours" || pending.bookingMode === "buy-hours"
+
+        const isVenueAccess = pending.bookingMode === "venue_access";
+        const normalizedMode: "buy_hours" | "multi_day" | "venue_access" = isVenueAccess
+            ? "venue_access"
+            : pending.bookingMode === "buy_hours" || pending.bookingMode === "buy-hours"
                 ? "buy_hours"
                 : "multi_day";
 
@@ -417,16 +457,38 @@ export function BookingWizard({ onStepChange, renderIndicator }: { onStepChange?
             region: pending.region,
             regionId: pending.regionId,
             bookingMode: normalizedMode,
-            dropoffAddress: {
-                text: pending.dropoffLocationText ?? "",
-                placeId: pending.dropoffLocationPlaceId ?? "",
+            partnerId: pending.partnerId ?? partner?.partnerId,
+            partnerCode: pending.partnerCode ?? pending.promoCode ?? partner?.partnerCode,
+            partnerName: pending.partnerName ?? partner?.partnerName,
+            venueId: pending.venueId ?? partner?.venueId,
+            pickupLocked: pending.pickupLocked ?? partner?.pickupLocked,
+            dropoffLocked: pending.dropoffLocked ?? partner?.dropoffLocked,
+            venueAccessBookingType:
+                pending.venueAccessBookingType ?? partner?.venueAccessBookingType,
+            allowedVehicleTypeIds: partner?.allowedVehicleTypeIds,
+            discountPct: pending.discountPct ?? partner?.discountPct,
+            pickupAddress: {
+                text: pending.pickupLocationText ?? partner?.pickupLocation?.text ?? "",
+                placeId: pending.pickupLocationPlaceId ?? partner?.pickupLocation?.placeId ?? "",
             },
+            dropoffAddress: {
+                text: pending.dropoffLocationText ?? partner?.dropoffLocation?.text ?? "",
+                placeId: pending.dropoffLocationPlaceId ?? partner?.dropoffLocation?.placeId ?? "",
+            },
+            estimatedDurationHours: pending.estimatedDurationHours,
+            routeDistanceMiles: pending.routeDistanceMiles,
+            routeDurationText: pending.routeDurationText,
+            freeRouting: false,
         };
-        const hasTripData = !!(
-            loaded.pickupDate && loaded.pickupTime &&
-            loaded.dropoffDate && loaded.dropoffTime &&
-            loaded.vehicleTypeId
-        );
+
+        const hasTripData = isVenueAccess
+            ? !!(loaded.pickupAddress.text && loaded.pickupDate && loaded.pickupTime)
+            : !!(
+                loaded.pickupDate && loaded.pickupTime &&
+                loaded.dropoffDate && loaded.dropoffTime &&
+                loaded.vehicleTypeId
+            );
+
         if (hasTripData) {
             setWizardState({
                 step: 2,
@@ -446,6 +508,41 @@ export function BookingWizard({ onStepChange, renderIndicator }: { onStepChange?
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // Resolve region/vehicle IDs for venue access when only names were provided
+    useEffect(() => {
+        if (data.bookingMode !== "venue_access") return;
+        if (data.regionId && data.vehicleTypeId) return;
+
+        Promise.all([getRegions(), getVehicleTypes()])
+            .then(([regionsRes, vehiclesRes]) => {
+                const regions = regionsRes.data ?? [];
+                const vehicles = vehiclesRes.data ?? [];
+                const patch: Partial<BookingData> = {};
+
+                if (!data.regionId && data.region) {
+                    const found = regions.find(
+                        (r) => r.name.toLowerCase() === data.region.toLowerCase(),
+                    );
+                    if (found) patch.regionId = found._id;
+                }
+                if (!data.vehicleTypeId && data.vehicleType) {
+                    const found = vehicles.find(
+                        (v) => v.name.toLowerCase() === data.vehicleType.toLowerCase(),
+                    );
+                    if (found) {
+                        patch.vehicleTypeId = found._id;
+                        patch.vehicleHourlyRate = found.hourlyPrice;
+                        patch.vehicleType = found.name;
+                    }
+                }
+                if (Object.keys(patch).length > 0) {
+                    setData((prev) => ({ ...prev, ...patch }));
+                }
+            })
+            .catch(() => {});
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [data.bookingMode, data.region, data.vehicleType]);
+
     // Fetch addons once on mount
     useEffect(() => {
         fetchAddons(getToken() ?? undefined)
@@ -464,7 +561,11 @@ export function BookingWizard({ onStepChange, renderIndicator }: { onStepChange?
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(async () => {
             if (!data.vehicleTypeId) return;
-            if (!data.dropoffDate || !data.dropoffTime) return;
+            if (data.bookingMode === "venue_access") {
+                if (!data.dropoffAddress.text || !data.estimatedDurationHours) return;
+            } else if (!data.dropoffDate || !data.dropoffTime) {
+                return;
+            }
             setPriceLoading(true);
             try {
                 const token = getToken() ?? undefined;
@@ -562,10 +663,27 @@ export function BookingWizard({ onStepChange, renderIndicator }: { onStepChange?
         />
     );
 
+    const partnerContext = data.partnerName
+        ? {
+            partnerId: data.partnerId ?? "",
+            partnerCode: data.partnerCode ?? "",
+            partnerName: data.partnerName,
+            partnerType: "venue" as const,
+            bookingMode: data.bookingMode === "venue_access" ? "venue_access" as const : "standard" as const,
+            venueId: data.venueId,
+            pickupLocation: data.pickupAddress,
+            pickupLocked: data.pickupLocked,
+            discountPct: data.discountPct,
+          }
+        : loadPartnerContext();
+
     return (
         <div>
             {renderIndicator?.(step, fromQuickBooking)}
             <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-8 sm:py-12">
+                {partnerContext && step >= 2 ? (
+                    <PartnerContextBanner partner={partnerContext} className="mb-5" compact />
+                ) : null}
                 {step === 1 && !fromQuickBooking && (
                     <StepTrip data={data} onChange={handleChange} onNext={() => goTo(2)} priceBar={priceBarEl} isMember={isMember} sameDay={sameDay} />
                 )}
@@ -575,7 +693,19 @@ export function BookingWizard({ onStepChange, renderIndicator }: { onStepChange?
                             <TripSummaryBar data={data} onChange={handleChange} quickBookingMode={quickBookingMode} isMember={isMember} />
                         )}
                         <SameDayNotice sameDay={sameDay} />
-                        <StepRoute data={data} quickBookingMode={quickBookingMode} onChange={handleChange} onNext={() => goTo(3)} onBack={fromQuickBooking ? undefined : () => goTo(1)} priceBar={priceBarEl} freeAddons={freeAddons} paidAddons={paidAddons} addonsLoading={addonsLoading} />
+                        <StepRoute
+                            data={data}
+                            quickBookingMode={quickBookingMode}
+                            serverPrice={serverPrice}
+                            priceLoading={priceLoading}
+                            onChange={handleChange}
+                            onNext={() => goTo(3)}
+                            onBack={fromQuickBooking ? undefined : () => goTo(1)}
+                            priceBar={priceBarEl}
+                            freeAddons={freeAddons}
+                            paidAddons={paidAddons}
+                            addonsLoading={addonsLoading}
+                        />
                     </>
                 )}
                 {step === 3 && (

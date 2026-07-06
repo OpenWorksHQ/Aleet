@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense, type ReactNode } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 import { AuthPageShell } from "../components/auth-page-shell";
@@ -57,47 +57,6 @@ const PROGRESS: Record<Step, [number, number]> = {
   otp: [1, 3],
   passcode: [2, 3],
   complete: [3, 3],
-};
-
-const SHELL_COPY: Record<Step, { eyebrow: string; title: ReactNode; subtitle: string }> = {
-  identifier: {
-    eyebrow: "Member Access",
-    title: (
-      <>
-        Transportation and services that fit{" "}
-        <em className="font-serif not-italic text-aleet-gold" style={{ fontStyle: "italic" }}>
-          your life.
-        </em>
-      </>
-    ),
-    subtitle:
-      "Sign in or create your account to book premium transportation, event access, and concierge services.",
-  },
-  phone: {
-    eyebrow: "Member Access",
-    title: "One more step.",
-    subtitle: "Add your phone number so we can verify your account securely.",
-  },
-  password: {
-    eyebrow: "Welcome Back",
-    title: "Good to see you again.",
-    subtitle: "Enter your password to access your bookings, membership, and account settings.",
-  },
-  otp: {
-    eyebrow: "Verification",
-    title: "Confirm it’s you.",
-    subtitle: "Enter the verification code we sent to keep your account secure.",
-  },
-  passcode: {
-    eyebrow: "Create Account",
-    title: "Secure your account.",
-    subtitle: "Choose a password to protect your membership and booking history.",
-  },
-  complete: {
-    eyebrow: "Create Account",
-    title: "Finish setting up.",
-    subtitle: "Tell us a little about yourself so we can personalize your experience.",
-  },
 };
 
 function AuthFlow() {
@@ -210,16 +169,11 @@ function AuthFlow() {
   };
 
   const { title, subtitle } = HEADINGS[step];
-  const shellCopy = SHELL_COPY[step];
   const [progress, total] = PROGRESS[step];
   const showProgress = total > 0;
 
   return (
-    <AuthPageShell
-      eyebrow={shellCopy.eyebrow}
-      title={shellCopy.title}
-      subtitle={shellCopy.subtitle}
-    >
+    <AuthPageShell>
       <header className="mb-6 text-center sm:mb-7">
         <h2 className="font-serif text-[28px] leading-[1.1] text-aleet-text sm:text-[32px]">
           {title}

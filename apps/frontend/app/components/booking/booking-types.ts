@@ -1,21 +1,17 @@
 export type BookingStop = {
   id: string;
   address: PlaceValue;
-  /** Arrival time at this stop, "HH:MM AM/PM". Assumed to fall on the pickup date. */
   time: string;
-  /** Optional free-text note for this stop (gate code, contact, instructions). */
   notes: string;
 };
 
-/** Stores both the display text and the stable Google placeId */
 export type PlaceValue = {
-  text: string; // human-readable address (for display only)
-  placeId: string; // stable Google Place ID (save this to DB)
+  text: string;
+  placeId: string;
 };
 
 export type BookingData = {
-  bookingMode: "buy_hours" | "multi_day";
-  // Step 1
+  bookingMode: "buy_hours" | "multi_day" | "venue_access";
   pickupDate: Date | undefined;
   pickupTime: string;
   dropoffDate: Date | undefined;
@@ -26,7 +22,6 @@ export type BookingData = {
   region: string;
   regionId: string;
 
-  // Step 2
   pickupAddress: PlaceValue;
   dropoffAddress: PlaceValue;
   stops: BookingStop[];
@@ -34,6 +29,20 @@ export type BookingData = {
   quantity: number;
   selectedAddons: string[];
   specialRequests: string;
+
+  /** Partner / venue access attribution */
+  partnerId?: string;
+  partnerCode?: string;
+  partnerName?: string;
+  venueId?: string;
+  pickupLocked?: boolean;
+  dropoffLocked?: boolean;
+  venueAccessBookingType?: string;
+  allowedVehicleTypeIds?: string[];
+  discountPct?: number;
+  estimatedDurationHours?: number;
+  routeDistanceMiles?: number;
+  routeDurationText?: string;
 };
 
 export const EMPTY_BOOKING: BookingData = {

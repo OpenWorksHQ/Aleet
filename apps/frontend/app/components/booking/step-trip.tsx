@@ -6,6 +6,7 @@ import { CarIcon, MapPinIcon } from "@/app/components/ui/icons";
 import type { SelectOption } from "@/app/components/ui/select";
 import { getVehicleTypes, type VehicleType } from "@/lib/api/vehicle-types";
 import { getRegions, type Region } from "@/lib/api/regions";
+import { filterVehiclesByPartner } from "@/lib/partner/venue-access";
 import { Button } from "@/app/components/ui";
 import {
     isPickupTimeDisabled,
@@ -35,11 +36,12 @@ export function StepTrip({ data, onChange, onNext, priceBar, isMember = false, s
         getVehicleTypes()
             .then((res) => {
                 const types = res.data ?? [];
-                setVehicleTypes(types);
-                setVehicleOptions(types.map((v) => ({ label: v.name, price: `$${v.hourlyPrice}/hr` })));
+                const filtered = filterVehiclesByPartner(types, data.allowedVehicleTypeIds);
+                setVehicleTypes(filtered);
+                setVehicleOptions(filtered.map((v) => ({ label: v.name, price: `$${v.hourlyPrice}/hr` })));
             })
             .catch(() => { });
-    }, []);
+    }, [data.allowedVehicleTypeIds]);
 
     useEffect(() => {
         getRegions()
@@ -200,15 +202,15 @@ export function StepTrip({ data, onChange, onNext, priceBar, isMember = false, s
                     />
                     {/* Duration + cost indicator */}
                     <div className="col-span-2 flex items-end">
-                        <div className={`flex h-11 w-full items-center gap-2 rounded-lg border px-3 sm:h-12 ${durationHours !== null && !isDurationValid ? "border-red-500/40 bg-red-950/20" : "border-aleet-border bg-aleet-cream"}`}>
+                        <div className={`flex h-11 w-full items-center gap-2 rounded-lg border px-3 sm:h-12 ${durationHours !== null && !isDurationValid ? "border-red-300 bg-red-50" : "border-aleet-border bg-aleet-cream"}`}>
                             <span className="text-aleet-gold/60">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-4 w-4"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></svg>
                             </span>
                             {durationHours !== null ? (
-                                <span className={`text-[13px] ${isDurationValid ? "text-aleet-text-muted" : "text-red-400/80"}`}>
+                                <span className={`text-[13px] ${isDurationValid ? "text-aleet-text-muted" : "text-red-600"}`}>
                                     {durationHours.toFixed(1)}h duration
                                     {!isDurationValid && (
-                                        <span className="ml-1 text-red-400/60">
+                                        <span className="ml-1 text-red-500">
                                             (min 3h)
                                         </span>
                                     )}

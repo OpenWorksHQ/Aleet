@@ -25,3 +25,11 @@ export function getSiteUrl(): string {
 
   return normalizeCanonicalHost(raw.replace(/\/+$/, ""));
 }
+
+export function getPartnerDashboardUrl(): string {
+  return `${getSiteUrl()}/partners/dashboard`;
+}
+
+export function getPartnerLoginUrl(): string {
+  return `${getSiteUrl()}/partners/login`;
+}

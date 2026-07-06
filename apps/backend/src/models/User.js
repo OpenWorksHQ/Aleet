@@ -23,7 +23,7 @@ const userSchema = new mongoose.Schema(
     role: {
       type: String,
       required: true,
-      enum: ["admin", "driver", "customer"],
+      enum: ["admin", "driver", "customer", "partner"],
       default: "customer",
     },
 
@@ -183,6 +183,18 @@ const userSchema = new mongoose.Schema(
           required: true,
         },
       ],
+    },
+
+    // Partner portal account (role === partner)
+    partnerProfile: {
+      partnerId: { type: mongoose.Schema.Types.ObjectId, ref: "Partner", default: null },
+      inviteToken: { type: String, default: null, select: false },
+      inviteExpires: { type: Date, default: null, select: false },
+      accountStatus: {
+        type: String,
+        enum: ["pending", "active"],
+        default: "pending",
+      },
     },
   },
   { timestamps: true }
