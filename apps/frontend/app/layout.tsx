@@ -19,10 +19,15 @@ const playfair = Playfair_Display({
   display: "swap",
 });
 
+const siteUrl = getSiteUrl();
+
 export const metadata: Metadata = {
-  metadataBase: new URL(getSiteUrl()),
+  metadataBase: new URL(siteUrl),
   title: "Aleet - Book a Ride, Track Your Trip",
   description: "Aleet is your go-to platform for seamless ride booking, real-time trip tracking, and effortless account management.",
+  alternates: {
+    canonical: siteUrl,
+  },
   robots: {
     index: true,
     follow: true,

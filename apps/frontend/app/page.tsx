@@ -1,8 +1,16 @@
 import Image from "next/image";
 import Link from "next/link";
+import { createPageMetadata } from "@/lib/metadata";
 import { AppHeader } from "./components/app-header";
 import { BookingForm } from "./components/booking-form";
 import heroImage from "@/public/images/homepage/homepage_hero.jpeg";
+
+export const metadata = createPageMetadata({
+  path: "/",
+  title: "Aleet - Book a Ride, Track Your Trip",
+  description:
+    "Aleet is your go-to platform for seamless ride booking, real-time trip tracking, and effortless account management.",
+});
 
 const GOLD = "#c5a386";
 const CREAM = "#f9f7f2";

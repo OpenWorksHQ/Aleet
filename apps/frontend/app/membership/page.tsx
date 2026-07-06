@@ -3,12 +3,14 @@ import Link from "next/link";
 import { AppHeader } from "@/app/components/app-header";
 import { MembershipPlansSection } from "@/app/components/membership-plans-section";
 import { SiteFooter } from "@/app/components/site-footer";
+import { createPageMetadata } from "@/lib/metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createPageMetadata({
+  path: "/membership",
   title: "Aleet - Membership",
   description:
     "Explore Aleet membership plans with locked-in rates, priority booking, and concierge access.",
-};
+});
 
 export default function MembershipPage() {
   return (
