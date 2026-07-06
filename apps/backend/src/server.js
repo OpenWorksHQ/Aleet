@@ -103,6 +103,17 @@ setInterval(() => {
   });
 }, 5 * 60 * 1000);
 
+// Membership auto-renewal — charges saved cards for members whose quarterly
+// (or monthly/annually) nextBillingDate has passed. Checked hourly; each
+// member is only actually charged once since nextBillingDate advances after
+// a successful charge.
+const { runMembershipRenewalSweep } = require('./cron/membershipRenewalJob');
+setInterval(() => {
+  runMembershipRenewalSweep().catch((e) => {
+    console.error('Membership renewal sweep error:', e?.message || e);
+  });
+}, 60 * 60 * 1000);
+
 httpServer.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   logEmailConfig();

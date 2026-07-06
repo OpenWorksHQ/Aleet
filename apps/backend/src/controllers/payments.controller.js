@@ -4,6 +4,7 @@ const Stripe = require('stripe');
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const Booking = require('../models/Booking');
 const User = require('../models/User');
+const TierSettings = require('../models/TierSettings');
 
 const CURRENCY = 'usd';
 const APP_BASE_URL = process.env.APP_BASE_URL || 'http://localhost:5173';
@@ -35,6 +36,17 @@ exports.createCheckoutSession = async (req, res) => {
     if (totalAmount <= 0)
       return res.status(400).json({ success: false, message: 'Invalid amount' });
 
+    // Booking fee shown as its own small line item on checkout/receipt (like taxes/service
+    // fees) — not folded silently into the ride fare. Falls back to live settings for older
+    // bookings created before `bookingFee` was persisted on the Booking doc.
+    let bookingFeeAmount = Number(booking.bookingFee || 0);
+    if (!bookingFeeAmount) {
+      const settings = await TierSettings.findOne().lean();
+      bookingFeeAmount = Number(settings?.bookingFee) || 34;
+    }
+    bookingFeeAmount = Math.min(bookingFeeAmount, baseAmount); // never exceed the ride total
+    const rideSubtotal = Number((baseAmount - bookingFeeAmount).toFixed(2));
+
     // 3) Get user email (optional)
     const user = await User.findById(userId);
 
@@ -62,10 +74,19 @@ exports.createCheckoutSession = async (req, res) => {
               name: `Booking: ${booking.vehicleType?.name || 'Vehicle'} x ${booking.quantity}`,
               description: `Region: ${booking.region} | ${new Date(booking.dates.startDate).toLocaleString()} → ${new Date(booking.dates.endDate).toLocaleString()}`
             },
-            unit_amount: toMinorUnits(baseAmount),
+            unit_amount: toMinorUnits(rideSubtotal),
           },
           quantity: 1,
         },
+        // Booking fee — small normal line item, same treatment as a tax/service fee.
+        ...(bookingFeeAmount > 0 ? [{
+          price_data: {
+            currency: CURRENCY,
+            product_data: { name: 'Booking Fee' },
+            unit_amount: toMinorUnits(bookingFeeAmount),
+          },
+          quantity: 1,
+        }] : []),
         ...(tipAmount > 0 ? [{
           price_data: {
             currency: CURRENCY,

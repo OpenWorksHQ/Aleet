@@ -77,6 +77,12 @@ const bookingSchema = new mongoose.Schema({
   subscriptionPrice: { type: Number },
   finalPrice: { type: Number, required: true },
   savings: { type: Number, default: 0 },
+  // Booking fee amount locked in at creation time (from TierSettings.bookingFee at that
+  // moment). Included within finalPrice, but tracked separately so it can be shown as its
+  // own line item on the Stripe checkout page / receipt, and so later admin rate changes
+  // don't retroactively change what a customer was actually charged.
+  bookingFee: { type: Number, default: 0 },
+  minimumHoursApplied: { type: Boolean, default: false },
 
   addOns: [{ type: mongoose.Schema.Types.ObjectId, ref: 'AddOn' }],
   freeRouting: { type: Boolean, default: false },

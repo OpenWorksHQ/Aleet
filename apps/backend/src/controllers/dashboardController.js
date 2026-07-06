@@ -4,6 +4,7 @@ const User = require('../models/User');
 const MonthlyHours = require('../models/MonthlyHours');
 const TierSettings = require('../models/TierSettings');
 const { computePayoutCents } = require('../services/payoutUtils');
+const { getQuarterlyUsedHours } = require('../utils/membershipHours');
 const mongoose = require('mongoose');
 
 const {
@@ -119,27 +120,28 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     };
 
     // --- MONTHLY USAGE ---
+    // hoursRemaining is shown against the QUARTERLY pool (15 hrs = 5/mo × 3), not a hard
+    // 5-hr/month cap — a member who hasn't used hours yet this month may still have plenty
+    // left in their pooled quarterly balance. See utils/membershipHours.js.
     if (user.subscriptionStatus === 'subscriber') {
       const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      const monthlyUsageAgg = await MonthlyHours.aggregate([
-        {
-          $match: {
-            user: new mongoose.Types.ObjectId(userId),
-            yearMonth: currentMonth
-          }
-        },
-        {
-          $project: {
-            totalHoursUsed: 1
-          }
-        }
+      const [monthlyUsageAgg, settings, quarterlyUsed] = await Promise.all([
+        MonthlyHours.aggregate([
+          { $match: { user: new mongoose.Types.ObjectId(userId), yearMonth: currentMonth } },
+          { $project: { totalHoursUsed: 1 } }
+        ]),
+        TierSettings.findOne().lean(),
+        getQuarterlyUsedHours(MonthlyHours, userId)
       ]);
 
       const hoursUsed = monthlyUsageAgg[0]?.totalHoursUsed || 0;
+      const quarterlyHoursIncluded = (Number(settings?.membershipMonthlyHours) || 5) * 3;
       stats.monthlyUsage = {
         hoursUsed,
-        hoursRemaining: Math.max(0, 5 - hoursUsed),
-        month: currentMonth
+        hoursRemaining: Math.max(0, quarterlyHoursIncluded - quarterlyUsed),
+        month: currentMonth,
+        quarterlyHoursUsed: Number(quarterlyUsed.toFixed(4)),
+        quarterlyHoursIncluded
       };
     }
 

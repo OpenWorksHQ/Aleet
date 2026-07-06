@@ -2,6 +2,7 @@ const express = require('express');
 const { toggleDriverStatus, assignDriverToBooking, getEligibleDriversForBooking, autoAssignDriverToBooking, redispatchBooking, unassignDriverFromBooking, getAllDrivers, approveDriver, requestRevision, uploadAleetLicense, updateDriverRegions, getDriverLicensing, getSidebarStats, getAdminDashboard } = require('../controllers/adminController');
 const { getDriverTierPerformance, getTierSettings, updateTierSettings } = require('../controllers/tierController');
 const { inviteFounder30, listMemberships, adminChargeOverage, updateMemberBalance } = require('../controllers/adminMembershipController');
+const { getCompanyRevenueReport, getBookingPayoutBreakdown } = require('../controllers/financeController');
 const authenticateJWT = require('../middleware/authMiddleware');
 const requireAdmin = require('../middleware/requireAdmin');
 const { requirePermission } = require('../middleware/requireAdmin');
@@ -53,5 +54,9 @@ router.post('/memberships/:userId/charge-overage', requireAdmin, requirePermissi
 
 // Admin override: adjust a member's monthly hour balance
 router.patch('/memberships/:userId/balance', requireAdmin, requirePermission('manage-users'), updateMemberBalance);
+
+// ── Financials: company revenue vs. driver payouts ──────────────────────────
+router.get('/finance/revenue', requireAdmin, requirePermission('view-reports'), getCompanyRevenueReport);
+router.get('/finance/bookings/:id/payout-breakdown', requireAdmin, requirePermission('view-reports'), getBookingPayoutBreakdown);
 
 module.exports = router;

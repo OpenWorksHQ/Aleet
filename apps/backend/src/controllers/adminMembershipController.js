@@ -16,6 +16,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const User         = require('../models/User');
 const MonthlyHours = require('../models/MonthlyHours');
 const TierSettings = require('../models/TierSettings');
+const { getQuarterlyUsedHours } = require('../utils/membershipHours');
 const {
     sendSuccess,
     sendError,
@@ -98,12 +99,11 @@ const listMemberships = asyncHandler(async (req, res) => {
         const monthlyHours    = Number(settings?.membershipMonthlyHours) || 5;
         const quarterlyHours  = monthlyHours * 3;
 
-        // For each user, sum their hours used this quarter
-        const now = new Date();
-        const monthsToSum = [0, 1, 2].map(offset => {
-            const d = new Date(now.getFullYear(), now.getMonth() - offset, 1);
-            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        });
+        // For each user, sum their hours used this quarter (batched query — see
+        // utils/membershipHours.js for why this must be a 3-month pooled sum,
+        // not just the current month's usage).
+        const { quarterYearMonths } = require('../utils/membershipHours');
+        const monthsToSum = quarterYearMonths();
 
         const userIds   = users.map(u => u._id);
         const hoursData = await MonthlyHours.find({

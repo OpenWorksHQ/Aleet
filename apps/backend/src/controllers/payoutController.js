@@ -5,6 +5,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2023-10-
 
 const Booking = require('../models/Booking');
 const BankAccount = require('../models/BankAccount');
+const User = require('../models/User');
+const TierSettings = require('../models/TierSettings');
+const { computePayoutCents: computeTierPayoutCents } = require('../services/payoutUtils');
 
 const CURRENCY = 'usd'
 const MODE = (process.env.PAYOUT_MODE || 'BUSINESS').toUpperCase(); // BUSINESS | FULL_FINAL
@@ -13,43 +16,8 @@ const MODE = (process.env.PAYOUT_MODE || 'BUSINESS').toUpperCase(); // BUSINESS 
 const toCents = (num) => Math.max(0, Math.round((Number(num) || 0) * 100));
 
 /**
- * Decide if a booking is subscription-priced.
- * Priority: booking.pricingModel, else infer from prices.
- */
-function isSubscriptionBooking(booking) {
-  if (booking.pricingModel) return booking.pricingModel === 'subscription';
-  // infer: if subscriptionPrice is set and finalPrice ~= subscriptionPrice
-  if (booking.subscriptionPrice != null) {
-    const diff = Math.abs(Number(booking.finalPrice) - Number(booking.subscriptionPrice));
-    return diff < 0.5; // within $0.50
-  }
-  return false;
-}
-
-/**
- * Compute driver payout amount in cents for BUSINESS mode.
- * - 30% of base for regular; 40% of base for subscription
- * - + 100% tips
- * - add-ons assumed platform-only (not included here)
- * NOTE: If your finalPrice includes add-ons, consider storing base separately.
- */
-function computeBusinessPayoutCents(booking) {
-  const sub = isSubscriptionBooking(booking);
-  const pct = sub ? 0.40 : 0.30;
-
-  // If you have a separate "baseTotal" without add-ons, use that instead of finalPrice.
-  const baseAmount = Number(booking.finalPrice) || 0; // <-- replace with booking.baseAmount if you track it
-  const tipAmount = Number(booking.tip) || 0;
-
-  const driverBase = baseAmount * pct;
-  const driverTips = tipAmount;
-
-  return toCents(driverBase + driverTips);
-}
-
-/**
- * Compute driver payout amount in cents for FULL_FINAL mode (your demo ask).
- * Sends finalPrice + tip to the driver.
+ * Compute driver payout amount in cents for FULL_FINAL mode (demo/legacy mode).
+ * Sends finalPrice + tip to the driver. Not tier-aware — intentionally simple.
  */
 function computeFullFinalPayoutCents(booking) {
   const total = (Number(booking.finalPrice) || 0) + (Number(booking.tip) || 0);
@@ -58,10 +26,26 @@ function computeFullFinalPayoutCents(booking) {
 
 /**
  * Public calculator used by the endpoints.
+ *
+ * BUSINESS mode (default) now delegates to services/payoutUtils.js — the SAME
+ * tier-based (S-Level/Pro/Diamond) calculation used everywhere else in the app
+ * (bookingController, dashboardController). This ensures a driver's payout is
+ * identical no matter which endpoint triggered it, and respects admin-configured
+ * TierSettings (payoutRate, keepsBookingFee, vehicleCostDeduction) instead of a
+ * hard-coded 30/40% split. Tip is always paid 100% to the driver on top.
  */
-function computePayoutCents(booking) {
+async function computePayoutCents(booking) {
   if (MODE === 'FULL_FINAL') return computeFullFinalPayoutCents(booking);
-  return computeBusinessPayoutCents(booking);
+
+  const [driver, settings] = await Promise.all([
+    booking.assignedDriver
+      ? User.findById(booking.assignedDriver).select('driver.tier').lean()
+      : null,
+    TierSettings.findOne().lean()
+  ]);
+
+  const tipCents = toCents(booking.tip);
+  return computeTierPayoutCents(booking, driver, settings) + tipCents;
 }
 
 // --- validations for eligibility ---
@@ -106,7 +90,7 @@ const payoutSingleBooking = asyncHandler(async (req, res) => {
     throw new Error('Driver is not connected to Stripe (no stripeAccountId).');
   }
 
-  const amountCents = computePayoutCents(booking);
+  const amountCents = await computePayoutCents(booking);
   if (amountCents <= 0) throw new Error('Computed payout is zero; skip.');
 
   const transferGroup = `booking:${booking._id.toString()}`;
@@ -156,7 +140,7 @@ const payoutEligibleBookings = asyncHandler(async (req, res) => {
         continue;
       }
 
-      const amountCents = computePayoutCents(b);
+      const amountCents = await computePayoutCents(b);
       if (amountCents <= 0) {
         results.push({ bookingId: b._id, ok: false, error: 'Zero payout' });
         continue;

@@ -20,6 +20,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const User         = require('../models/User');
 const MonthlyHours = require('../models/MonthlyHours');
 const TierSettings = require('../models/TierSettings');
+const { getQuarterlyUsedHours } = require('../utils/membershipHours');
 const {
     sendSuccess,
     sendError,
@@ -314,16 +315,9 @@ const getSubscriptionStatus = asyncHandler(async (req, res) => {
             : (Number(settings?.membershipRate) || 89);
 
         // Sum used hours for the current 3-month quarter
-        let quarterlyUsed = 0;
-        if (isSubscriber) {
-            const now         = new Date();
-            const monthsToSum = [0, 1, 2].map(offset => {
-                const d = new Date(now.getFullYear(), now.getMonth() - offset, 1);
-                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-            });
-            const records = await MonthlyHours.find({ user: userId, yearMonth: { $in: monthsToSum } });
-            quarterlyUsed = records.reduce((sum, r) => sum + (r.totalHoursUsed || 0), 0);
-        }
+        const quarterlyUsed = isSubscriber
+            ? await getQuarterlyUsedHours(MonthlyHours, userId)
+            : 0;
 
         // Get default saved card last4
         let savedCardLast4 = null;
