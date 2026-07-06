@@ -227,6 +227,9 @@ const chargeSavedCard = asyncHandler(async (req, res) => {
 
         if (totalAmount <= 0) return sendValidationError(res, 'Invalid amount');
 
+        const bookingFeeAmount = Number(booking.bookingFee || 0);
+        const feeNote = bookingFeeAmount > 0 ? ` (incl. $${bookingFeeAmount.toFixed(2)} booking fee)` : '';
+
         // Create a PaymentIntent and confirm it immediately (off-session)
         const paymentIntent = await stripe.paymentIntents.create({
             amount:               Math.round(totalAmount * 100),
@@ -235,7 +238,7 @@ const chargeSavedCard = asyncHandler(async (req, res) => {
             payment_method:       paymentMethodId,
             confirm:              true,
             off_session:          true,
-            description:          `Booking: ${booking.vehicleType?.name || 'Vehicle'} — ${new Date(booking.dates.startDate).toLocaleDateString()}`,
+            description:          `Booking: ${booking.vehicleType?.name || 'Vehicle'} — ${new Date(booking.dates.startDate).toLocaleDateString()}${feeNote}`,
             metadata: {
                 bookingId: booking._id.toString(),
                 userId:    userId.toString(),

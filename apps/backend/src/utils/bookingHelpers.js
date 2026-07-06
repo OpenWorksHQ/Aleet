@@ -163,10 +163,12 @@ function validateBookingInput({
         }
     }
 
-    // Min / max apply to both modes. Members are exempt ("Members = no minimums").
+    // Max duration applies to both modes. Members are exempt ("Members = no minimums").
+    // NOTE: Minimum hours is NOT a rejection rule — per client spec, a regular (non-member)
+    // guest CAN select fewer than minHours, but is still BILLED for minHours. See
+    // calculateBookingPrice() for the billing-side enforcement of the minimum.
     if (!isSubscriber) {
-        if (bookingHours < minHours) throw new Error(`Minimum booking is ${minHours} hours`);
-        if (bookingDays > 7)         throw new Error('Maximum booking is 7 days');
+        if (bookingDays > 7) throw new Error('Maximum booking is 7 days');
     }
 
     // Quantity 1–5
@@ -358,7 +360,15 @@ async function calculateBookingPrice({
     const baseRate = Number(vehicleType?.hourlyPrice || 0);
     const qty      = Number(quantity) || 1;
     const hours    = Number(bookingHours) || 0;
-    const totalBookedHours = hours * qty;
+
+    // ── 3-hour minimum billing (non-members only) ────────────────────────────
+    // Per client spec: "If a guest selects less than 3 hours, the system should
+    // still charge the 3-hour minimum." Members are exempt (no minimums).
+    const minHours = Number(settings?.minBookingHours) || 3;
+    const minimumHoursApplied = !isSubscriber && hours < minHours;
+    const billedHours = minimumHoursApplied ? minHours : hours;
+
+    const totalBookedHours = billedHours * qty;
 
     // Merge top-level addOns + per-stop addOnIds into one deduplicated set
     const topLevelIds = Array.isArray(addOns) ? addOns.filter(Boolean) : [];
@@ -406,8 +416,12 @@ async function calculateBookingPrice({
     if (isSubscriber) {
         const lockedRate = Number(memberRate) > 0 ? Number(memberRate) : baseRate;
 
-        // Free hours (monthly quota) apply only to non-late-night portion
-        const freeHoursLeft   = Math.max(0, (Number(settings?.membershipMonthlyHours) || 5) - (usedHours || 0));
+        // Free hours come from the QUARTERLY pool (5 hrs/mo × 3 = 15 hrs/quarter),
+        // not a single month's 5-hour slice — hours carry across the billing cycle.
+        // `usedHours` here is expected to already be the quarterly-summed total
+        // (see utils/membershipHours.js + bookingController.js callers).
+        const quarterlyHoursIncluded = (Number(settings?.membershipMonthlyHours) || 5) * 3;
+        const freeHoursLeft   = Math.max(0, quarterlyHoursIncluded - (usedHours || 0));
         const freeHoursUsed   = Math.min(regularHoursForMember, freeHoursLeft);
         const billableRegular = Math.max(0, regularHoursForMember - freeHoursLeft);
 
@@ -424,6 +438,8 @@ async function calculateBookingPrice({
                 baseRate,
                 memberRate: lockedRate,
                 hours,
+                billedHours,
+                minimumHoursApplied: false, // members are exempt from minimums
                 qty,
                 bookingFee: effectiveBookingFee,
                 addOnsCost:     Number(addOnsCost.toFixed(2)),
@@ -449,6 +465,11 @@ async function calculateBookingPrice({
             baseRate,
             memberRate: null,
             hours,
+            billedHours,
+            minimumHoursApplied,
+            minimumHoursNote: minimumHoursApplied
+                ? `Selected ${Number(hours.toFixed(2))}h is below the ${minHours}h minimum — billed at the ${minHours}h minimum rate.`
+                : null,
             qty,
             bookingFee: effectiveBookingFee,
             addOnsCost:    Number(addOnsCost.toFixed(2)),
