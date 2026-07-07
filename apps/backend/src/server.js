@@ -40,6 +40,7 @@ const teamsRoutes = require('./routes/teamsRoutes');
 const investorDocumentRoutes = require('./routes/investorDocumentRoutes');
 const partnerRoutes = require('./routes/partnerRoutes');
 const adminPartnerRoutes = require('./routes/adminPartnerRoutes');
+const mapsRoutes = require('./routes/mapsRoutes');
 const PaymentsController = require('./controllers/payments.controller');
 const { logEmailConfig } = require('./services/emailService');
 
@@ -73,6 +74,7 @@ app.use('/api/teams', teamsRoutes);
 app.use('/api/partners', partnerRoutes);
 app.use('/api/admin/investor-documents', investorDocumentRoutes);
 app.use('/api/admin/partners', adminPartnerRoutes);
+app.use('/api/maps', mapsRoutes);
 
 // Error handlers
 app.use(notFound);

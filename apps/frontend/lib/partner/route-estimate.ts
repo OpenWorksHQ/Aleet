@@ -1,62 +1,28 @@
 import type { PlaceValue } from "@/app/components/booking/booking-types";
 import type { RouteEstimate } from "./types";
-
-const MIN_BILLABLE_HOURS = 1;
-
-function roundDurationHours(minutes: number): number {
-  const hours = minutes / 60;
-  return Math.max(MIN_BILLABLE_HOURS, Math.ceil(hours * 4) / 4);
-}
+import { fetchRouteEstimate, isMapsApiConfigured } from "@/lib/api/maps";
 
 /**
- * Estimate driving duration using Google DirectionsService.
- * Requires GoogleMapsProvider to be mounted.
+ * Estimate driving route via backend Routes API.
+ * Google Maps key stays on the server — not exposed to the browser.
  */
-export function estimateRoute(
+export async function estimateRoute(
   origin: PlaceValue,
   destination: PlaceValue,
+  options?: { departureTime?: string },
 ): Promise<RouteEstimate | null> {
-  return new Promise((resolve) => {
-    if (
-      typeof google === "undefined" ||
-      !google.maps?.DirectionsService ||
-      !origin.text ||
-      !destination.text
-    ) {
-      resolve(null);
-      return;
-    }
+  if (!origin.text || !destination.text) return null;
+  if (!isMapsApiConfigured()) return null;
 
-    const service = new google.maps.DirectionsService();
-    service.route(
-      {
-        origin: origin.placeId ? { placeId: origin.placeId } : origin.text,
-        destination: destination.placeId
-          ? { placeId: destination.placeId }
-          : destination.text,
-        travelMode: google.maps.TravelMode.DRIVING,
-      },
-      (result, status) => {
-        if (status !== "OK" || !result?.routes[0]?.legs[0]) {
-          resolve(null);
-          return;
-        }
-
-        const leg = result.routes[0].legs[0];
-        const durationMinutes = Math.ceil((leg.duration?.value ?? 0) / 60);
-        const distanceMiles =
-          Math.round(((leg.distance?.value ?? 0) / 1609.34) * 10) / 10;
-
-        resolve({
-          durationMinutes,
-          durationHours: roundDurationHours(durationMinutes),
-          distanceMiles,
-          durationText: leg.duration?.text ?? `${durationMinutes} min`,
-          distanceText: leg.distance?.text ?? `${distanceMiles} mi`,
-        });
-      },
-    );
-  });
+  try {
+    return await fetchRouteEstimate({
+      origin,
+      destination,
+      departureTime: options?.departureTime,
+    });
+  } catch {
+    return null;
+  }
 }
 
 export function applyRouteDurationToBookingTimes(

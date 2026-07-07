@@ -4,8 +4,11 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { DayPicker, type DateRange } from "react-day-picker";
 import { format } from "date-fns";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
-import { useMapsLibrary } from "@vis.gl/react-google-maps";
 import { cn } from "@/lib/utils";
+import {
+  type AddressSuggestion,
+} from "@/lib/api/maps";
+import { useDebouncedAddressSuggestions } from "@/lib/hooks/use-debounced-address-suggestions";
 import {
   isPickupTimeDisabled,
   slotFromTimeStr,
@@ -147,6 +150,7 @@ export function BuyHoursBookingForm({
   const [routeDistanceText, setRouteDistanceText] = useState("");
   const [routeDurationHours, setRouteDurationHours] = useState<number | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
+  const [routeError, setRouteError] = useState<string | null>(null);
 
   const isVenueAccess = partnerContext?.bookingMode === "venue_access";
   const venuePickup = partnerContext?.pickupLocation;
@@ -248,22 +252,41 @@ export function BuyHoursBookingForm({
       setRouteMiles(null);
       setRouteDistanceText("");
       setRouteDurationHours(null);
+      setRouteError(null);
+      setRouteLoading(false);
       return;
     }
 
     let cancelled = false;
     setRouteLoading(true);
-    void estimateRoute(venuePickup, { text: dropoffText, placeId: dropoffPlaceId }).then(
+    setRouteError(null);
+
+    let departureTime: string | undefined;
+    if (startDate) {
+      const pickupTime = findNearestValidTime(startDate, isMember);
+      const pickupAt = combineDateAndTime(startDate, pickupTime);
+      if (pickupAt && pickupAt.getTime() > Date.now()) {
+        departureTime = pickupAt.toISOString();
+      }
+    }
+
+    void estimateRoute(
+      venuePickup,
+      { text: dropoffText, placeId: dropoffPlaceId },
+      { departureTime },
+    ).then(
       (estimate) => {
         if (cancelled) return;
         if (estimate) {
           setRouteMiles(estimate.distanceMiles);
           setRouteDistanceText(estimate.distanceText);
           setRouteDurationHours(estimate.durationHours);
+          setRouteError(null);
         } else {
           setRouteMiles(null);
           setRouteDistanceText("");
           setRouteDurationHours(null);
+          setRouteError("Could not calculate route. Try another destination.");
         }
         setRouteLoading(false);
       },
@@ -271,8 +294,9 @@ export function BuyHoursBookingForm({
 
     return () => {
       cancelled = true;
+      setRouteLoading(false);
     };
-  }, [isVenueAccess, venuePickup, dropoffPlaceId, dropoffText]);
+  }, [isVenueAccess, venuePickup, dropoffPlaceId, dropoffText, startDate, isMember]);
 
   const handleDateSelect = useCallback((range: DateRange | undefined) => {
     if (!range?.from) {
@@ -454,6 +478,7 @@ export function BuyHoursBookingForm({
             miles={routeMiles}
             distanceText={routeDistanceText}
             loading={routeLoading}
+            error={routeError}
           />
         ) : (
           <BarDuration
@@ -534,8 +559,6 @@ const FIELD =
 const FIELD_PLACEHOLDER = "text-white/30";
 const FIELD_VALUE = "text-white/90";
 
-type Suggestion = google.maps.places.AutocompleteSuggestion;
-
 function BarAddress({
   value,
   onChange,
@@ -547,18 +570,12 @@ function BarAddress({
   onPlaceSelect: (text: string, placeId: string) => void;
   label?: string;
 }) {
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [open, setOpen] = useState(false);
-  const placesLib = useMapsLibrary("places");
-  const tokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(
-    null,
-  );
+  const [focused, setFocused] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const { suggestions, fetchError, isSearching, resetSessionToken } =
+    useDebouncedAddressSuggestions(value);
 
-  useEffect(() => {
-    if (placesLib && !tokenRef.current)
-      tokenRef.current = new placesLib.AutocompleteSessionToken();
-  }, [placesLib]);
+  const showDropdown = focused && suggestions.length > 0;
 
   useEffect(() => {
     function down(e: PointerEvent) {
@@ -566,42 +583,21 @@ function BarAddress({
         containerRef.current &&
         !containerRef.current.contains(e.target as Node)
       )
-        setOpen(false);
+        setFocused(false);
     }
     document.addEventListener("pointerdown", down);
     return () => document.removeEventListener("pointerdown", down);
   }, []);
 
-  async function handleInput(text: string) {
+  function handleInput(text: string) {
     onChange(text);
-    if (!placesLib || text.length < 2) {
-      setSuggestions([]);
-      setOpen(false);
-      return;
-    }
-    try {
-      const { suggestions: res } =
-        await google.maps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions(
-          {
-            input: text,
-            sessionToken: tokenRef.current ?? undefined,
-          },
-        );
-      setSuggestions(res);
-      setOpen(res.length > 0);
-    } catch {
-      /* ignore */
-    }
   }
 
-  function handleSelect(s: Suggestion) {
-    const text = s.placePrediction?.text?.toString() ?? "";
-    const placeId = s.placePrediction?.placeId ?? "";
-    onChange(text);
-    onPlaceSelect(text, placeId);
-    setSuggestions([]);
-    setOpen(false);
-    if (placesLib) tokenRef.current = new placesLib.AutocompleteSessionToken();
+  function handleSelect(s: AddressSuggestion) {
+    onChange(s.text);
+    onPlaceSelect(s.text, s.placeId);
+    setFocused(false);
+    resetSessionToken();
   }
 
   return (
@@ -624,7 +620,7 @@ function BarAddress({
           type="text"
           value={value}
           onChange={(e) => handleInput(e.target.value)}
-          onFocus={() => suggestions.length > 0 && setOpen(true)}
+          onFocus={() => setFocused(true)}
           placeholder="Enter drop-off address"
           autoComplete="off"
           className={cn(
@@ -632,47 +628,48 @@ function BarAddress({
             FIELD_VALUE,
           )}
         />
+        {isSearching && value.trim().length >= 2 && (
+          <span className="shrink-0 text-[11px] text-white/40">…</span>
+        )}
       </div>
-      {open && suggestions.length > 0 && (
+      {fetchError && (
+        <p className="mt-1 text-[10px] text-amber-300/80">{fetchError}</p>
+      )}
+      {showDropdown && (
         <ul className="absolute left-0 right-0 z-50 lg:mt-1 max-h-52 overflow-y-auto rounded-xl border border-white/10 bg-[#2a302e] shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
-          {suggestions.map((s, i) => {
-            const main = s.placePrediction?.mainText?.toString() ?? "";
-            const secondary =
-              s.placePrediction?.secondaryText?.toString() ?? "";
-            return (
-              <li
-                key={s.placePrediction?.placeId ?? i}
-                role="option"
-                aria-selected={false}
-                onPointerDown={(e) => {
-                  e.preventDefault();
-                  handleSelect(s);
-                }}
-                className="flex cursor-pointer items-start gap-2 border-b border-white/6 px-3 py-2.5 transition-colors last:border-b-0 hover:bg-white/6"
-              >
-                <span className="mt-0.5 shrink-0 text-[#bca066]/50">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    className="h-3.5 w-3.5"
-                  >
-                    <path d="M12 21c-4.418-4.418-7-7.582-7-10a7 7 0 1 1 14 0c0 2.418-2.582 5.582-7 10Z" />
-                    <circle cx="12" cy="11" r="2.5" />
-                  </svg>
-                </span>
-                <div className="min-w-0">
-                  <p className="truncate text-[13px] text-white">{main}</p>
-                  {secondary && (
-                    <p className="truncate text-[11px] text-white/45">
-                      {secondary}
-                    </p>
-                  )}
-                </div>
-              </li>
-            );
-          })}
+          {suggestions.map((s) => (
+            <li
+              key={s.placeId}
+              role="option"
+              aria-selected={false}
+              onPointerDown={(e) => {
+                e.preventDefault();
+                handleSelect(s);
+              }}
+              className="flex cursor-pointer items-start gap-2 border-b border-white/6 px-3 py-2.5 transition-colors last:border-b-0 hover:bg-white/6"
+            >
+              <span className="mt-0.5 shrink-0 text-[#bca066]/50">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  className="h-3.5 w-3.5"
+                >
+                  <path d="M12 21c-4.418-4.418-7-7.582-7-10a7 7 0 1 1 14 0c0 2.418-2.582 5.582-7 10Z" />
+                  <circle cx="12" cy="11" r="2.5" />
+                </svg>
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-[13px] text-white">{s.mainText}</p>
+                {s.secondaryText && (
+                  <p className="truncate text-[11px] text-white/45">
+                    {s.secondaryText}
+                  </p>
+                )}
+              </div>
+            </li>
+          ))}
         </ul>
       )}
     </div>
@@ -859,25 +856,43 @@ function BarRouteMiles({
   miles,
   distanceText,
   loading,
+  error,
 }: {
   miles: number | null;
   distanceText: string;
   loading: boolean;
+  error?: string | null;
 }) {
   const display = loading
     ? "Calculating…"
-    : miles != null
-      ? distanceText || `${miles} mi`
-      : "Select destination";
+    : error
+      ? "Route unavailable"
+      : miles != null
+        ? distanceText || `${miles} mi`
+        : "Select destination";
 
   return (
     <div>
       <p className={LABEL}>Miles / Distance</p>
       <div className={cn(FIELD, "justify-center px-4")}>
-        <span className={cn("text-[14px] font-semibold tabular-nums", FIELD_VALUE)}>
+        <span
+          className={cn(
+            "text-[14px] font-semibold tabular-nums",
+            FIELD_VALUE,
+            error && !loading && "text-amber-300/90",
+          )}
+        >
           {display}
         </span>
       </div>
+      {!loading && !error && miles == null && (
+        <p className="mt-1 text-[10px] text-white/40">
+          Choose a drop-off from the list above
+        </p>
+      )}
+      {error && !loading && (
+        <p className="mt-1 text-[10px] text-amber-300/80">{error}</p>
+      )}
     </div>
   );
 }

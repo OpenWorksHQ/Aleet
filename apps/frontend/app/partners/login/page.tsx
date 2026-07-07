@@ -28,7 +28,7 @@ export default function PartnerLoginPage() {
     try {
       await partnerLogin(email.trim(), password);
       toast.success("Signed in successfully.");
-      router.push("/partners/dashboard");
+      router.replace("/partners/dashboard");
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "Could not sign in.";
       setError(message);

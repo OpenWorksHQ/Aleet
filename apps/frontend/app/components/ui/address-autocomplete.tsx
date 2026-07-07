@@ -1,11 +1,9 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { useMapsLibrary } from "@vis.gl/react-google-maps";
 import { cn } from "@/lib/utils";
-
-// New Places API type (available since March 2025)
-type Suggestion = google.maps.places.AutocompleteSuggestion;
+import type { AddressSuggestion } from "@/lib/api/maps";
+import { useDebouncedAddressSuggestions } from "@/lib/hooks/use-debounced-address-suggestions";
 
 export type PlaceValue = {
     text: string;
@@ -16,7 +14,6 @@ interface AddressAutocompleteProps {
     label?: string;
     value: string;
     onChange: (value: string) => void;
-    /** Called when user selects a suggestion — provides placeId + text */
     onPlaceChange?: (place: PlaceValue) => void;
     placeholder?: string;
     disabled?: boolean;
@@ -35,87 +32,39 @@ export function AddressAutocomplete({
     const id = useId();
     const inputRef = useRef<HTMLInputElement>(null);
     const [inputValue, setInputValue] = useState(value);
-    const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-    const [open, setOpen] = useState(false);
-    const placesLib = useMapsLibrary("places");
-    const sessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(null);
+    const [focused, setFocused] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
-    const abortRef = useRef<AbortController | null>(null);
+    const { suggestions, fetchError, isSearching, resetSessionToken } =
+        useDebouncedAddressSuggestions(inputValue);
 
-    // Sync external value → local input
+    const showDropdown = focused && suggestions.length > 0;
+
     useEffect(() => {
         setInputValue(value);
     }, [value]);
 
-    // Create session token once places lib is ready
-    useEffect(() => {
-        if (placesLib && !sessionTokenRef.current) {
-            sessionTokenRef.current = new placesLib.AutocompleteSessionToken();
-        }
-    }, [placesLib]);
-
-    // Close dropdown on outside click
     useEffect(() => {
         function onPointerDown(e: PointerEvent) {
             if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-                setOpen(false);
+                setFocused(false);
             }
         }
         document.addEventListener("pointerdown", onPointerDown);
         return () => document.removeEventListener("pointerdown", onPointerDown);
     }, []);
 
-    async function handleInput(text: string) {
+    function handleInput(text: string) {
         setInputValue(text);
         onChange(text);
-
-        if (!placesLib || text.length < 2) {
-            setSuggestions([]);
-            setOpen(false);
-            return;
-        }
-
-        // Cancel previous in-flight request
-        abortRef.current?.abort();
-        abortRef.current = new AbortController();
-
-        try {
-            const { suggestions: results } =
-                await google.maps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
-                    input: text,
-                    sessionToken: sessionTokenRef.current ?? undefined,
-                });
-
-            setSuggestions(results);
-            setOpen(results.length > 0);
-        } catch {
-            // Aborted or network error — ignore
-        }
     }
 
-    function handleSelect(suggestion: Suggestion) {
-        const address = suggestion.placePrediction?.text?.toString() ?? "";
-        const placeId = suggestion.placePrediction?.placeId ?? "";
-        setInputValue(address);
-        onChange(address);
-        onPlaceChange?.({ text: address, placeId });
-        setSuggestions([]);
-        setOpen(false);
+    function handleSelect(suggestion: AddressSuggestion) {
+        setInputValue(suggestion.text);
+        onChange(suggestion.text);
+        onPlaceChange?.({ text: suggestion.text, placeId: suggestion.placeId });
+        setFocused(false);
         inputRef.current?.blur();
-
-        // Refresh session token after selection
-        if (placesLib) {
-            sessionTokenRef.current = new placesLib.AutocompleteSessionToken();
-        }
-    }
-
-    // Main text / secondary text from the new API
-    function getMainText(s: Suggestion) {
-        return s.placePrediction?.mainText?.toString() ?? s.placePrediction?.text?.toString() ?? "";
-    }
-
-    function getSecondaryText(s: Suggestion) {
-        return s.placePrediction?.secondaryText?.toString() ?? "";
+        resetSessionToken();
     }
 
     return (
@@ -138,23 +87,31 @@ export function AddressAutocomplete({
                     type="text"
                     value={inputValue}
                     onChange={(e) => handleInput(e.target.value)}
-                    onFocus={() => suggestions.length > 0 && setOpen(true)}
+                    onFocus={() => setFocused(true)}
                     placeholder={placeholder}
                     disabled={disabled}
                     autoComplete="off"
                     className="h-11 w-full rounded-lg border border-aleet-border-strong bg-aleet-card pl-9 pr-3 text-[13px] text-aleet-text placeholder:text-aleet-text-subtle outline-none transition-colors focus:border-aleet-gold/50 disabled:cursor-not-allowed disabled:opacity-40 sm:h-12 sm:text-[14px]"
                 />
+                {isSearching && inputValue.trim().length >= 2 && (
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-aleet-text-subtle">
+                        …
+                    </span>
+                )}
             </div>
 
-            {/* Suggestions dropdown */}
-            {open && suggestions.length > 0 && (
+            {fetchError && (
+                <p className="mt-1 text-[11px] text-amber-700/90">{fetchError}</p>
+            )}
+
+            {showDropdown && (
                 <ul
                     role="listbox"
                     className="absolute z-50 mt-1 w-full overflow-hidden rounded-xl border border-aleet-border bg-aleet-card shadow-[0_8px_32px_rgba(26,21,16,0.12)]"
                 >
-                    {suggestions.map((s, i) => (
+                    {suggestions.map((s) => (
                         <li
-                            key={s.placePrediction?.placeId ?? i}
+                            key={s.placeId}
                             role="option"
                             aria-selected={false}
                             onPointerDown={(e) => {
@@ -170,8 +127,8 @@ export function AddressAutocomplete({
                                 </svg>
                             </span>
                             <div className="min-w-0">
-                                <p className="truncate text-[13px] text-aleet-text">{getMainText(s)}</p>
-                                <p className="truncate text-[11px] text-aleet-text-subtle">{getSecondaryText(s)}</p>
+                                <p className="truncate text-[13px] text-aleet-text">{s.mainText}</p>
+                                <p className="truncate text-[11px] text-aleet-text-subtle">{s.secondaryText}</p>
                             </div>
                         </li>
                     ))}

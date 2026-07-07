@@ -10,6 +10,8 @@ import {
     type DriverDashboardTripsResponse,
     type DriverTripsTab,
 } from "@/lib/driver-dashboard-trips-api";
+import { buildGoogleMapsDirectionsUrl } from "@/lib/google-maps";
+import { TripAddressLink } from "@/app/components/driver/trips/trip-address-link";
 
 type TabKey = DriverTripsTab;
 
@@ -519,9 +521,52 @@ export function DriverTripsList({ initialData }: Props) {
                                             </div>
                                         </div>
 
+                                        <div className="mt-4 space-y-3 rounded-xl border border-border bg-white/2 p-4">
+                                            <p className="text-xs font-medium text-muted">Route</p>
+                                            <TripAddressLink
+                                                label="Pickup"
+                                                address={trip.pickupLocation}
+                                            />
+                                            {trip.stops.map((stop, i) => (
+                                                <TripAddressLink
+                                                    key={`${trip.id}-stop-${i}`}
+                                                    label={`Stop ${i + 1}`}
+                                                    address={stop.location}
+                                                />
+                                            ))}
+                                            <TripAddressLink
+                                                label="Drop-off"
+                                                address={trip.dropoffLocation}
+                                            />
+                                            {(() => {
+                                                const directionsUrl = buildGoogleMapsDirectionsUrl(
+                                                    trip.pickupLocation,
+                                                    trip.dropoffLocation,
+                                                    trip.stops.map((s) => s.location),
+                                                );
+                                                if (!directionsUrl) return null;
+                                                return (
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            window.open(
+                                                                directionsUrl,
+                                                                "_blank",
+                                                                "noopener,noreferrer",
+                                                            );
+                                                        }}
+                                                        className="mt-1 w-full rounded-lg border border-gold/30 bg-gold/10 px-3 py-2.5 text-sm font-medium text-gold transition-colors hover:bg-gold/15"
+                                                    >
+                                                        Open full route in Google Maps
+                                                    </button>
+                                                );
+                                            })()}
+                                        </div>
+
                                         {trip.stops.length > 0 && (
                                             <div className="mt-4">
-                                                <p className="mb-2 text-xs font-medium text-muted">Stops</p>
+                                                <p className="mb-2 text-xs font-medium text-muted">Stop details</p>
                                                 <ol className="space-y-2">
                                                     {trip.stops.map((stop, i) => (
                                                         <li key={i} className="flex gap-3">
@@ -529,7 +574,7 @@ export function DriverTripsList({ initialData }: Props) {
                                                                 {i + 1}
                                                             </span>
                                                             <div className="min-w-0">
-                                                                <p className="text-sm text-text">{stop.location}</p>
+                                                                <p className="text-sm text-text">Stop {i + 1}</p>
                                                                 <p className="text-xs text-muted">
                                                                     {stop.arrivalTime
                                                                         ? `${stop.timeType === "pickup" ? "Pickup" : "Arrive"} ${fmtTime(stop.arrivalTime)}`

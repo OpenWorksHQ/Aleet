@@ -50,7 +50,8 @@ export async function apiFetch<T = undefined>(
       res.status === 401 &&
       !skipAuthRedirect &&
       typeof document !== "undefined" &&
-      !path.startsWith("/auth/")
+      !path.startsWith("/auth/") &&
+      !path.startsWith("/partners/auth/")
     ) {
       // Token expired or invalid — clear it and redirect to login
       document.cookie = "auth_token=; path=/; max-age=0";
