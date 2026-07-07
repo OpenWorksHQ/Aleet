@@ -54,15 +54,14 @@ export function ActivePartnersList({ initialData }: Props) {
       ) : null}
 
       <div className="overflow-hidden rounded-2xl border border-border bg-card-bg">
-        <div className="hidden grid-cols-[minmax(0,1fr)_90px_100px_minmax(0,1fr)_70px_70px_100px_120px] gap-3 border-b border-border px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted lg:grid">
+        <div className="hidden grid-cols-[minmax(0,1fr)_90px_100px_minmax(0,1fr)_70px_70px_minmax(180px,1fr)] gap-3 border-b border-border px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted lg:grid">
           <span>Partner</span>
           <span>Code</span>
           <span>Type</span>
           <span>Links</span>
           <span>Discount</span>
           <span>Portal</span>
-          <span />
-          <span />
+          <span>Actions</span>
         </div>
         <div className="divide-y divide-border">
           {partners.map((partner) => (
@@ -111,7 +110,7 @@ function PartnerRow({
   const portalStatus = partner.portalAccountStatus ?? "none";
 
   return (
-    <div className="grid gap-3 px-5 py-4 lg:grid-cols-[minmax(0,1fr)_90px_100px_minmax(0,1fr)_70px_70px_100px_120px] lg:items-center lg:gap-3">
+    <div className="grid gap-3 px-5 py-4 lg:grid-cols-[minmax(0,1fr)_90px_100px_minmax(0,1fr)_70px_70px_minmax(180px,1fr)] lg:items-center lg:gap-3">
       <div>
         <p className="font-medium text-text">{partner.partnerName}</p>
         <p className="text-[12px] text-muted lg:hidden">{partner.partnerCode}</p>
@@ -135,27 +134,30 @@ function PartnerRow({
       <p className="text-[12px] capitalize text-muted">
         {portalStatus === "active" ? "Active" : portalStatus === "pending" ? "Invite pending" : "—"}
       </p>
-      <div className="flex justify-end">
+      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         <button
           type="button"
           onClick={onEdit}
-          className="rounded-lg border border-border px-3 py-1.5 text-[12px] font-medium text-muted hover:border-gold/30 hover:text-gold"
+          className="shrink-0 rounded-lg border border-border px-3 py-1.5 text-[12px] font-medium text-muted hover:border-gold/30 hover:text-gold"
         >
           Edit
         </button>
-      </div>
-      <div className="flex justify-end">
         {portalStatus !== "active" ? (
           <button
             type="button"
             disabled={disabled}
             onClick={onResendInvite}
-            className="rounded-lg border border-gold/30 px-3 py-1.5 text-[12px] font-medium text-gold hover:bg-gold/10 disabled:opacity-50"
+            className="shrink-0 rounded-lg border border-gold/30 px-3 py-1.5 text-[12px] font-medium text-gold hover:bg-gold/10 disabled:opacity-50"
           >
             Resend invite
           </button>
         ) : (
-          <span className="text-[12px] text-muted">{partner.portalEmail ?? ""}</span>
+          <span
+            className="min-w-0 flex-1 truncate text-[12px] text-muted"
+            title={partner.portalEmail ?? undefined}
+          >
+            {partner.portalEmail ?? ""}
+          </span>
         )}
       </div>
     </div>

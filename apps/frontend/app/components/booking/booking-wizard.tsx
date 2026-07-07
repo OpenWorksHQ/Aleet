@@ -424,19 +424,17 @@ export function BookingWizard({ onStepChange, renderIndicator }: { onStepChange?
                     freeRouting: false,
                 };
                 setWizardState({
-                    step: 2,
-                    fromQuickBooking: true,
+                    step: 1,
+                    fromQuickBooking: false,
                     quickBookingMode: "venue_access",
                     data: loaded,
                 });
-                onStepChange?.(2);
+                onStepChange?.(1);
             } else {
                 onStepChange?.(1);
             }
             return;
         }
-
-        clearPendingBooking();
 
         const isVenueAccess = pending.bookingMode === "venue_access";
         const normalizedMode: "buy_hours" | "multi_day" | "venue_access" = isVenueAccess
@@ -600,6 +598,7 @@ export function BookingWizard({ onStepChange, renderIndicator }: { onStepChange?
         try {
             const token = getToken() ?? undefined;
             await startBooking(data, token);
+            clearPendingBooking();
             setSubmitted(true);
         } catch (err) {
             toast.error(err instanceof ApiError ? err.message : "Failed to create booking.");

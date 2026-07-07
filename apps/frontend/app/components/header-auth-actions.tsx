@@ -110,6 +110,7 @@ export function HeaderAuthActions() {
   if (status === "guest") {
     return (
       <div className="flex items-center gap-4 sm:gap-5">
+        <PartnerAuthNavLink />
         <Link
           href="/login"
           className="hidden text-[13px] text-white/85 no-underline transition-colors hover:text-white sm:inline xl:text-[14px]"

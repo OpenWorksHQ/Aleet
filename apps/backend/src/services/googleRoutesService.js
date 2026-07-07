@@ -49,6 +49,21 @@ function buildWaypoint(loc) {
 }
 
 /**
+ * Resolve departure time for Routes API.
+ * TRAFFIC_AWARE requires a future timestamp; otherwise use traffic-unaware routing.
+ */
+function resolveDepartureTime(departureTime) {
+    if (!departureTime) return null;
+
+    const dt = new Date(departureTime);
+    if (Number.isNaN(dt.getTime()) || dt.getTime() <= Date.now()) {
+        return null;
+    }
+
+    return dt.toISOString();
+}
+
+/**
  * Core Routes API call — returns the first route element, or null.
  * @param {string} origin
  * @param {string} destination
@@ -66,11 +81,12 @@ async function callRoutesApi(origin, destination, { departureTime = null, fieldM
         origins: [originWp],
         destinations: [destWp],
         travelMode: 'DRIVE',
-        routingPreference: departureTime ? 'TRAFFIC_AWARE' : 'TRAFFIC_UNAWARE'
     };
 
-    if (departureTime) {
-        body.departureTime = new Date(departureTime).toISOString();
+    const departureIso = resolveDepartureTime(departureTime);
+    body.routingPreference = departureIso ? 'TRAFFIC_AWARE' : 'TRAFFIC_UNAWARE';
+    if (departureIso) {
+        body.departureTime = departureIso;
     }
 
     const { data } = await axios.post(ROUTES_API_URL, body, {
@@ -97,6 +113,66 @@ async function callRoutesApi(origin, destination, { departureTime = null, fieldM
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
+
+const MIN_BILLABLE_HOURS = 1;
+
+function parseDurationSeconds(durationStr) {
+    if (typeof durationStr !== 'string') return null;
+    const sec = parseInt(durationStr.replace('s', ''), 10);
+    return Number.isNaN(sec) ? null : sec;
+}
+
+function roundDurationHours(minutes) {
+    const hours = minutes / 60;
+    return Math.max(MIN_BILLABLE_HOURS, Math.ceil(hours * 4) / 4);
+}
+
+function formatDurationText(totalMinutes) {
+    if (totalMinutes < 60) return `${totalMinutes} min`;
+    const hours = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    if (mins === 0) return hours === 1 ? '1 hour' : `${hours} hours`;
+    return `${hours} hr ${mins} min`;
+}
+
+/**
+ * Full route estimate (distance + duration) for venue access and booking UI.
+ * Accepts place IDs, coordinates, or address strings.
+ *
+ * @param {string} origin
+ * @param {string} destination
+ * @param {{ departureTime?: string|Date }} [options]
+ * @returns {Promise<object|null>}
+ */
+async function getRouteEstimate(origin, destination, { departureTime = null } = {}) {
+    try {
+        const element = await callRoutesApi(origin, destination, {
+            departureTime,
+            fieldMask: 'originIndex,destinationIndex,distanceMeters,duration,condition',
+        });
+        if (!element || typeof element.distanceMeters !== 'number') return null;
+
+        const durationSec = parseDurationSeconds(element.duration);
+        if (durationSec == null) return null;
+
+        const durationMinutes = Math.ceil(durationSec / 60);
+        const distanceMiles = Math.round((element.distanceMeters / 1609.344) * 10) / 10;
+
+        return {
+            durationMinutes,
+            durationHours: roundDurationHours(durationMinutes),
+            distanceMiles,
+            durationText: formatDurationText(durationMinutes),
+            distanceText: `${distanceMiles} mi`,
+        };
+    } catch (err) {
+        console.error('[Routes API] getRouteEstimate error:', err.message);
+        if (err.response?.data) {
+            console.error('[Routes API] details:', JSON.stringify(err.response.data));
+        }
+        return null;
+    }
+}
 
 /**
  * Get driving distance in miles between two locations.
@@ -166,7 +242,8 @@ async function getMilesFromBase(pickupLocation) {
 }
 
 module.exports = {
+    getRouteEstimate,
     getDistanceMiles,
     getDriveSeconds,
-    getMilesFromBase
+    getMilesFromBase,
 };

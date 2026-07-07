@@ -197,6 +197,7 @@ export async function partnerLogin(email: string, password: string) {
   const res = await apiFetch<PartnerAuthSession>("/partners/auth/login", {
     method: "POST",
     body: { email, password },
+    skipAuthRedirect: true,
   });
   if (res.data?.token) savePartnerAuthToken(res.data.token);
   return res;
@@ -206,6 +207,7 @@ export async function partnerSetPassword(token: string, password: string) {
   const res = await apiFetch<PartnerAuthSession>("/partners/auth/set-password", {
     method: "POST",
     body: { token, password },
+    skipAuthRedirect: true,
   });
   if (res.data?.token) savePartnerAuthToken(res.data.token);
   return res;
@@ -215,6 +217,7 @@ export async function partnerForgotPassword(email: string) {
   return apiFetch<{ message: string }>("/partners/auth/forgot-password", {
     method: "POST",
     body: { email },
+    skipAuthRedirect: true,
   });
 }
 
@@ -222,6 +225,7 @@ export async function partnerResetPassword(token: string, password: string) {
   return apiFetch<{ message: string }>("/partners/auth/reset-password", {
     method: "POST",
     body: { token, password },
+    skipAuthRedirect: true,
   });
 }
 
