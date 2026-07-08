@@ -35,8 +35,10 @@ export function PartnerAuthNavLink({
     };
   }, [refresh]);
 
-  const href = isLoggedIn ? "/partners/dashboard" : "/partners/login";
-  const label = isLoggedIn ? "Partner dashboard" : "Partner sign in";
+  if (!isLoggedIn) return null;
+
+  const href = "/partners/dashboard";
+  const label = "Partner dashboard";
 
   if (variant === "button") {
     return (

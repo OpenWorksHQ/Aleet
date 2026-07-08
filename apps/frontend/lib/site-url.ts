@@ -26,6 +26,30 @@ export function getSiteUrl(): string {
   return normalizeCanonicalHost(raw.replace(/\/+$/, ""));
 }
 
+/** Production driver portal host. */
+const CANONICAL_DRIVER_PORTAL_URL = "https://portal.aleet.app";
+const LOCAL_DRIVER_PORTAL_URL = "http://localhost:3002";
+
+function normalizeOrigin(url: string): string {
+  return url.replace(/\/+$/, "");
+}
+
+export function getDriverPortalUrl(): string {
+  const explicit = process.env.NEXT_PUBLIC_DRIVER_PORTAL_URL?.trim();
+  if (explicit) return normalizeOrigin(explicit);
+
+  const site = process.env.NEXT_PUBLIC_SITE_URL?.trim() ?? "";
+  if (site.includes("localhost") || site.includes("127.0.0.1")) {
+    return LOCAL_DRIVER_PORTAL_URL;
+  }
+
+  return CANONICAL_DRIVER_PORTAL_URL;
+}
+
+export function getDriverPortalLoginUrl(): string {
+  return `${getDriverPortalUrl()}/login`;
+}
+
 export function getPartnerDashboardUrl(): string {
   return `${getSiteUrl()}/partners/dashboard`;
 }

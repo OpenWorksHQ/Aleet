@@ -1,12 +1,31 @@
 import Link from "next/link";
 import { SiteMenu } from "./site-menu";
 import { HeaderAuthActions } from "./header-auth-actions";
-import { MARKETING_NAV } from "@/lib/nav-config";
+import { MARKETING_NAV, type NavLink } from "@/lib/nav-config";
 
 type AppHeaderProps = {
   /** Show centered marketing nav links (homepage). Default: hidden on app pages. */
   showMarketingNav?: boolean;
 };
+
+function MarketingNavLink({ item }: { item: NavLink }) {
+  const className =
+    "text-[13px] text-white/85 no-underline transition-colors hover:text-white xl:text-[14px]";
+
+  if (item.external) {
+    return (
+      <a href={item.href} className={className}>
+        {item.label}
+      </a>
+    );
+  }
+
+  return (
+    <Link href={item.href} className={className}>
+      {item.label}
+    </Link>
+  );
+}
 
 export function AppHeader({ showMarketingNav = false }: AppHeaderProps) {
   return (
@@ -30,13 +49,7 @@ export function AppHeader({ showMarketingNav = false }: AppHeaderProps) {
             aria-label="Main navigation"
           >
             {MARKETING_NAV.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className="text-[13px] text-white/85 no-underline transition-colors hover:text-white xl:text-[14px]"
-              >
-                {item.label}
-              </Link>
+              <MarketingNavLink key={item.label} item={item} />
             ))}
           </nav>
         ) : (

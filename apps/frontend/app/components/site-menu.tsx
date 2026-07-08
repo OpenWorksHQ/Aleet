@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { MOBILE_MENU_NAV } from "@/lib/nav-config";
+import { MOBILE_MENU_NAV, type NavLink } from "@/lib/nav-config";
 import { AUTH_CHANGED_EVENT, getToken } from "@/lib/auth";
 import { PartnerAuthNavLink } from "@/app/components/partner/partner-auth-nav-link";
 
@@ -57,6 +57,25 @@ export function SiteMenu({ className }: SiteMenuProps) {
     const timeout = window.setTimeout(() => setIsMounted(false), 260);
     return () => window.clearTimeout(timeout);
   }, [isVisible, isMounted]);
+
+  function renderMobileNavItem(item: NavLink) {
+    const className =
+      "rounded-xl px-3 py-3 text-[15px] font-medium text-aleet-text no-underline transition-colors hover:bg-aleet-cream-muted";
+
+    if (item.external) {
+      return (
+        <a key={item.label} href={item.href} className={className} onClick={closeMenu}>
+          {item.label}
+        </a>
+      );
+    }
+
+    return (
+      <Link key={item.label} href={item.href} className={className} onClick={closeMenu}>
+        {item.label}
+      </Link>
+    );
+  }
 
   return (
     <>
@@ -124,16 +143,7 @@ export function SiteMenu({ className }: SiteMenuProps) {
                 Explore
               </p>
               <div className="mt-2 flex flex-col gap-1">
-                {MOBILE_MENU_NAV.map((item) => (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    className="rounded-xl px-3 py-3 text-[15px] font-medium text-aleet-text no-underline transition-colors hover:bg-aleet-cream-muted"
-                    onClick={closeMenu}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
+                {MOBILE_MENU_NAV.map((item) => renderMobileNavItem(item))}
               </div>
 
               <p className="mt-8 px-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-aleet-text-subtle">

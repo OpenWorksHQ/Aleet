@@ -9,6 +9,7 @@ import { getProfile } from "@/lib/api/users";
 import type { User } from "@/lib/api/auth";
 import { cn } from "@/lib/utils";
 import { PartnerAuthNavLink } from "@/app/components/partner/partner-auth-nav-link";
+import { DriverPortalNavLink } from "@/app/components/driver-portal-nav-link";
 
 type AuthStatus = "loading" | "guest" | "authenticated";
 
@@ -110,7 +111,7 @@ export function HeaderAuthActions() {
   if (status === "guest") {
     return (
       <div className="flex items-center gap-4 sm:gap-5">
-        <PartnerAuthNavLink />
+        <DriverPortalNavLink />
         <Link
           href="/login"
           className="hidden text-[13px] text-white/85 no-underline transition-colors hover:text-white sm:inline xl:text-[14px]"
@@ -131,6 +132,7 @@ export function HeaderAuthActions() {
 
   return (
     <div className="relative flex items-center gap-3 sm:gap-4" data-auth-menu>
+      <DriverPortalNavLink />
       <PartnerAuthNavLink />
       <Link
         href="/dashboard"
@@ -180,6 +182,10 @@ export function HeaderAuthActions() {
             </div>
 
             <PartnerAuthNavLink
+              variant="account-menu"
+              onNavigate={() => setMenuOpen(false)}
+            />
+            <DriverPortalNavLink
               variant="account-menu"
               onNavigate={() => setMenuOpen(false)}
             />
