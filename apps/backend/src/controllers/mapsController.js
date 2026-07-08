@@ -1,5 +1,6 @@
 const { getRouteEstimate } = require('../services/googleRoutesService');
 const { fetchAutocompleteSuggestions } = require('../services/googlePlacesService');
+const { reverseGeocode } = require('../services/googleGeocodingService');
 const {
     sendSuccess,
     sendValidationError,
@@ -42,6 +43,44 @@ const autocompletePlaces = async (req, res) => {
     }
 };
 
+/**
+ * POST /api/maps/reverse-geocode
+ * Body: { latitude: number, longitude: number }
+ */
+const reverseGeocodeLocation = async (req, res) => {
+    try {
+        const { latitude, longitude } = req.body ?? {};
+
+        const lat = Number(latitude);
+        const lng = Number(longitude);
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+            return sendValidationError(res, 'Valid latitude and longitude are required.');
+        }
+        if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+            return sendValidationError(res, 'Latitude or longitude is out of range.');
+        }
+
+        const address = await reverseGeocode(lat, lng);
+        return sendSuccess(res, 200, 'Address resolved', address);
+    } catch (error) {
+        const status = error.response?.status;
+        const googleMessage = error.response?.data?.error?.message;
+
+        console.error('Reverse geocode error:', googleMessage || error.message);
+
+        if (status === 403) {
+            return sendError(
+                res,
+                403,
+                'Geocoding API access denied. Enable Geocoding API for GOOGLE_MAPS_API_KEY in Google Cloud Console.',
+            );
+        }
+
+        return sendError(res, 422, error.message || 'Could not resolve address for this location');
+    }
+};
+
 function resolveLocation({ text, placeId }) {
     const trimmedText = typeof text === 'string' ? text.trim() : '';
     const trimmedPlaceId = typeof placeId === 'string' ? placeId.trim() : '';
@@ -80,4 +119,4 @@ const estimateRoute = async (req, res) => {
     }
 };
 
-module.exports = { autocompletePlaces, estimateRoute };
+module.exports = { autocompletePlaces, reverseGeocodeLocation, estimateRoute };

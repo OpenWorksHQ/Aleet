@@ -2,17 +2,36 @@ import { getDriverPortalLoginUrl } from "@/lib/site-url";
 import { cn } from "@/lib/utils";
 
 type DriverPortalNavLinkProps = {
-  variant?: "header" | "menu" | "account-menu";
+  variant?: "become-a-driver" | "menu" | "account-menu";
+  label?: string;
   className?: string;
   onNavigate?: () => void;
 };
 
 export function DriverPortalNavLink({
-  variant = "header",
+  variant = "account-menu",
+  label,
   className,
   onNavigate,
 }: DriverPortalNavLinkProps) {
   const href = getDriverPortalLoginUrl();
+  const text =
+    label ?? (variant === "account-menu" ? "Driver Portal" : "Become a Driver");
+
+  if (variant === "become-a-driver") {
+    return (
+      <a
+        href={href}
+        className={cn(
+          "rounded-md bg-aleet-gold px-4 py-2 text-[12px] font-semibold text-black no-underline transition-opacity hover:opacity-90 sm:px-5 sm:py-2.5 sm:text-[13px]",
+          className,
+        )}
+        onClick={onNavigate}
+      >
+        Become a Driver
+      </a>
+    );
+  }
 
   if (variant === "menu") {
     return (
@@ -24,23 +43,7 @@ export function DriverPortalNavLink({
         )}
         onClick={onNavigate}
       >
-        Driver Portal
-      </a>
-    );
-  }
-
-  if (variant === "account-menu") {
-    return (
-      <a
-        href={href}
-        role="menuitem"
-        className={cn(
-          "block px-4 py-2.5 text-[13px] text-aleet-text no-underline transition-colors hover:bg-aleet-cream",
-          className,
-        )}
-        onClick={onNavigate}
-      >
-        Driver Portal
+        {text}
       </a>
     );
   }
@@ -48,13 +51,14 @@ export function DriverPortalNavLink({
   return (
     <a
       href={href}
+      role="menuitem"
       className={cn(
-        "hidden text-[13px] text-white/85 no-underline transition-colors hover:text-white sm:inline xl:text-[14px]",
+        "block px-4 py-2.5 text-[13px] text-aleet-text no-underline transition-colors hover:bg-aleet-cream",
         className,
       )}
       onClick={onNavigate}
     >
-      Driver Portal
+      {text}
     </a>
   );
 }

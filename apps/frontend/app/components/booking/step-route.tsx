@@ -8,6 +8,7 @@ import type { ApiAddon } from "@/lib/api/addons";
 import type { BookingPriceResult } from "@/lib/api/bookings";
 import { VenueAccessSummary } from "@/app/components/partner/venue-access-summary";
 import { estimateRoute } from "@/lib/partner/route-estimate";
+import { fetchReverseGeocode } from "@/lib/api/maps";
 import { applyRouteEstimateToBooking } from "@/lib/partner/venue-access";
 
 type Props = {
@@ -101,6 +102,28 @@ export function StepRoute({ data, quickBookingMode, serverPrice, priceLoading, o
         });
     }
 
+    async function applyCurrentLocation(latitude: number, longitude: number) {
+        try {
+            const place = await fetchReverseGeocode(latitude, longitude);
+            if (!place?.text) {
+                toast.error("Could not resolve your address. Please enter pickup manually.");
+                return;
+            }
+
+            onChange({
+                pickupAddress: {
+                    text: place.text,
+                    placeId: place.placeId,
+                },
+            });
+            toast.success("Current location applied.");
+        } catch {
+            toast.error("Could not resolve your address. Please enter pickup manually.");
+        } finally {
+            setIsLocating(false);
+        }
+    }
+
     function handleUseCurrentLocation() {
         if (isLocating) return;
         if (typeof navigator === "undefined" || !navigator.geolocation) {
@@ -110,45 +133,16 @@ export function StepRoute({ data, quickBookingMode, serverPrice, priceLoading, o
 
         setIsLocating(true);
 
-        const applyCoords = (latitude: number, longitude: number) => {
-            const fallbackText = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-            onChange({
-                pickupAddress: {
-                    text: fallbackText,
-                    placeId: "",
-                },
-            });
-
-            if (typeof google === "undefined" || !google.maps?.Geocoder) {
-                toast.warning("Using coordinates as pickup location.");
-                setIsLocating(false);
-                return;
-            }
-
-            const geocoder = new google.maps.Geocoder();
-            geocoder.geocode({ location: { lat: latitude, lng: longitude } }, (results, status) => {
-                if (status === "OK" && results && results[0]) {
-                    onChange({
-                        pickupAddress: {
-                            text: results[0].formatted_address,
-                            placeId: results[0].place_id ?? "",
-                        },
-                    });
-                    toast.success("Current location applied.");
-                } else {
-                    toast.warning("Address lookup failed. Coordinates were used instead.");
-                }
-                setIsLocating(false);
-            });
-        };
-
         const handleGeoError = (error: GeolocationPositionError) => {
             // Safari/iOS can transiently throw POSITION_UNAVAILABLE (kCLErrorLocationUnknown).
             // Retry once with relaxed options to recover without user action.
             if (error.code === error.POSITION_UNAVAILABLE) {
                 navigator.geolocation.getCurrentPosition(
                     (retryPosition) => {
-                        applyCoords(retryPosition.coords.latitude, retryPosition.coords.longitude);
+                        void applyCurrentLocation(
+                            retryPosition.coords.latitude,
+                            retryPosition.coords.longitude,
+                        );
                     },
                     (retryError) => {
                         setIsLocating(false);
@@ -180,7 +174,9 @@ export function StepRoute({ data, quickBookingMode, serverPrice, priceLoading, o
         };
 
         navigator.geolocation.getCurrentPosition(
-            (position) => applyCoords(position.coords.latitude, position.coords.longitude),
+            (position) => {
+                void applyCurrentLocation(position.coords.latitude, position.coords.longitude);
+            },
             handleGeoError,
             { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 },
         );

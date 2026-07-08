@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { MOBILE_MENU_NAV, type NavLink } from "@/lib/nav-config";
 import { AUTH_CHANGED_EVENT, getToken } from "@/lib/auth";
+import { DriverPortalNavLink } from "@/app/components/driver-portal-nav-link";
 import { PartnerAuthNavLink } from "@/app/components/partner/partner-auth-nav-link";
 
 type SiteMenuProps = {
@@ -159,7 +160,6 @@ export function SiteMenu({ className }: SiteMenuProps) {
                     >
                       Dashboard
                     </Link>
-                    <PartnerAuthNavLink variant="menu" onNavigate={closeMenu} />
                     <Link
                       href="/booking"
                       className="rounded-xl px-3 py-3 text-[15px] font-medium text-aleet-text no-underline transition-colors hover:bg-aleet-cream-muted"
@@ -167,31 +167,23 @@ export function SiteMenu({ className }: SiteMenuProps) {
                     >
                       Book a Trip
                     </Link>
-                    <Link
-                      href="/subscription"
-                      className="rounded-xl px-3 py-3 text-[15px] font-medium text-aleet-text no-underline transition-colors hover:bg-aleet-cream-muted"
-                      onClick={closeMenu}
-                    >
-                      Membership
-                    </Link>
+                    <PartnerAuthNavLink variant="menu" onNavigate={closeMenu} />
+                    <DriverPortalNavLink
+                      variant="menu"
+                      label="Driver Portal"
+                      onNavigate={closeMenu}
+                    />
                   </>
                 ) : (
                   <>
-                    <PartnerAuthNavLink variant="menu" onNavigate={closeMenu} />
                     <Link
                       href="/login"
                       className="rounded-xl px-3 py-3 text-[15px] font-medium text-aleet-text no-underline transition-colors hover:bg-aleet-cream-muted"
                       onClick={closeMenu}
                     >
-                      Log in
+                      Log In
                     </Link>
-                    <Link
-                      href="/membership"
-                      className="rounded-xl px-3 py-3 text-[15px] font-medium text-aleet-text no-underline transition-colors hover:bg-aleet-cream-muted"
-                      onClick={closeMenu}
-                    >
-                      View Membership
-                    </Link>
+                    <DriverPortalNavLink variant="menu" onNavigate={closeMenu} />
                   </>
                 )}
               </div>
