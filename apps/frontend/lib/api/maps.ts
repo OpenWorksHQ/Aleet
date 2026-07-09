@@ -15,6 +15,11 @@ export type RouteEstimatePayload = {
   departureTime?: string;
 };
 
+export type ReverseGeocodeResult = {
+  text: string;
+  placeId: string;
+};
+
 export function createAutocompleteSessionToken(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -32,6 +37,18 @@ export async function fetchAddressSuggestions(
     body: { input, sessionToken },
   });
   return res.data ?? [];
+}
+
+/** Server-side reverse geocode (lat/lng → formatted address). */
+export async function fetchReverseGeocode(
+  latitude: number,
+  longitude: number,
+): Promise<ReverseGeocodeResult | null> {
+  const res = await apiFetch<ReverseGeocodeResult>("/maps/reverse-geocode", {
+    method: "POST",
+    body: { latitude, longitude },
+  });
+  return res.data ?? null;
 }
 
 /** Server-side route estimate (Routes API on backend). */
