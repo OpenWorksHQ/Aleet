@@ -700,6 +700,19 @@ export interface TierPolicyEntry {
 export interface TierSettings {
   _id: string;
   bookingFee: number;
+  minBookingHours?: number;
+  sameDayNoticeHours?: number;
+  lateNightStart?: string;
+  lateNightEnd?: string;
+  membershipRate?: number;
+  founder30Rate?: number;
+  membershipMonthlyHours?: number;
+  membershipBillingCycle?: "monthly" | "quarterly" | "annually";
+  venueCommissionPct?: number;
+  affiliateCommissionPct?: number;
+  sameDayMCT?: number;
+  sameDayMinRB?: number;
+  sameDayRBRatio?: number;
   tiers: {
     "S-Level": TierPolicyEntry;
     Pro: TierPolicyEntry;
@@ -803,10 +816,7 @@ export async function fetchTierSettingsClient(): Promise<TierSettings> {
 }
 
 /** PATCH /api/admin/tiers/settings — client-safe */
-export async function updateTierSettingsClient(body: {
-  bookingFee?: number;
-  tiers?: Partial<TierSettings["tiers"]>;
-}): Promise<TierSettings> {
+export async function updateTierSettingsClient(body: Partial<Omit<TierSettings, "_id" | "createdAt" | "updatedAt">>): Promise<TierSettings> {
   const res = await fetch(`${BASE_URL}/api/admin/tiers/settings`, {
     method: "PATCH",
     headers: getAuthHeaders(),

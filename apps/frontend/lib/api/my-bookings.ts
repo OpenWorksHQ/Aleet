@@ -46,3 +46,7 @@ export type MyBooking = {
 export function fetchMyBookings(token?: string) {
   return apiFetch<MyBooking[]>("/bookings/my", { token });
 }
+
+export function fetchBookingById(id: string, token?: string) {
+  return apiFetch<MyBooking>(`/bookings/${id}`, { token });
+}

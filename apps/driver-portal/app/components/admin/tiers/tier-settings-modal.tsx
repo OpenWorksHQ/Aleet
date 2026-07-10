@@ -21,44 +21,45 @@ type Props = {
 };
 
 export function TierSettingsModal({ open, onClose, onSave }: Props) {
-    const [bookingFee, setBookingFee] = useState(34);
-    const [tiers, setTiers] = useState<TierSettings["tiers"] | null>(null);
+    const [settings, setSettings] = useState<TierSettings | null>(null);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [saveError, setSaveError] = useState<string | null>(null);
     const [isPending, startTransition] = useTransition();
 
     useEffect(() => {
         if (!open) return;
-        setTiers(null);
+        setSettings(null);
         setLoadError(null);
         setSaveError(null);
         fetchTierSettingsClient()
-            .then((s) => {
-                setBookingFee(s.bookingFee);
-                setTiers(s.tiers);
-            })
+            .then(setSettings)
             .catch((e: unknown) => {
                 setLoadError(e instanceof Error ? e.message : "Failed to load settings");
             });
     }, [open]);
+
+    function patch(partial: Partial<TierSettings>) {
+        setSettings((prev) => (prev ? { ...prev, ...partial } : prev));
+    }
 
     function updateTierField(
         tier: TierName,
         field: keyof TierPolicyEntry,
         value: number | boolean,
     ) {
-        setTiers((prev) => {
+        setSettings((prev) => {
             if (!prev) return prev;
-            return { ...prev, [tier]: { ...prev[tier], [field]: value } };
+            return { ...prev, tiers: { ...prev.tiers, [tier]: { ...prev.tiers[tier], [field]: value } } };
         });
     }
 
     function handleSave() {
-        if (!tiers) return;
+        if (!settings) return;
         setSaveError(null);
         startTransition(async () => {
             try {
-                const updated = await updateTierSettingsClient({ bookingFee, tiers });
+                const { _id, createdAt, updatedAt, ...body } = settings;
+                const updated = await updateTierSettingsClient(body);
                 onSave?.(updated);
                 onClose();
             } catch (e) {
@@ -71,85 +72,87 @@ export function TierSettingsModal({ open, onClose, onSave }: Props) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-                onClick={onClose}
-            />
-            <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-card-bg shadow-xl">
-                {/* Header */}
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+            <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-card-bg shadow-xl">
                 <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card-bg px-6 py-4">
                     <div>
-                        <h2 className="text-lg font-bold text-text">Tier Settings</h2>
-                        <p className="text-xs text-muted">Configure payout rates and policies per tier</p>
+                        <h2 className="text-lg font-bold text-text">Pricing &amp; Policy Settings</h2>
+                        <p className="text-xs text-muted">Rates, booking rules, membership, and driver payouts</p>
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="rounded-lg p-1.5 text-muted transition-colors hover:bg-white/5 hover:text-text"
-                    >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-                            <path d="M18 6 6 18M6 6l12 12" />
-                        </svg>
+                    <button onClick={onClose} className="rounded-lg p-1.5 text-muted hover:bg-white/5 hover:text-text">
+                        ✕
                     </button>
                 </div>
 
-                {/* Body */}
                 {loadError ? (
                     <div className="p-8 text-center text-sm text-red-400">{loadError}</div>
-                ) : !tiers ? (
+                ) : !settings ? (
                     <div className="p-12 text-center text-sm text-muted">Loading settings…</div>
                 ) : (
                     <div className="flex flex-col gap-5 p-6">
-                        {/* Global booking fee */}
-                        <div className="rounded-xl border border-border bg-white/2 p-4">
-                            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">
-                                Global Booking Fee
-                            </p>
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm text-muted">$</span>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    step="1"
-                                    value={bookingFee}
-                                    onChange={(e) => setBookingFee(Number(e.target.value))}
-                                    className="w-28 rounded-lg border border-border bg-transparent px-3 py-1.5 text-sm text-text focus:border-gold/60 focus:outline-none"
-                                />
-                                <span className="text-xs text-muted">per booking</span>
-                            </div>
-                        </div>
+                        <Section title="Booking rules">
+                            <Field label="Booking fee ($)" type="number" value={settings.bookingFee} onChange={(v) => patch({ bookingFee: Number(v) })} />
+                            <Field label="Min booking hours (non-members)" type="number" value={settings.minBookingHours ?? 3} onChange={(v) => patch({ minBookingHours: Number(v) })} />
+                            <Field label="Same-day notice (hours)" type="number" value={settings.sameDayNoticeHours ?? 3} onChange={(v) => patch({ sameDayNoticeHours: Number(v) })} />
+                        </Section>
 
-                        {/* Per-tier settings */}
+                        <Section title="Late-night window (UTC HH:MM)">
+                            <Field label="Start" value={settings.lateNightStart ?? "00:00"} onChange={(v) => patch({ lateNightStart: String(v) })} />
+                            <Field label="End" value={settings.lateNightEnd ?? "09:00"} onChange={(v) => patch({ lateNightEnd: String(v) })} />
+                        </Section>
+
+                        <Section title="Membership rates">
+                            <Field label="Standard rate ($/hr)" type="number" value={settings.membershipRate ?? 89} onChange={(v) => patch({ membershipRate: Number(v) })} />
+                            <Field label="Founder 30 rate ($/hr)" type="number" value={settings.founder30Rate ?? 69} onChange={(v) => patch({ founder30Rate: Number(v) })} />
+                            <Field label="Monthly prepaid hours" type="number" value={settings.membershipMonthlyHours ?? 5} onChange={(v) => patch({ membershipMonthlyHours: Number(v) })} />
+                            <label className="block text-xs text-muted">
+                                Billing cycle
+                                <select
+                                    value={settings.membershipBillingCycle ?? "quarterly"}
+                                    onChange={(e) => patch({ membershipBillingCycle: e.target.value as TierSettings["membershipBillingCycle"] })}
+                                    className="mt-1 w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-text"
+                                >
+                                    <option value="monthly">Monthly</option>
+                                    <option value="quarterly">Quarterly</option>
+                                    <option value="annually">Annually</option>
+                                </select>
+                            </label>
+                        </Section>
+
+                        <Section title="Partner commissions">
+                            <Field label="Venue commission %" type="number" value={settings.venueCommissionPct ?? 0} onChange={(v) => patch({ venueCommissionPct: Number(v) })} />
+                            <Field label="Affiliate commission %" type="number" value={settings.affiliateCommissionPct ?? 0} onChange={(v) => patch({ affiliateCommissionPct: Number(v) })} />
+                        </Section>
+
+                        <Section title="Same-day AQD">
+                            <Field label="MCT" type="number" value={settings.sameDayMCT ?? 2} onChange={(v) => patch({ sameDayMCT: Number(v) })} />
+                            <Field label="Min RB" type="number" value={settings.sameDayMinRB ?? 2} onChange={(v) => patch({ sameDayMinRB: Number(v) })} />
+                            <Field label="RB ratio" type="number" step="0.01" value={settings.sameDayRBRatio ?? 0.25} onChange={(v) => patch({ sameDayRBRatio: Number(v) })} />
+                        </Section>
+
                         {TIER_NAMES.map((tier) => (
-                            <TierPolicyCard
-                                key={tier}
-                                tier={tier}
-                                policy={tiers[tier]}
-                                onChange={(field, value) => updateTierField(tier, field, value)}
-                            />
+                            <div key={tier} className="rounded-xl border border-border bg-white/2 p-4">
+                                <p className={cn("mb-3 text-sm font-semibold", TIER_LABEL_COLORS[tier])}>{tier}</p>
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    <Field label="Payout rate (0–1)" type="number" step="0.01" value={settings.tiers[tier].payoutRate} onChange={(v) => updateTierField(tier, "payoutRate", Number(v))} />
+                                    <Field label="Vehicle cost deduction ($)" type="number" value={settings.tiers[tier].vehicleCostDeduction} onChange={(v) => updateTierField(tier, "vehicleCostDeduction", Number(v))} />
+                                    <Field label="Company cost absorption ($)" type="number" value={settings.tiers[tier].companyCostAbsorption} onChange={(v) => updateTierField(tier, "companyCostAbsorption", Number(v))} />
+                                    <label className="flex items-center gap-2 text-sm text-text">
+                                        <input type="checkbox" checked={settings.tiers[tier].keepsBookingFee} onChange={(e) => updateTierField(tier, "keepsBookingFee", e.target.checked)} />
+                                        Driver keeps booking fee
+                                    </label>
+                                </div>
+                            </div>
                         ))}
 
-                        {saveError && (
-                            <p className="text-sm text-red-400">{saveError}</p>
-                        )}
-                    </div>
-                )}
+                        {saveError && <p className="text-sm text-red-400">{saveError}</p>}
 
-                {/* Footer */}
-                {tiers && (
-                    <div className="sticky bottom-0 flex items-center justify-end gap-3 border-t border-border bg-card-bg px-6 py-4">
-                        <button
-                            onClick={onClose}
-                            className="rounded-xl border border-border px-4 py-2 text-sm text-muted transition-colors hover:text-text"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={handleSave}
-                            disabled={isPending}
-                            className="rounded-xl border border-gold/40 bg-gold/10 px-4 py-2 text-sm font-medium text-gold transition-colors hover:bg-gold/20 disabled:opacity-50"
-                        >
-                            {isPending ? "Saving…" : "Save Changes"}
-                        </button>
+                        <div className="flex justify-end gap-3 border-t border-border pt-4">
+                            <button onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-sm text-muted hover:text-text">Cancel</button>
+                            <button onClick={handleSave} disabled={isPending} className="rounded-xl bg-gold px-5 py-2 text-sm font-semibold text-white hover:bg-gold/90 disabled:opacity-50">
+                                {isPending ? "Saving…" : "Save settings"}
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>
@@ -157,98 +160,38 @@ export function TierSettingsModal({ open, onClose, onSave }: Props) {
     );
 }
 
-function TierPolicyCard({
-    tier,
-    policy,
-    onChange,
-}: {
-    tier: TierName;
-    policy: TierPolicyEntry;
-    onChange: (field: keyof TierPolicyEntry, value: number | boolean) => void;
-}) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
     return (
         <div className="rounded-xl border border-border bg-white/2 p-4">
-            <h3 className={cn("mb-4 text-sm font-bold", TIER_LABEL_COLORS[tier])}>{tier}</h3>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {/* Payout Rate */}
-                <div>
-                    <label className="mb-1 block text-xs text-muted">Payout Rate</label>
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="1"
-                            value={Math.round(policy.payoutRate * 100)}
-                            onChange={(e) =>
-                                onChange("payoutRate", Number(e.target.value) / 100)
-                            }
-                            className="w-20 rounded-lg border border-border bg-transparent px-3 py-1.5 text-sm text-text focus:border-gold/60 focus:outline-none"
-                        />
-                        <span className="text-xs text-muted">%</span>
-                    </div>
-                </div>
-
-                {/* Vehicle Cost Deduction */}
-                <div>
-                    <label className="mb-1 block text-xs text-muted">Vehicle Cost Deduction</label>
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted">$</span>
-                        <input
-                            type="number"
-                            min="0"
-                            step="1"
-                            value={policy.vehicleCostDeduction}
-                            onChange={(e) =>
-                                onChange("vehicleCostDeduction", Number(e.target.value))
-                            }
-                            className="w-24 rounded-lg border border-border bg-transparent px-3 py-1.5 text-sm text-text focus:border-gold/60 focus:outline-none"
-                        />
-                    </div>
-                </div>
-
-                {/* Company Cost Absorption */}
-                <div>
-                    <label className="mb-1 block text-xs text-muted">Company Cost Absorption</label>
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted">$</span>
-                        <input
-                            type="number"
-                            min="0"
-                            step="1"
-                            value={policy.companyCostAbsorption}
-                            onChange={(e) =>
-                                onChange("companyCostAbsorption", Number(e.target.value))
-                            }
-                            className="w-24 rounded-lg border border-border bg-transparent px-3 py-1.5 text-sm text-text focus:border-gold/60 focus:outline-none"
-                        />
-                    </div>
-                </div>
-
-                {/* Keeps Booking Fee */}
-                <div>
-                    <label className="mb-1 block text-xs text-muted">Keeps Booking Fee</label>
-                    <button
-                        type="button"
-                        onClick={() => onChange("keepsBookingFee", !policy.keepsBookingFee)}
-                        className={cn(
-                            "flex h-6 w-11 items-center rounded-full border transition-colors",
-                            policy.keepsBookingFee
-                                ? "border-emerald-500/60 bg-emerald-500/20"
-                                : "border-border bg-white/5",
-                        )}
-                    >
-                        <span
-                            className={cn(
-                                "mx-0.5 h-4 w-4 rounded-full transition-transform duration-200",
-                                policy.keepsBookingFee
-                                    ? "translate-x-5 bg-emerald-400"
-                                    : "translate-x-0 bg-muted",
-                            )}
-                        />
-                    </button>
-                </div>
-            </div>
+            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted">{title}</p>
+            <div className="grid gap-3 sm:grid-cols-2">{children}</div>
         </div>
+    );
+}
+
+function Field({
+    label,
+    value,
+    onChange,
+    type = "text",
+    step,
+}: {
+    label: string;
+    value: string | number;
+    onChange: (v: string | number) => void;
+    type?: string;
+    step?: string;
+}) {
+    return (
+        <label className="block text-xs text-muted">
+            {label}
+            <input
+                type={type}
+                step={step}
+                value={value}
+                onChange={(e) => onChange(type === "number" ? e.target.value : e.target.value)}
+                className="mt-1 w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-text focus:border-gold/60 focus:outline-none"
+            />
+        </label>
     );
 }

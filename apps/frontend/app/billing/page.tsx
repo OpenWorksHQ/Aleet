@@ -1,466 +1,213 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Loader2, CreditCard, Trash2 } from "lucide-react";
 import { DashboardShell } from "../components/dashboard-shell";
-import { cn } from "@/lib/utils";
+import {
+  listSavedCards,
+  setDefaultCard,
+  deleteSavedCard,
+  type SavedCard,
+} from "@/lib/api/payments";
+import { fetchMyBookings, type MyBooking } from "@/lib/api/my-bookings";
+import { getToken } from "@/lib/auth";
+import { ApiError } from "@/lib/api";
+import { AddCardForm } from "@/app/components/payments/add-card-form";
 
-// ─── Mock Data ──────────────────────────────────────────────────────────────
-
-const MOCK_PENDING_CHARGES = [
-    { _id: "c1", name: "Pro Plan - February 2026", type: "subscription", dueDate: "2024-02-15", amount: 299.99 },
-    { _id: "c2", name: "Additional Hours (15h)", type: "average", dueDate: "2024-02-15", amount: 75.0 },
-    { _id: "c3", name: "Premium Support Add-on", type: "addon", dueDate: "2024-02-15", amount: 49.99 },
-];
-
-const MOCK_INVOICES = [
-    { _id: "inv12", number: "NV-2023-012", description: "Monthly Subscription - Pro Plan", date: "2024-01-15", amount: 299.99, status: "paid" },
-    { _id: "inv11", number: "INV-2023-011", description: "Monthly Subscription - Pro Plan", date: "2023-11-15", amount: 299.99, status: "paid" },
-    { _id: "inv10", number: "INV-2023-010", description: "Monthly Subscription - Standard Plan", date: "2024-01-15", amount: 199.99, status: "paid" },
-    { _id: "inv9", number: "INV-2023-009", description: "Monthly Subscription - Basic Plan", date: "2023-09-15", amount: 0, status: "paid" },
-    { _id: "inv8", number: "INV-2023-008", description: "Monthly Subscription - Basic Plan", date: "2023-08-15", amount: 0, status: "paid" },
-];
-
-const MOCK_PAYMENT_METHODS = [
-    { _id: "pm1", type: "visa", last4: "4242", expires: "12/25", isDefault: true },
-    { _id: "pm2", type: "mastercard", last4: "5555", expires: "08/26", isDefault: false },
-    { _id: "pm3", type: "bank", last4: "1234", expires: null, isDefault: false },
-];
-
-const MOCK_BOOKINGS_BILLING = [
-    {
-        _id: "b1",
-        destination: "Chicago, United States",
-        startDate: "2024-03-15",
-        endDate: "2024-03-22",
-        status: "upcoming",
-        amount: 2499.99,
-        cancellationPolicy: "Free cancellation until 7 days before departure",
-        potentialRefund: 2499.99,
-    },
-    {
-        _id: "b2",
-        destination: "New York, USA",
-        startDate: "2024-01-05",
-        endDate: "2024-01-12",
-        status: "completed",
-        amount: 2499.99,
-        cancellationPolicy: "Non-refundable",
-        potentialRefund: null,
-    },
-];
-
-const NOTIFICATION_PREFS = [
-    { key: "payment_confirmations", label: "Payment Confirmations", description: "Get notified when payments are processed", emailOn: true, smsOn: true },
-    { key: "invoice_reminders", label: "Invoice Reminders", description: "Reminders before your payment is due", emailOn: false, smsOn: true },
-    { key: "usage_alerts", label: "Usage Alerts", description: "Alerts when you approach your plan limits", emailOn: true, smsOn: false },
-    { key: "trip_updates", label: "Trip Updates", description: "Updates about your upcoming trips", emailOn: false, smsOn: false },
-];
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function formatDate(dateStr: string) {
-    return new Date(dateStr).toLocaleDateString("en-US", { year: "numeric", month: "2-digit", day: "2-digit" });
+function brandLabel(brand: string) {
+  return brand.charAt(0).toUpperCase() + brand.slice(1);
 }
-
-function CardBrand({ type }: { type: string }) {
-    if (type === "visa") return <span className="font-bold tracking-wide">Visa</span>;
-    if (type === "mastercard") return <span className="font-bold tracking-wide">Mastercard</span>;
-    return <span className="font-bold tracking-wide">Bank Account</span>;
-}
-
-function ChargeBadge({ type }: { type: string }) {
-    const styles: Record<string, string> = {
-        subscription: "bg-aleet-gold/20 text-aleet-gold",
-        average: "bg-aleet-cream text-aleet-text-muted",
-        addon: "bg-aleet-cream text-aleet-text-subtle",
-    };
-    return (
-        <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize", styles[type] ?? "bg-aleet-cream text-aleet-text-subtle")}>
-            {type}
-        </span>
-    );
-}
-
-function StatusBadge({ status }: { status: string }) {
-    const styles: Record<string, string> = {
-        upcoming: "bg-aleet-gold/20 text-aleet-gold",
-        completed: "bg-aleet-cream text-aleet-text-muted",
-        paid: "text-aleet-text-subtle",
-        refunded: "bg-red-900/20 text-red-400",
-    };
-    return (
-        <span className={cn("text-xs", styles[status] ?? "text-aleet-text-subtle")}>
-            {status}
-        </span>
-    );
-}
-
-function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
-    return (
-        <button
-            type="button"
-            onClick={onToggle}
-            className={cn(
-                "relative inline-flex h-6 w-11 cursor-pointer items-center rounded-full transition-colors duration-200",
-                on ? "bg-aleet-gold" : "bg-aleet-border",
-            )}
-            aria-pressed={on}
-        >
-            <span
-                className={cn(
-                    "inline-block h-4.5 w-4.5 rounded-full bg-white shadow transition-transform duration-200",
-                    on ? "translate-x-5.5" : "translate-x-1",
-                )}
-                style={{ height: "18px", width: "18px" }}
-            />
-        </button>
-    );
-}
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function BillingPage() {
-    const [notifPrefs, setNotifPrefs] = useState(NOTIFICATION_PREFS);
-    const [paymentMethods] = useState(MOCK_PAYMENT_METHODS);
+  const [cards, setCards] = useState<SavedCard[]>([]);
+  const [bookings, setBookings] = useState<MyBooking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showAddCard, setShowAddCard] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
-    function toggleNotif(key: string, channel: "email" | "sms") {
-        setNotifPrefs((prev) =>
-            prev.map((n) =>
-                n.key === key
-                    ? { ...n, emailOn: channel === "email" ? !n.emailOn : n.emailOn, smsOn: channel === "sms" ? !n.smsOn : n.smsOn }
-                    : n,
-            ),
-        );
+  async function load() {
+    setLoading(true);
+    setError(null);
+    try {
+      const token = getToken() ?? undefined;
+      const [cardsRes, bookingsRes] = await Promise.all([
+        listSavedCards(token),
+        fetchMyBookings(token),
+      ]);
+      setCards(cardsRes.data ?? []);
+      setBookings(bookingsRes.data ?? []);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to load billing data");
+    } finally {
+      setLoading(false);
     }
+  }
 
-    const totalPending = MOCK_PENDING_CHARGES.reduce((s, c) => s + c.amount, 0);
+  useEffect(() => {
+    load();
+  }, []);
 
-    return (
-        <DashboardShell activeNav="payments">
-            <div className="min-w-0 space-y-6">
+  async function handleSetDefault(id: string) {
+    setBusyId(id);
+    try {
+      const token = getToken() ?? undefined;
+      await setDefaultCard(id, token);
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to update default card");
+    } finally {
+      setBusyId(null);
+    }
+  }
 
-                        {/* Page title */}
-                        <div>
-                            <h1 className="font-serif text-2xl font-medium text-aleet-text sm:text-3xl">Billing &amp; Payments</h1>
-                            <p className="mt-1 text-sm text-aleet-text-muted">Manage your account, view invoices, and control your payment methods with complete transparency</p>
-                        </div>
+  async function handleDelete(id: string) {
+    if (!window.confirm("Remove this card?")) return;
+    setBusyId(id);
+    try {
+      const token = getToken() ?? undefined;
+      await deleteSavedCard(id, token);
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to remove card");
+    } finally {
+      setBusyId(null);
+    }
+  }
 
-                        {/* ── Stats row ── */}
-                        <div className="grid gap-3 sm:grid-cols-3">
-                            {/* Current Balance */}
-                            <div className="flex items-center gap-4 rounded-2xl border border-aleet-border bg-aleet-card px-5 py-4">
-                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-aleet-gold/30 bg-aleet-gold/10">
-                                    <svg className="h-5 w-5 text-aleet-gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                                        <circle cx="12" cy="12" r="10" />
-                                        <path d="M9 9h1.5a1.5 1.5 0 0 1 0 3H9m0-3v6m0-6h6m-6 6h4.5a1.5 1.5 0 0 0 0-3" />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <p className="text-xs font-medium text-aleet-text-muted">Current Balance</p>
-                                    <p className="text-2xl font-bold text-aleet-text">$25.00</p>
-                                    <p className="text-[11px] text-aleet-text-subtle">Next billing: Feb 15, 2024</p>
-                                </div>
-                            </div>
+  const unpaid = bookings.filter((b) => b.paymentStatus === "Unpaid");
 
-                            {/* Usage This Month */}
-                            <div className="flex items-center gap-4 rounded-2xl border border-aleet-border bg-aleet-card px-5 py-4">
-                                <div className="min-w-0 flex-1">
-                                    <div className="flex items-center justify-between gap-2">
-                                        <p className="text-xs font-medium text-aleet-text-muted">Usage This Month</p>
-                                        <span className="rounded-full bg-aleet-gold/20 px-2 py-0.5 text-[10px] font-bold text-aleet-gold">Pro Plan</span>
-                                    </div>
-                                    <p className="mt-0.5 text-2xl font-bold text-aleet-text">87h</p>
-                                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-aleet-border">
-                                        <div className="h-full rounded-full bg-aleet-gold" style={{ width: "87%" }} />
-                                    </div>
-                                    <p className="mt-1 text-[11px] text-aleet-text-subtle">87 used &nbsp;·&nbsp; 100h limit</p>
-                                </div>
-                            </div>
+  return (
+    <DashboardShell activeNav="billing">
+      <div className="min-w-0 space-y-6">
+        <div>
+          <h1 className="font-serif text-2xl font-medium text-aleet-text sm:text-3xl">Billing</h1>
+          <p className="mt-1 text-sm text-aleet-text-muted">Manage payment methods and outstanding charges</p>
+        </div>
 
-                            {/* Account Status */}
-                            <div className="flex items-center gap-4 rounded-2xl border border-aleet-border bg-aleet-card px-5 py-4">
-                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10">
-                                    <svg className="h-5 w-5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                                        <path d="M20 6 9 17l-5-5" />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <p className="text-xs font-medium text-aleet-text-muted">Account Status</p>
-                                    <p className="text-xl font-bold text-emerald-400">Active</p>
-                                    <p className="text-[11px] text-aleet-text-subtle">Auto-renewal enabled</p>
-                                </div>
-                            </div>
-                        </div>
+        {error && (
+          <div className="rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+            {error}
+          </div>
+        )}
 
-                        {/* ── Billing Overview + Payment Methods ── */}
-                        <div className="grid gap-4 lg:grid-cols-2">
+        <section className="rounded-2xl border border-aleet-border bg-aleet-card p-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-medium text-aleet-text">Payment methods</h2>
+            {!showAddCard && (
+              <button
+                type="button"
+                onClick={() => setShowAddCard(true)}
+                className="rounded-xl border border-aleet-gold/40 bg-aleet-gold/10 px-4 py-2 text-sm font-medium text-aleet-gold hover:bg-aleet-gold/20"
+              >
+                Add card
+              </button>
+            )}
+          </div>
 
-                            {/* Billing Overview */}
-                            <div className="rounded-2xl border border-aleet-border bg-aleet-card p-5 space-y-4">
-                                <div>
-                                    <h2 className="text-base font-semibold text-aleet-text">Billing Overview</h2>
-                                    <p className="text-xs text-aleet-text-muted">Upcoming charges and billing details</p>
-                                </div>
-
-                                {/* Next Payment banner */}
-                                <div className="flex items-center justify-between rounded-xl bg-aleet-gold/15 border border-aleet-gold/20 px-4 py-3.5">
-                                    <div>
-                                        <p className="text-xs font-semibold text-aleet-gold/70">Next Payment</p>
-                                        <p className="text-[11px] text-aleet-gold/50">Due February 15, 2024</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-2xl font-bold text-aleet-gold">${totalPending.toFixed(2)}</p>
-                                        <p className="text-[10px] text-aleet-gold/50">Auto-charge enabled</p>
-                                    </div>
-                                </div>
-
-                                {/* Pending Charges */}
-                                <div className="space-y-1">
-                                    <p className="text-xs font-semibold text-aleet-text-muted uppercase tracking-wide mb-2">Pending Charges</p>
-                                    {MOCK_PENDING_CHARGES.map((charge) => (
-                                        <div key={charge._id} className="flex items-center justify-between gap-3 rounded-xl border border-aleet-border bg-aleet-cream px-4 py-3">
-                                            <div className="min-w-0 space-y-0.5">
-                                                <p className="truncate text-sm font-medium text-aleet-text">{charge.name}</p>
-                                                <div className="flex items-center gap-1.5">
-                                                    <ChargeBadge type={charge.type} />
-                                                    <span className="text-[11px] text-aleet-text-subtle">Due {charge.dueDate}</span>
-                                                </div>
-                                            </div>
-                                            <p className="shrink-0 text-base font-semibold text-aleet-text">${charge.amount.toFixed(2)}</p>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                {/* Summary rows */}
-                                <div className="border-t border-aleet-border pt-3 space-y-2 text-sm">
-                                    <div className="flex justify-between text-aleet-text-muted">
-                                        <span>Auto-renewal</span>
-                                        <span className="text-aleet-gold">Enabled</span>
-                                    </div>
-                                    <div className="flex justify-between text-aleet-text-muted">
-                                        <span>Payment method</span>
-                                        <span className="text-aleet-text/70">Visa ···· 4242</span>
-                                    </div>
-                                    <div className="flex justify-between text-aleet-text-muted">
-                                        <span>Billing cycle</span>
-                                        <span className="text-aleet-text/70">Monthly (15th)</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Payment Methods */}
-                            <div className="rounded-2xl border border-aleet-border bg-aleet-card p-5 space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <h2 className="text-base font-semibold text-aleet-text">Payment Methods</h2>
-                                        <p className="text-xs text-aleet-text-muted">Manage your payment methods</p>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-aleet-text px-3.5 py-2 text-xs font-bold text-aleet-cream transition-opacity hover:opacity-80"
-                                    >
-                                        + ADD METHOD
-                                    </button>
-                                </div>
-
-                                <div className="space-y-2">
-                                    {paymentMethods.map((pm) => (
-                                        <div key={pm._id} className="flex items-center justify-between gap-3 rounded-xl border border-aleet-border bg-aleet-cream px-4 py-3">
-                                            <div className="min-w-0">
-                                                <div className="flex items-center gap-2">
-                                                    <p className="truncate text-sm text-aleet-text">
-                                                        <CardBrand type={pm.type} /> &bull;&bull;&bull;&bull; {pm.last4}
-                                                    </p>
-                                                    {pm.isDefault && (
-                                                        <span className="rounded-full border border-aleet-gold/40 bg-aleet-gold/10 px-2 py-0.5 text-[10px] font-semibold text-aleet-gold">
-                                                            Default
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                {pm.expires && (
-                                                    <p className="mt-0.5 text-[11px] text-aleet-text-subtle">Expires {pm.expires}</p>
-                                                )}
-                                            </div>
-                                            <div className="flex shrink-0 items-center gap-2">
-                                                {!pm.isDefault && (
-                                                    <button type="button" className="cursor-pointer text-[11px] text-aleet-text-subtle hover:text-aleet-text-muted transition-colors">
-                                                        Set Default
-                                                    </button>
-                                                )}
-                                                <button type="button" className="cursor-pointer text-aleet-text-subtle hover:text-aleet-gold transition-colors" aria-label="Edit">
-                                                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z" />
-                                                    </svg>
-                                                </button>
-                                                <button type="button" className="cursor-pointer text-aleet-text-subtle hover:text-red-400 transition-colors" aria-label="Delete">
-                                                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                                                        <polyline points="3 6 5 6 21 6" />
-                                                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                                                        <path d="M10 11v6M14 11v6" />
-                                                        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                                                    </svg>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* ── Invoice History ── */}
-                        <div className="overflow-hidden rounded-2xl border border-aleet-border bg-aleet-card">
-                            <div className="px-5 pt-5 pb-3">
-                                <h2 className="text-base font-semibold text-aleet-text">Invoice History</h2>
-                                <p className="text-xs text-aleet-text-muted">View and download your past invoices</p>
-                            </div>
-
-                            <div className="overflow-x-auto">
-                                <div className="min-w-[610px]">
-                                    {/* Table header */}
-                                    <div className="grid grid-cols-[1fr_120px_100px_80px_110px] bg-aleet-cream px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-aleet-text-muted">
-                                        <span>Invoice</span>
-                                        <span>Date</span>
-                                        <span>Amount</span>
-                                        <span>Status</span>
-                                        <span>Actions</span>
-                                    </div>
-
-                                    {MOCK_INVOICES.map((inv, i) => (
-                                        <div
-                                            key={inv._id}
-                                            className={cn(
-                                                "grid grid-cols-[1fr_120px_100px_80px_110px] items-center px-5 py-4",
-                                                i !== MOCK_INVOICES.length - 1 && "border-b border-aleet-border",
-                                            )}
-                                        >
-                                            <div>
-                                                <p className="text-sm font-semibold text-aleet-text">{inv.number}</p>
-                                                <p className="text-[11px] text-aleet-text-muted">{inv.description}</p>
-                                            </div>
-                                            <span className="text-sm text-aleet-text-muted">{inv.date}</span>
-                                            <span className="text-sm text-aleet-text">
-                                                {inv.amount > 0 ? `$${inv.amount.toFixed(2)}` : "Free"}
-                                            </span>
-                                            <StatusBadge status={inv.status} />
-                                            <button
-                                                type="button"
-                                                className="inline-flex cursor-pointer items-center gap-1.5 text-[12px] font-medium text-aleet-gold transition-opacity hover:opacity-75"
-                                            >
-                                                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                                    <polyline points="7 10 12 15 17 10" />
-                                                    <line x1="12" y1="15" x2="12" y2="3" />
-                                                </svg>
-                                                Download
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* ── Trip Management ── */}
-                        <div className="rounded-2xl border border-aleet-border bg-aleet-card p-5 space-y-4">
-                            <div>
-                                <h2 className="text-base font-semibold text-aleet-text">Trip Management</h2>
-                                <p className="text-xs text-aleet-text-muted">Manage your bookings and cancellations</p>
-                            </div>
-
-                            <div className="space-y-3">
-                                {MOCK_BOOKINGS_BILLING.map((booking) => (
-                                    <div key={booking._id} className="rounded-xl border border-aleet-border bg-aleet-cream p-4 space-y-3">
-                                        {/* Top row: destination + price */}
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div className="flex items-start gap-2.5 min-w-0">
-                                                <svg className="mt-0.5 h-4 w-4 shrink-0 text-[#5a7080]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z" />
-                                                    <circle cx="12" cy="10" r="3" />
-                                                </svg>
-                                                <div className="min-w-0">
-                                                    <p className="text-sm font-semibold text-aleet-text">{booking.destination}</p>
-                                                    <p className="text-[11px] text-aleet-text-muted mt-0.5">
-                                                        {booking.startDate} – {booking.endDate}
-                                                    </p>
-                                                    <span className={cn(
-                                                        "mt-1.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                                                        booking.status === "upcoming"
-                                                            ? "bg-aleet-gold/20 text-aleet-gold"
-                                                            : "bg-aleet-cream text-aleet-text-muted",
-                                                    )}>
-                                                        {booking.status}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <p className="text-lg font-bold text-aleet-text shrink-0">${booking.amount.toFixed(2)}</p>
-                                        </div>
-
-                                        {/* Bottom row: cancellation policy + button */}
-                                        <div className="flex items-start justify-between gap-4">
-                                            <div className="flex items-start gap-2 text-xs text-aleet-text-muted">
-                                                <svg className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#5a7080]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                                                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
-                                                    <line x1="12" y1="9" x2="12" y2="13" />
-                                                    <line x1="12" y1="17" x2="12.01" y2="17" />
-                                                </svg>
-                                                <div>
-                                                    <p className="font-medium text-aleet-text-muted">Cancellation Policy</p>
-                                                    <p>{booking.cancellationPolicy}</p>
-                                                    {booking.potentialRefund && (
-                                                        <p className="text-aleet-gold">Potential refund: ${booking.potentialRefund.toFixed(2)}</p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                className="shrink-0 cursor-pointer rounded-xl bg-aleet-text px-4 py-2 text-xs font-bold text-aleet-cream transition-opacity hover:opacity-80"
-                                            >
-                                                VIEW DETAILS
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* ── Notification Preferences ── */}
-                        <div className="rounded-2xl border border-aleet-border bg-aleet-card p-5 space-y-5">
-                            <div>
-                                <h2 className="text-base font-semibold text-aleet-text">Notification Preferences</h2>
-                                <p className="text-xs text-aleet-text-muted">Choose how you want to receive notifications</p>
-                            </div>
-
-                            <div className="space-y-4">
-                                {notifPrefs.map((pref) => (
-                                    <div key={pref.key} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                                        <div className="min-w-0">
-                                            <p className="text-sm font-medium text-aleet-text">{pref.label}</p>
-                                            <p className="text-[11px] text-aleet-text-muted">{pref.description}</p>
-                                        </div>
-                                        <div className="flex shrink-0 items-center justify-between gap-3 sm:justify-normal">
-                                            {/* Email */}
-                                            <div className="flex items-center gap-1.5">
-                                                <svg className="h-4 w-4 text-aleet-text-subtle" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                                                    <rect x="2" y="4" width="20" height="16" rx="2" />
-                                                    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-                                                </svg>
-                                                <Toggle on={pref.emailOn} onToggle={() => toggleNotif(pref.key, "email")} />
-                                            </div>
-                                            {/* SMS */}
-                                            <div className="flex items-center gap-1.5">
-                                                <svg className="h-4 w-4 text-aleet-text-subtle" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                                                    <rect x="5" y="2" width="14" height="20" rx="2" />
-                                                    <path d="M12 18h.01" />
-                                                </svg>
-                                                <Toggle on={pref.smsOn} onToggle={() => toggleNotif(pref.key, "sms")} />
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
+          {loading ? (
+            <div className="flex items-center gap-2 py-8 text-aleet-text-muted">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading…
+            </div>
+          ) : showAddCard ? (
+            <AddCardForm
+              onSuccess={() => {
+                setShowAddCard(false);
+                load();
+              }}
+              onCancel={() => setShowAddCard(false)}
+            />
+          ) : cards.length === 0 ? (
+            <p className="py-4 text-sm text-aleet-text-muted">
+              No saved cards yet. Add one to pay for bookings in one tap.
+            </p>
+          ) : (
+            <ul className="divide-y divide-aleet-border">
+              {cards.map((card) => (
+                <li key={card.id} className="flex flex-wrap items-center justify-between gap-3 py-4">
+                  <div className="flex items-center gap-3">
+                    <CreditCard className="h-5 w-5 text-aleet-gold" />
+                    <div>
+                      <p className="text-sm font-medium text-aleet-text">
+                        {brandLabel(card.brand)} •••• {card.last4}
+                        {card.isDefault && (
+                          <span className="ml-2 rounded-full bg-aleet-gold/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-aleet-gold">
+                            Default
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-xs text-aleet-text-subtle">
+                        Exp {String(card.expMonth).padStart(2, "0")}/{card.expYear}
+                      </p>
                     </div>
-        </DashboardShell>
-    );
+                  </div>
+                  <div className="flex gap-2">
+                    {!card.isDefault && (
+                      <button
+                        type="button"
+                        disabled={busyId === card.id}
+                        onClick={() => handleSetDefault(card.id)}
+                        className="rounded-lg border border-aleet-border px-3 py-1.5 text-xs text-aleet-text-muted hover:text-aleet-text disabled:opacity-50"
+                      >
+                        Make default
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      disabled={busyId === card.id}
+                      onClick={() => handleDelete(card.id)}
+                      className="rounded-lg border border-red-500/30 p-1.5 text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+                      aria-label="Remove card"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {unpaid.length > 0 && (
+          <section className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-6">
+            <h2 className="mb-3 text-lg font-medium text-aleet-text">Outstanding payments</h2>
+            <ul className="space-y-3">
+              {unpaid.map((b) => (
+                <li
+                  key={b._id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-aleet-border bg-aleet-card p-4"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-aleet-text">{b.pickupLocation}</p>
+                    <p className="text-xs text-aleet-text-muted">
+                      {new Date(b.dates.startDate).toLocaleDateString()} · ${b.finalPrice.toFixed(2)}
+                    </p>
+                  </div>
+                  <Link
+                    href={`/checkout?bookingId=${b._id}`}
+                    className="rounded-xl bg-aleet-gold px-4 py-2 text-sm font-semibold text-aleet-text hover:opacity-90"
+                  >
+                    Pay now
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        <section className="rounded-2xl border border-aleet-border bg-aleet-card p-6">
+          <h2 className="mb-2 text-lg font-medium text-aleet-text">Membership billing</h2>
+          <p className="text-sm text-aleet-text-muted">
+            Subscription charges and prepaid hours are managed on your{" "}
+            <Link href="/subscription" className="text-aleet-gold hover:underline">
+              subscription page
+            </Link>
+            .
+          </p>
+        </section>
+      </div>
+    </DashboardShell>
+  );
 }

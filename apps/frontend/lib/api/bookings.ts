@@ -26,6 +26,17 @@ export type BookingPreviewBreakdown = {
   freeHoursUsed: number;
   freeHoursLeft: number;
   distance: BookingPreviewDistance;
+  bookingFee?: number;
+  memberRate?: number;
+  billedHours?: number;
+  minimumHoursApplied?: boolean;
+  minimumHoursNote?: string | null;
+  isLateNight?: boolean;
+  lateNightHours?: number;
+  lateNightNote?: string | null;
+  regularMemberHours?: number;
+  subscriptionPrice?: number;
+  memberRateApplied?: boolean;
 };
 
 export type BookingPriceResult = {
@@ -35,6 +46,7 @@ export type BookingPriceResult = {
   endDate: string;
   hours: number;
   regularPrice: number;
+  subscriptionPrice?: number | null;
   total: number;
   breakdown: BookingPreviewBreakdown;
 };

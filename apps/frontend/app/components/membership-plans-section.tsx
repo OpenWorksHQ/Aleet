@@ -17,7 +17,7 @@ export function MembershipPlansSection({
 }: MembershipPlansSectionProps) {
   return (
     <div className={cn("space-y-10", className)}>
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid gap-5 lg:grid-cols-2">
         {MEMBERSHIP_PLANS.map((plan) => (
           <article
             key={plan.key}
