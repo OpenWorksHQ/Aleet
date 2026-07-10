@@ -7,57 +7,46 @@ export type MembershipPlan = {
   features: string[];
   highlight: boolean;
   tag?: string;
+  inviteOnly?: boolean;
 };
 
+/** Fallback marketing copy — live rates come from GET /subscriptions/benefits on /subscription. */
 export const MEMBERSHIP_PLANS: MembershipPlan[] = [
   {
-    key: "basic",
-    name: "Basic",
-    price: 199,
-    billedQuarterly: 597,
-    hours: 2,
-    features: [
-      "2 hours per month",
-      "Standard member rates",
-      "Email support",
-      "Access to core vehicle fleet",
-    ],
-    highlight: false,
-  },
-  {
-    key: "pro",
-    name: "Premium Membership",
-    price: 449,
-    billedQuarterly: 1347,
+    key: "standard",
+    name: "Standard Membership",
+    price: 445,
+    billedQuarterly: 1335,
     hours: 5,
     features: [
-      "5 hours per month at locked-in rates",
-      "No peak-hour add-ons or extra fees",
-      "Priority booking and support",
-      "Additional hours at member rates",
+      "5 prepaid hours per month at $89/hr",
+      "Any vehicle type at the member rate",
+      "Hours pool across the full quarter (15 hrs)",
+      "Overage billed at the same member rate",
     ],
     highlight: true,
     tag: "Most Popular",
   },
   {
-    key: "elite",
-    name: "Elite",
-    price: 799,
-    billedQuarterly: 2397,
-    hours: 10,
+    key: "founder30",
+    name: "Founder 30",
+    price: 345,
+    billedQuarterly: 1035,
+    hours: 5,
     features: [
-      "10 hours per month at locked-in rates",
-      "No peak-hour add-ons or extra fees",
-      "Dedicated concierge support",
-      "Additional hours at member rates",
-      "Exclusive vehicle access",
+      "Invite-only membership at $69/hr",
+      "5 prepaid hours per month (15/quarter)",
+      "Any vehicle type at the Founder rate",
+      "Same booking benefits as Standard",
     ],
     highlight: false,
+    tag: "Invite only",
+    inviteOnly: true,
   },
 ];
 
 export const MEMBERSHIP_SAVINGS = [
-  { vehicle: "Black Truck", regularPrice: 150, memberPrice: 89.8, savings: 60 },
-  { vehicle: "Luxury Sedan", regularPrice: 120, memberPrice: 89.08, savings: 30 },
-  { vehicle: "Sprinter & Stretch", regularPrice: 200, memberPrice: 89.8, savings: 110 },
+  { vehicle: "Black Truck", regularPrice: 150, memberPrice: 89, savings: 61 },
+  { vehicle: "Luxury Sedan", regularPrice: 120, memberPrice: 89, savings: 31 },
+  { vehicle: "Sprinter & Stretch", regularPrice: 200, memberPrice: 89, savings: 111 },
 ];

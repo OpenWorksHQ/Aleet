@@ -9,6 +9,7 @@ import { StepTrip } from "./step-trip";
 import { StepRoute } from "./step-route";
 import { StepConfirm } from "./step-confirm";
 import { buildTripWindow, calculateBookingPrice, startBooking, type BookingPriceResult } from "@/lib/api/bookings";
+import { BookingPaymentStep } from "@/app/components/payments/booking-payment-step";
 import { fetchAddons, type ApiAddon } from "@/lib/api/addons";
 import { getVehicleTypes, type VehicleType } from "@/lib/api/vehicle-types";
 import { getRegions, type Region } from "@/lib/api/regions";
@@ -32,7 +33,7 @@ import { useSameDayAvailability } from "@/lib/use-same-day-availability";
 import { SameDayNotice } from "./same-day-notice";
 import { PartnerContextBanner } from "@/app/components/partner/partner-context-banner";
 
-type Step = 1 | 2 | 3;
+type Step = 1 | 2 | 3 | 4;
 
 const STEPS: { label: string; sub: string }[] = [
     { label: "Trip", sub: "Dates & vehicle" },
@@ -366,7 +367,8 @@ export function BookingWizard({ onStepChange, renderIndicator }: { onStepChange?
     const setData = (updater: (prev: BookingData) => BookingData) =>
         setWizardState((prev) => ({ ...prev, data: updater(prev.data) }));
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [submitted, setSubmitted] = useState(false);
+    const [pendingBookingId, setPendingBookingId] = useState<string | null>(null);
+    const [paymentComplete, setPaymentComplete] = useState(false);
     const [serverPrice, setServerPrice] = useState<BookingPriceResult | null>(null);
     const [priceLoading, setPriceLoading] = useState(false);
     const [freeAddons, setFreeAddons] = useState<ApiAddon[]>([]);
@@ -597,9 +599,15 @@ export function BookingWizard({ onStepChange, renderIndicator }: { onStepChange?
         setIsSubmitting(true);
         try {
             const token = getToken() ?? undefined;
-            await startBooking(data, token);
+            const res = await startBooking(data, token);
+            const bookingId = res.data?.booking?._id;
+            if (!bookingId) {
+                toast.error("Booking created but no booking ID returned.");
+                return;
+            }
             clearPendingBooking();
-            setSubmitted(true);
+            setPendingBookingId(bookingId);
+            setStep(4);
         } catch (err) {
             toast.error(err instanceof ApiError ? err.message : "Failed to create booking.");
         } finally {
@@ -607,7 +615,7 @@ export function BookingWizard({ onStepChange, renderIndicator }: { onStepChange?
         }
     }
 
-    if (submitted) {
+    if (paymentComplete) {
         return (
             <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
                 <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full border border-aleet-gold/30 bg-aleet-gold/10 text-aleet-gold">
@@ -615,9 +623,9 @@ export function BookingWizard({ onStepChange, renderIndicator }: { onStepChange?
                         <path d="m5 13 4 4L19 7" />
                     </svg>
                 </div>
-                <h2 className="mb-2 font-serif text-[24px] font-medium text-aleet-text">Booking Confirmed</h2>
+                <h2 className="mb-2 font-serif text-[24px] font-medium text-aleet-text">Payment Complete</h2>
                 <p className="max-w-sm text-[14px] text-aleet-text-muted">
-                    Your reservation has been received. You&apos;ll get a confirmation email shortly.
+                    Your trip is confirmed and paid. You&apos;ll get a confirmation email shortly.
                 </p>
                 <Link
                     href="/dashboard"
@@ -725,6 +733,14 @@ export function BookingWizard({ onStepChange, renderIndicator }: { onStepChange?
                             confirmDisabled={sameDay.blocked}
                         />
                     </>
+                )}
+                {step === 4 && pendingBookingId && (
+                    <BookingPaymentStep
+                        bookingId={pendingBookingId}
+                        amount={serverPrice?.total ?? 0}
+                        onBack={() => setStep(3)}
+                        onPaid={() => setPaymentComplete(true)}
+                    />
                 )}
             </main>
         </div>

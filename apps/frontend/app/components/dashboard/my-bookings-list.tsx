@@ -104,9 +104,19 @@ function BookingCard({ booking }: { booking: MyBooking }) {
             {/* Price */}
             <div className="mt-4 flex items-baseline justify-between border-t border-aleet-border pt-3">
                 <span className="text-[12px] text-aleet-text-subtle">Total</span>
-                <span className="text-[20px] font-bold text-aleet-gold">
-                    ${booking.finalPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
+                <div className="flex items-center gap-3">
+                    {booking.paymentStatus === "Unpaid" && (
+                        <a
+                            href={`/checkout?bookingId=${booking._id}`}
+                            className="rounded-lg bg-aleet-gold px-3 py-1 text-[11px] font-semibold text-aleet-text hover:opacity-90"
+                        >
+                            Pay now
+                        </a>
+                    )}
+                    <span className="text-[20px] font-bold text-aleet-gold">
+                        ${booking.finalPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                </div>
             </div>
         </div>
     );

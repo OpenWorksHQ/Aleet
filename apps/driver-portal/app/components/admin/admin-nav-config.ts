@@ -29,7 +29,18 @@ export const adminNavItems: NavItem[] = [
     icon: "trips",
     requiredPermission: "manage-bookings",
   },
-  { label: "Payouts", href: "/admin/payouts", icon: "payouts" },
+  {
+    label: "Finance & Revenue",
+    href: "/admin/payouts",
+    icon: "payouts",
+    requiredPermission: "view-reports",
+  },
+  {
+    label: "Memberships",
+    href: "/admin/memberships",
+    icon: "memberships",
+    requiredPermission: "view-reports",
+  },
   {
     label: "Licensing & Background",
     href: "/admin/licensing",

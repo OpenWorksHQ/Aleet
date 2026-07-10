@@ -189,13 +189,29 @@ export function StepConfirm({ data, serverPrice, priceLoading, freeAddons, paidA
                     </div>
                 ) : serverPrice ? (
                     <div className="space-y-2.5">
+                        {serverPrice.breakdown.minimumHoursApplied && serverPrice.breakdown.minimumHoursNote && (
+                            <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[12px] text-amber-300">
+                                {serverPrice.breakdown.minimumHoursNote}
+                            </p>
+                        )}
+                        {serverPrice.breakdown.isLateNight && serverPrice.breakdown.lateNightNote && (
+                            <p className="rounded-lg border border-aleet-border bg-aleet-cream/40 px-3 py-2 text-[12px] text-aleet-text-muted">
+                                {serverPrice.breakdown.lateNightNote}
+                            </p>
+                        )}
                         {/* Base */}
                         <div className="flex justify-between text-[13px]">
                             <span className="text-aleet-text-muted">
-                                {serverPrice.vehicleType.name} × {serverPrice.quantity} · ${serverPrice.breakdown.baseRate}/hr · {serverPrice.hours}h
+                                {serverPrice.vehicleType.name} × {serverPrice.quantity} · ${serverPrice.breakdown.baseRate}/hr · {serverPrice.breakdown.billedHours ?? serverPrice.hours}h
                             </span>
-                            <span className="text-aleet-text">${(serverPrice.breakdown.baseRate * serverPrice.quantity * serverPrice.hours).toFixed(0)}</span>
+                            <span className="text-aleet-text">${(serverPrice.breakdown.baseRate * serverPrice.quantity * (serverPrice.breakdown.billedHours ?? serverPrice.hours)).toFixed(0)}</span>
                         </div>
+                        {serverPrice.breakdown.memberRate != null && (
+                            <div className="flex justify-between text-[13px]">
+                                <span className="text-aleet-text-muted">Member rate</span>
+                                <span className="text-aleet-text">${serverPrice.breakdown.memberRate}/hr</span>
+                            </div>
+                        )}
                         {/* Add-ons */}
                         {(serverPrice.breakdown.addOns ?? []).map((addon) => (
                             <div key={addon._id} className="flex justify-between text-[13px]">
@@ -203,6 +219,12 @@ export function StepConfirm({ data, serverPrice, priceLoading, freeAddons, paidA
                                 <span className="text-aleet-text">+${addon.price}</span>
                             </div>
                         ))}
+                        {serverPrice.breakdown.bookingFee != null && serverPrice.breakdown.bookingFee > 0 && (
+                            <div className="flex justify-between text-[13px]">
+                                <span className="text-aleet-text-muted">Booking fee</span>
+                                <span className="text-aleet-text">+${serverPrice.breakdown.bookingFee.toFixed(0)}</span>
+                            </div>
+                        )}
                         {/* Distance surcharge */}
                         {serverPrice.breakdown.distance.distanceSurcharge > 0 && (
                             <div className="flex justify-between text-[13px]">
@@ -213,8 +235,16 @@ export function StepConfirm({ data, serverPrice, priceLoading, freeAddons, paidA
                         {/* Free hours used */}
                         {serverPrice.breakdown.freeHoursUsed > 0 && (
                             <div className="flex justify-between text-[13px]">
-                                <span className="text-aleet-text-muted">Free hours applied</span>
+                                <span className="text-aleet-text-muted">
+                                  Free hours applied ({serverPrice.breakdown.freeHoursLeft}h left this quarter)
+                                </span>
                                 <span className="text-[#4caf50]">−{serverPrice.breakdown.freeHoursUsed}h</span>
+                            </div>
+                        )}
+                        {serverPrice.subscriptionPrice != null && serverPrice.subscriptionPrice < serverPrice.regularPrice && (
+                            <div className="flex justify-between text-[13px]">
+                                <span className="text-aleet-text-muted">Member price</span>
+                                <span className="text-[#4caf50]">${serverPrice.subscriptionPrice.toFixed(0)}</span>
                             </div>
                         )}
                         <div className="mt-3 flex justify-between border-t border-aleet-border pt-3">

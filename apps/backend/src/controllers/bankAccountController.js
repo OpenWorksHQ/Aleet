@@ -182,6 +182,20 @@ const getStripeStatus = asyncHandler(async (req, res) => {
     });
   } catch (error) {
     console.error('Stripe status error:', error);
+
+    // Stale Connect account from a different Stripe platform / rotated keys.
+    // Clear it so the driver can start onboarding fresh under the current keys.
+    if (error?.code === 'account_invalid' || error?.code === 'platform_account_required') {
+      await BankAccount.deleteOne({ _id: existing._id });
+      return res.status(200).json({
+        success: true,
+        connected: false,
+        status: 'not_started',
+        message:
+          'Previous Stripe Connect account is no longer valid for these API keys. Start onboarding again.',
+      });
+    }
+
     return res.status(502).json({
       success: false,
       connected: false,
@@ -198,6 +212,21 @@ const startStripeOnboarding = asyncHandler(async (req, res) => {
   let existing = await BankAccount.findOne({ driverId: userId, type: 'stripe_connect' });
   let stripeAccountId;
 
+  // If we already have an account id, verify it still belongs to this Stripe platform.
+  if (existing?.stripeAccountId) {
+    try {
+      await stripe.accounts.retrieve(existing.stripeAccountId);
+      stripeAccountId = existing.stripeAccountId;
+    } catch (error) {
+      if (error?.code === 'account_invalid' || error?.code === 'platform_account_required') {
+        await BankAccount.deleteOne({ _id: existing._id });
+        existing = null;
+      } else {
+        throw error;
+      }
+    }
+  }
+
   if (!existing) {
     const account = await stripe.accounts.create({
       type: 'express',
@@ -210,15 +239,13 @@ const startStripeOnboarding = asyncHandler(async (req, res) => {
       stripeAccountId,
       isPrimary: false,
     });
-  } else {
-    stripeAccountId = existing.stripeAccountId;
   }
 
-  const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const baseUrl = (process.env.DRIVER_PORTAL_URL || 'http://localhost:3002').replace(/\/$/, '');
   const accountLink = await stripe.accountLinks.create({
     account: stripeAccountId,
-    refresh_url: `${baseUrl}/driver/bank-account?stripe=refresh`,
-    return_url: `${baseUrl}/driver/bank-account?stripe=success`,
+    refresh_url: `${baseUrl}/driver/bank?stripe=refresh`,
+    return_url: `${baseUrl}/driver/bank?stripe=success`,
     type: 'account_onboarding',
   });
 
