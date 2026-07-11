@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { DashboardShell } from "../components/dashboard-shell";
 import { cn } from "@/lib/utils";
@@ -16,11 +17,11 @@ import {
   createSubscriptionCheckout,
   getSubscriptionBenefits,
   getSubscriptionStatus,
-  listSavedCards,
-  type SavedCard,
   type SubscriptionBenefits,
   type SubscriptionStatus,
 } from "@/lib/api/subscriptions";
+import { listSavedCards, type SavedCard } from "@/lib/api/payments";
+import { AddCardForm } from "@/app/components/payments/add-card-form";
 
 export default function SubscriptionPage() {
   const [benefits, setBenefits] = useState<SubscriptionBenefits | null>(null);
@@ -29,6 +30,7 @@ export default function SubscriptionPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showAddCard, setShowAddCard] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -80,7 +82,8 @@ export default function SubscriptionPage() {
   async function handleChargeSaved() {
     const card = cards.find((c) => c.isDefault) ?? cards[0];
     if (!card) {
-      setError("Subscribe via checkout to save a card first");
+      setShowAddCard(true);
+      setError("Add a saved card first");
       return;
     }
     setBusy(true);
@@ -148,40 +151,50 @@ export default function SubscriptionPage() {
             Subscription
           </h1>
           <p className="mt-1 text-sm text-aleet-text-muted">
-            Manage your membership plan and view savings
+            Prepaid hours at member rates — any vehicle
           </p>
         </div>
 
         {error ? (
-          <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          <div className="rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
             {error}
-          </p>
+          </div>
         ) : null}
 
         {isSubscriber && status ? (
-          <div className="space-y-6">
-            <article className="rounded-2xl border border-aleet-gold/40 bg-aleet-card p-6">
-              <p className="text-sm font-semibold uppercase tracking-wide text-aleet-gold">
-                Active membership
-              </p>
-              <h2 className="mt-2 font-serif text-2xl text-aleet-text">
-                {status.isFounder30 ? "Founder 30" : "Standard Membership"}
-              </h2>
-              <p className="mt-3 text-sm text-aleet-text-muted">
-                Locked-in rate:{" "}
-                <span className="font-semibold text-aleet-gold">
-                  ${status.ratePerHour}/hr
-                </span>
-              </p>
-              {status.nextBillingDate ? (
-                <p className="mt-1 text-sm text-aleet-text-muted">
-                  Next billing:{" "}
-                  {new Date(status.nextBillingDate).toLocaleDateString()}
+          <div className="rounded-2xl border border-aleet-gold/30 bg-aleet-card p-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-aleet-gold">
+                  Active membership
                 </p>
-              ) : null}
-            </article>
+                <h2 className="mt-1 font-serif text-2xl text-aleet-text">
+                  {status.isFounder30 ? "Founder 30" : "Standard Membership"} ·
+                  ${status.ratePerHour}/hr
+                </h2>
+                <p className="mt-1 text-sm text-aleet-text-muted">
+                  Billed quarterly · Next billing{" "}
+                  {status.nextBillingDate
+                    ? new Date(status.nextBillingDate).toLocaleDateString()
+                    : "—"}
+                </p>
+                {status.savedCardLast4 ? (
+                  <p className="mt-1 text-xs text-aleet-text-subtle">
+                    Card •••• {status.savedCardLast4}
+                  </p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={handleCancel}
+                disabled={busy}
+                className="rounded-xl border border-aleet-border px-4 py-2 text-sm text-aleet-text-muted hover:text-aleet-text disabled:opacity-50"
+              >
+                Cancel membership
+              </button>
+            </div>
 
-            <div className="rounded-2xl border border-aleet-border bg-aleet-card p-6">
+            <div className="mt-6">
               <div className="mb-2 flex justify-between text-sm">
                 <span className="text-aleet-text-muted">Quarterly hours used</span>
                 <span className="text-aleet-text">
@@ -202,15 +215,6 @@ export default function SubscriptionPage() {
                 </p>
               ) : null}
             </div>
-
-            <button
-              type="button"
-              disabled={busy}
-              onClick={handleCancel}
-              className="text-sm text-aleet-text-muted underline-offset-2 hover:text-aleet-text hover:underline disabled:opacity-50"
-            >
-              Cancel membership
-            </button>
           </div>
         ) : (
           <div className="rounded-2xl border border-aleet-border bg-aleet-card p-6">
@@ -260,6 +264,49 @@ export default function SubscriptionPage() {
             </div>
           </div>
         )}
+
+        {!isSubscriber ? (
+          <div className="rounded-2xl border border-aleet-border bg-aleet-card p-6">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="font-medium text-aleet-text">Payment method</h3>
+              {!showAddCard ? (
+                <button
+                  type="button"
+                  onClick={() => setShowAddCard(true)}
+                  className="text-sm text-aleet-gold hover:underline"
+                >
+                  Add card
+                </button>
+              ) : null}
+            </div>
+            {showAddCard ? (
+              <AddCardForm
+                onSuccess={() => {
+                  setShowAddCard(false);
+                  load();
+                }}
+                onCancel={() => setShowAddCard(false)}
+              />
+            ) : cards.length === 0 ? (
+              <p className="text-sm text-aleet-text-muted">
+                Add a card to subscribe without leaving the site.
+              </p>
+            ) : (
+              <p className="text-sm text-aleet-text-muted">
+                {cards.length} saved card{cards.length !== 1 ? "s" : ""} on
+                file.
+              </p>
+            )}
+          </div>
+        ) : null}
+
+        <p className="text-sm text-aleet-text-muted">
+          Manage cards on{" "}
+          <Link href="/billing" className="text-aleet-gold hover:underline">
+            Billing
+          </Link>
+          .
+        </p>
       </div>
     </DashboardShell>
   );

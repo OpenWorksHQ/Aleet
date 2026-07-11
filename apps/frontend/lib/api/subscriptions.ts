@@ -1,6 +1,6 @@
 import { apiFetch } from "@/lib/api";
 
-export type SubscriptionPlanBenefit = {
+export type PlanBenefits = {
   ratePerHour: number;
   monthlyHours: number;
   quarterlyHours: number;
@@ -11,8 +11,8 @@ export type SubscriptionPlanBenefit = {
 };
 
 export type SubscriptionBenefits = {
-  standard: SubscriptionPlanBenefit;
-  founder30: SubscriptionPlanBenefit;
+  standard: PlanBenefits;
+  founder30: PlanBenefits;
 };
 
 export type SubscriptionStatus = {
@@ -28,17 +28,28 @@ export type SubscriptionStatus = {
     overageHours: number;
     overageCharge: number;
   };
+  subscriptionDetails: {
+    plan?: string;
+    price?: number;
+    billingCycle?: string;
+    startDate?: string;
+    nextBillingDate?: string;
+    isActive?: boolean;
+    monthlyHoursIncluded?: number;
+  } | null;
   nextBillingDate: string | null;
   savedCardLast4: string | null;
 };
 
-export type SavedCard = {
-  id: string;
-  brand: string;
-  last4: string;
-  expMonth: number;
-  expYear: number;
-  isDefault: boolean;
+export type SubscriptionCheckoutData = {
+  url: string;
+  sessionId: string;
+  plan: string;
+  ratePerHour: number;
+  monthlyHours: number;
+  quarterlyHours: number;
+  quarterlyCharge: number;
+  message?: string;
 };
 
 export function getSubscriptionBenefits() {
@@ -50,10 +61,10 @@ export function getSubscriptionStatus(token?: string) {
 }
 
 export function createSubscriptionCheckout(
-  plan: "standard" | "founder30",
+  plan: "standard" | "founder30" = "standard",
   token?: string,
 ) {
-  return apiFetch<{ url: string }>("/subscriptions/checkout", {
+  return apiFetch<SubscriptionCheckoutData>("/subscriptions/checkout", {
     method: "POST",
     body: { plan },
     token,
@@ -61,23 +72,27 @@ export function createSubscriptionCheckout(
 }
 
 export function chargeSubscriptionSavedCard(
-  body: { plan: "standard" | "founder30"; paymentMethodId: string },
+  body: { plan?: "standard" | "founder30"; paymentMethodId: string },
   token?: string,
 ) {
-  return apiFetch("/subscriptions/charge-saved-card", {
-    method: "POST",
-    body,
-    token,
-  });
+  return apiFetch<{ subscription: Record<string, unknown> }>(
+    "/subscriptions/charge-saved-card",
+    {
+      method: "POST",
+      body,
+      token,
+    },
+  );
 }
 
 export function cancelSubscription(token?: string) {
-  return apiFetch("/subscriptions/cancel", {
-    method: "POST",
-    token,
-  });
+  return apiFetch("/subscriptions/cancel", { method: "POST", token });
 }
 
-export function listSavedCards(token?: string) {
-  return apiFetch<SavedCard[]>("/payments/saved-cards", { token });
+export function processSubscriptionPayment(sessionId: string, token?: string) {
+  return apiFetch("/subscriptions/process-payment", {
+    method: "POST",
+    body: { sessionId },
+    token,
+  });
 }

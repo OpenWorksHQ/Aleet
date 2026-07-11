@@ -37,17 +37,12 @@ export const PUBLIC_MEMBERSHIP_PLANS: MembershipPlan[] = [
 export const MEMBERSHIP_PLANS = PUBLIC_MEMBERSHIP_PLANS;
 
 export const MEMBERSHIP_SAVINGS = [
-  { vehicle: "Black Truck", regularPrice: 150, memberPrice: 89.8, savings: 60 },
-  {
-    vehicle: "Luxury Sedan",
-    regularPrice: 120,
-    memberPrice: 89.08,
-    savings: 30,
-  },
+  { vehicle: "Black Truck", regularPrice: 150, memberPrice: 89, savings: 61 },
+  { vehicle: "Luxury Sedan", regularPrice: 120, memberPrice: 89, savings: 31 },
   {
     vehicle: "Sprinter & Stretch",
     regularPrice: 200,
-    memberPrice: 89.8,
-    savings: 110,
+    memberPrice: 89,
+    savings: 111,
   },
 ];

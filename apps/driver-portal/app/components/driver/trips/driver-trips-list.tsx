@@ -12,6 +12,7 @@ import {
 } from "@/lib/driver-dashboard-trips-api";
 import { buildGoogleMapsDirectionsUrl } from "@/lib/google-maps";
 import { TripAddressLink } from "@/app/components/driver/trips/trip-address-link";
+import { payoutBookingClient } from "@/lib/payout-api";
 
 type TabKey = DriverTripsTab;
 
@@ -235,6 +236,21 @@ export function DriverTripsList({ initialData }: Props) {
             await loadTrips({ tab: activeTab, search: appliedSearch, page });
         } catch (e) {
             setActionError(e instanceof Error ? e.message : "Failed to cancel trip");
+        } finally {
+            setActionTripId(null);
+        }
+    }
+
+    async function handlePayout(tripId: string) {
+        clearActionStatus();
+        setActionTripId(tripId);
+        try {
+            const result = await payoutBookingClient(tripId);
+            const dollars = (result.amountCents / 100).toFixed(2);
+            setActionSuccess(`Payout sent — $${dollars}`);
+            await loadTrips({ tab: activeTab, search: appliedSearch, page });
+        } catch (e) {
+            setActionError(e instanceof Error ? e.message : "Payout failed");
         } finally {
             setActionTripId(null);
         }
@@ -483,6 +499,18 @@ export function DriverTripsList({ initialData }: Props) {
                                                         className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-1.5 text-xs font-semibold text-red-400 transition-colors hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
                                                     >
                                                         {actionTripId === trip.id ? "Cancelling…" : "Cancel"}
+                                                    </button>
+                                                )}
+                                                {activeTab === "history" && normalizeStatus(trip.status) === "completed" && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handlePayout(trip.id);
+                                                        }}
+                                                        disabled={actionTripId !== null}
+                                                        className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold text-emerald-400 transition-colors hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                                                    >
+                                                        {actionTripId === trip.id ? "Sending…" : "Request payout"}
                                                     </button>
                                                 )}
                                             </div>

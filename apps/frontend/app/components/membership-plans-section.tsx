@@ -51,7 +51,7 @@ export function MembershipPlansSection({
             </p>
             <p className="mt-2">
               <span className="font-serif text-5xl font-medium text-aleet-text">
-                $89
+                ${plan.memberRate}
               </span>
               <span className="text-base text-aleet-text-muted">
                 /hr on every ride
