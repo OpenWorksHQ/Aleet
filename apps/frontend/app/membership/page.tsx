@@ -33,9 +33,8 @@ export default function MembershipPage() {
             </em>
           </h1>
           <p className="mt-5 max-w-2xl text-[15px] leading-[1.75] text-aleet-text-muted sm:text-[16px]">
-            Choose the membership that fits your lifestyle. Every plan includes
-            locked-in hourly rates, priority support, and access to Aleet&apos;s
-            curated transportation and concierge network.
+            One membership unlocks locked-in $89/hr rates, priority support, and access to
+            Aleet&apos;s curated transportation and concierge network.
           </p>
         </div>
 

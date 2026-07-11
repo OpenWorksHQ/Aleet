@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CONTACT_EMAIL } from "@/lib/site-contact";
 
 export type PartnerFieldErrorDetail = {
   code?: string;
@@ -51,7 +52,7 @@ export function PartnerContactEmailError({
         <>
           {" "}
           <a
-            href="mailto:support@aleetluxury.com"
+            href={`mailto:${CONTACT_EMAIL}`}
             className="font-semibold underline underline-offset-2"
           >
             Contact support

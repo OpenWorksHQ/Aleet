@@ -5,18 +5,22 @@ import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { DashboardShell } from "../components/dashboard-shell";
 import { cn } from "@/lib/utils";
+import { ApiError } from "@/lib/api";
+import { getToken } from "@/lib/auth";
 import {
+  MEMBERSHIP_SAVINGS,
+  STANDARD_MEMBERSHIP_PLAN,
+} from "@/lib/membership-plans";
+import {
+  cancelSubscription,
+  chargeSubscriptionSavedCard,
+  createSubscriptionCheckout,
   getSubscriptionBenefits,
   getSubscriptionStatus,
-  createSubscriptionCheckout,
-  chargeSubscriptionSavedCard,
-  cancelSubscription,
   type SubscriptionBenefits,
   type SubscriptionStatus,
 } from "@/lib/api/subscriptions";
 import { listSavedCards, type SavedCard } from "@/lib/api/payments";
-import { getToken } from "@/lib/auth";
-import { ApiError } from "@/lib/api";
 import { AddCardForm } from "@/app/components/payments/add-card-form";
 
 export default function SubscriptionPage() {
@@ -42,7 +46,9 @@ export default function SubscriptionPage() {
       setStatus(statusRes.data ?? null);
       setCards(cardsRes.data ?? []);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to load subscription");
+      setError(
+        err instanceof ApiError ? err.message : "Failed to load subscription",
+      );
     } finally {
       setLoading(false);
     }
@@ -54,14 +60,13 @@ export default function SubscriptionPage() {
 
   const isSubscriber = status?.status === "subscriber";
   const standard = benefits?.standard;
-  const founder30 = benefits?.founder30;
 
-  async function handleCheckout(plan: "standard" | "founder30") {
+  async function handleCheckout() {
     setBusy(true);
     setError(null);
     try {
       const token = getToken() ?? undefined;
-      const res = await createSubscriptionCheckout(plan, token);
+      const res = await createSubscriptionCheckout("standard", token);
       if (res.data?.url) {
         window.location.href = res.data.url;
         return;
@@ -74,7 +79,7 @@ export default function SubscriptionPage() {
     }
   }
 
-  async function handleChargeSaved(plan: "standard" | "founder30") {
+  async function handleChargeSaved() {
     const card = cards.find((c) => c.isDefault) ?? cards[0];
     if (!card) {
       setShowAddCard(true);
@@ -85,7 +90,10 @@ export default function SubscriptionPage() {
     setError(null);
     try {
       const token = getToken() ?? undefined;
-      await chargeSubscriptionSavedCard({ plan, paymentMethodId: card.id }, token);
+      await chargeSubscriptionSavedCard(
+        { plan: "standard", paymentMethodId: card.id },
+        token,
+      );
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Payment failed");
@@ -95,7 +103,13 @@ export default function SubscriptionPage() {
   }
 
   async function handleCancel() {
-    if (!window.confirm("Cancel membership? Remaining prepaid hours stay until the billing period ends.")) return;
+    if (
+      !window.confirm(
+        "Cancel membership? Remaining prepaid hours stay until the billing period ends.",
+      )
+    ) {
+      return;
+    }
     setBusy(true);
     try {
       const token = getToken() ?? undefined;
@@ -119,34 +133,44 @@ export default function SubscriptionPage() {
     );
   }
 
-  const usagePct = isSubscriber && status
-    ? Math.min(
-        (status.currentQuarter.hoursUsed / Math.max(status.currentQuarter.totalHoursIncluded, 1)) * 100,
-        100,
-      )
-    : 0;
+  const usagePct =
+    isSubscriber && status
+      ? Math.min(
+          (status.currentQuarter.hoursUsed /
+            Math.max(status.currentQuarter.totalHoursIncluded, 1)) *
+            100,
+          100,
+        )
+      : 0;
 
   return (
     <DashboardShell activeNav="subscription">
       <div className="min-w-0 space-y-6">
         <div>
-          <h1 className="font-serif text-2xl font-medium text-aleet-text sm:text-3xl">Subscription</h1>
-          <p className="mt-1 text-sm text-aleet-text-muted">Prepaid hours at member rates — any vehicle</p>
+          <h1 className="font-serif text-2xl font-medium text-aleet-text sm:text-3xl">
+            Subscription
+          </h1>
+          <p className="mt-1 text-sm text-aleet-text-muted">
+            Prepaid hours at member rates — any vehicle
+          </p>
         </div>
 
-        {error && (
+        {error ? (
           <div className="rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
             {error}
           </div>
-        )}
+        ) : null}
 
         {isSubscriber && status ? (
           <div className="rounded-2xl border border-aleet-gold/30 bg-aleet-card p-6">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className="text-xs uppercase tracking-wide text-aleet-gold">Active membership</p>
+                <p className="text-xs uppercase tracking-wide text-aleet-gold">
+                  Active membership
+                </p>
                 <h2 className="mt-1 font-serif text-2xl text-aleet-text">
-                  {status.isFounder30 ? "Founder 30" : "Standard"} · ${status.ratePerHour}/hr
+                  {status.isFounder30 ? "Founder 30" : "Standard Membership"} ·
+                  ${status.ratePerHour}/hr
                 </h2>
                 <p className="mt-1 text-sm text-aleet-text-muted">
                   Billed quarterly · Next billing{" "}
@@ -154,9 +178,11 @@ export default function SubscriptionPage() {
                     ? new Date(status.nextBillingDate).toLocaleDateString()
                     : "—"}
                 </p>
-                {status.savedCardLast4 && (
-                  <p className="mt-1 text-xs text-aleet-text-subtle">Card •••• {status.savedCardLast4}</p>
-                )}
+                {status.savedCardLast4 ? (
+                  <p className="mt-1 text-xs text-aleet-text-subtle">
+                    Card •••• {status.savedCardLast4}
+                  </p>
+                ) : null}
               </div>
               <button
                 type="button"
@@ -172,7 +198,8 @@ export default function SubscriptionPage() {
               <div className="mb-2 flex justify-between text-sm">
                 <span className="text-aleet-text-muted">Quarterly hours used</span>
                 <span className="text-aleet-text">
-                  {status.currentQuarter.hoursUsed.toFixed(1)} / {status.currentQuarter.totalHoursIncluded}h
+                  {status.currentQuarter.hoursUsed.toFixed(1)} /{" "}
+                  {status.currentQuarter.totalHoursIncluded}h
                 </span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-aleet-cream">
@@ -181,46 +208,68 @@ export default function SubscriptionPage() {
                   style={{ width: `${usagePct}%` }}
                 />
               </div>
-              {status.currentQuarter.overageHours > 0 && (
+              {status.currentQuarter.overageHours > 0 ? (
                 <p className="mt-2 text-sm text-amber-400">
                   Overage: {status.currentQuarter.overageHours.toFixed(1)}h (~$
                   {status.currentQuarter.overageCharge.toFixed(2)})
                 </p>
-              )}
+              ) : null}
             </div>
           </div>
         ) : (
-          <div className="grid gap-5 lg:grid-cols-2">
-            {standard && (
-              <PlanCard
-                title="Standard Membership"
-                plan={standard}
-                highlight
-                busy={busy}
-                onCheckout={() => handleCheckout("standard")}
-                onSavedCard={() => handleChargeSaved("standard")}
-                hasCard={cards.length > 0}
-              />
-            )}
-            {founder30 && (
-              <PlanCard
-                title="Founder 30"
-                plan={founder30}
-                inviteOnly
-                busy={busy}
-                onCheckout={() => handleCheckout("founder30")}
-                onSavedCard={() => handleChargeSaved("founder30")}
-                hasCard={cards.length > 0}
-              />
-            )}
+          <div className="rounded-2xl border border-aleet-border bg-aleet-card p-6">
+            <h2 className="mb-6 text-center text-xl font-medium text-aleet-text">
+              Member savings vs regular pricing
+            </h2>
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              {standard ? (
+                <PlanCard
+                  plan={standard}
+                  busy={busy}
+                  onCheckout={handleCheckout}
+                  onSavedCard={handleChargeSaved}
+                  hasCard={cards.length > 0}
+                />
+              ) : null}
+
+              <div className="flex flex-col justify-center space-y-3">
+                <p className="text-base font-medium text-aleet-text">
+                  Your savings breakdown
+                </p>
+                {MEMBERSHIP_SAVINGS.map((item) => (
+                  <div
+                    key={item.vehicle}
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-aleet-border bg-aleet-cream px-5 py-4"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-aleet-text">
+                        {item.vehicle}
+                      </p>
+                      <div className="mt-0.5 flex items-center gap-2">
+                        <span className="text-sm text-aleet-text-subtle line-through">
+                          ${item.regularPrice}/hr
+                        </span>
+                        <span className="text-sm font-semibold text-aleet-gold">
+                          ${item.memberPrice}/hr
+                        </span>
+                      </div>
+                    </div>
+                    <span className="shrink-0 rounded-full border border-aleet-border bg-aleet-cream px-3 py-1 text-xs font-semibold text-aleet-text-muted">
+                      Save ${item.savings}/hr
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
-        {!isSubscriber && (
+        {!isSubscriber ? (
           <div className="rounded-2xl border border-aleet-border bg-aleet-card p-6">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="font-medium text-aleet-text">Payment method</h3>
-              {!showAddCard && (
+              {!showAddCard ? (
                 <button
                   type="button"
                   onClick={() => setShowAddCard(true)}
@@ -228,22 +277,35 @@ export default function SubscriptionPage() {
                 >
                   Add card
                 </button>
-              )}
+              ) : null}
             </div>
             {showAddCard ? (
-              <AddCardForm onSuccess={() => { setShowAddCard(false); load(); }} onCancel={() => setShowAddCard(false)} />
+              <AddCardForm
+                onSuccess={() => {
+                  setShowAddCard(false);
+                  load();
+                }}
+                onCancel={() => setShowAddCard(false)}
+              />
             ) : cards.length === 0 ? (
-              <p className="text-sm text-aleet-text-muted">Add a card to subscribe without leaving the site.</p>
+              <p className="text-sm text-aleet-text-muted">
+                Add a card to subscribe without leaving the site.
+              </p>
             ) : (
               <p className="text-sm text-aleet-text-muted">
-                {cards.length} saved card{cards.length !== 1 ? "s" : ""} on file.
+                {cards.length} saved card{cards.length !== 1 ? "s" : ""} on
+                file.
               </p>
             )}
           </div>
-        )}
+        ) : null}
 
         <p className="text-sm text-aleet-text-muted">
-          Manage cards on <Link href="/billing" className="text-aleet-gold hover:underline">Billing</Link>.
+          Manage cards on{" "}
+          <Link href="/billing" className="text-aleet-gold hover:underline">
+            Billing
+          </Link>
+          .
         </p>
       </div>
     </DashboardShell>
@@ -251,19 +313,18 @@ export default function SubscriptionPage() {
 }
 
 function PlanCard({
-  title,
   plan,
-  highlight,
-  inviteOnly,
   busy,
   onCheckout,
   onSavedCard,
   hasCard,
 }: {
-  title: string;
-  plan: { ratePerHour: number; monthlyHours: number; quarterlyCharge: number; description: string };
-  highlight?: boolean;
-  inviteOnly?: boolean;
+  plan: {
+    ratePerHour: number;
+    monthlyHours: number;
+    quarterlyCharge: number;
+    description: string;
+  };
   busy: boolean;
   onCheckout: () => void;
   onSavedCard: () => void;
@@ -272,43 +333,67 @@ function PlanCard({
   return (
     <article
       className={cn(
-        "flex flex-col rounded-2xl border p-6",
-        highlight ? "border-aleet-gold/40 bg-aleet-card" : "border-aleet-border bg-aleet-card",
+        "relative flex flex-col overflow-hidden rounded-2xl p-6 text-white",
       )}
+      style={{
+        background:
+          "linear-gradient(145deg, #d4b896 0%, #c5a386 45%, #9a7d62 100%)",
+      }}
     >
-      {inviteOnly && (
-        <span className="mb-2 w-fit rounded-full bg-aleet-gold/15 px-2 py-0.5 text-[10px] font-bold uppercase text-aleet-gold">
-          Invite only
+      {STANDARD_MEMBERSHIP_PLAN.tag ? (
+        <span className="absolute right-5 top-5 rounded-full bg-white/20 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
+          {STANDARD_MEMBERSHIP_PLAN.tag}
         </span>
-      )}
-      <h2 className="font-serif text-xl text-aleet-text">{title}</h2>
-      <p className="mt-2">
-        <span className="text-4xl font-bold text-aleet-gold">${plan.ratePerHour}</span>
-        <span className="text-aleet-text-muted">/hr</span>
+      ) : null}
+
+      <p className="text-center font-serif text-2xl font-semibold text-white/95">
+        Standard Membership
       </p>
-      <p className="mt-1 text-sm text-aleet-text-muted">
-        {plan.monthlyHours} hrs/month · ${plan.quarterlyCharge.toLocaleString()} billed quarterly
+
+      <p className="mt-4 text-center text-sm font-semibold uppercase tracking-wide text-white/80">
+        Your locked-in member rate
       </p>
-      <p className="mt-3 flex-1 text-sm text-aleet-text-muted">{plan.description}</p>
-      <div className="mt-6 flex flex-wrap gap-2">
+      <p className="mt-2 text-center">
+        <span className="text-5xl font-bold text-white">
+          ${plan.ratePerHour}
+        </span>
+        <span className="text-lg text-white/75">/hr on every ride</span>
+      </p>
+      <p className="mt-3 text-center text-sm text-white/75">
+        {plan.monthlyHours} hours included every month · Save up to $111/hr vs
+        standard rates
+      </p>
+      <p className="mt-1 text-center text-xs text-white/60">
+        Billed quarterly at ${plan.quarterlyCharge.toLocaleString("en-US")}
+      </p>
+
+      <ul className="mt-5 space-y-1">
+        {STANDARD_MEMBERSHIP_PLAN.features.map((feature) => (
+          <li key={feature} className="text-sm text-white/75">
+            &bull; {feature}
+          </li>
+        ))}
+      </ul>
+
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
         <button
           type="button"
           disabled={busy}
           onClick={onCheckout}
-          className="rounded-xl bg-aleet-gold px-4 py-2.5 text-sm font-semibold text-aleet-text hover:opacity-90 disabled:opacity-50"
+          className="cursor-pointer rounded-xl bg-aleet-text px-5 py-2.5 text-sm font-bold text-aleet-cream transition-opacity hover:opacity-80 disabled:opacity-50"
         >
-          Subscribe via Checkout
+          Subscribe Now
         </button>
-        {hasCard && (
+        {hasCard ? (
           <button
             type="button"
             disabled={busy}
             onClick={onSavedCard}
-            className="rounded-xl border border-aleet-gold/40 px-4 py-2.5 text-sm font-medium text-aleet-gold hover:bg-aleet-gold/10 disabled:opacity-50"
+            className="cursor-pointer rounded-xl border border-white/30 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/10 disabled:opacity-50"
           >
             Pay with saved card
           </button>
-        )}
+        ) : null}
       </div>
     </article>
   );

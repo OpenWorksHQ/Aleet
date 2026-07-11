@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { MEMBERSHIP_PLANS, MEMBERSHIP_SAVINGS } from "@/lib/membership-plans";
+import {
+  PUBLIC_MEMBERSHIP_PLANS,
+  MEMBERSHIP_SAVINGS,
+} from "@/lib/membership-plans";
 
 type MembershipPlansSectionProps = {
   showSavings?: boolean;
@@ -17,8 +20,8 @@ export function MembershipPlansSection({
 }: MembershipPlansSectionProps) {
   return (
     <div className={cn("space-y-10", className)}>
-      <div className="grid gap-5 lg:grid-cols-2">
-        {MEMBERSHIP_PLANS.map((plan) => (
+      <div className="mx-auto grid max-w-xl gap-5">
+        {PUBLIC_MEMBERSHIP_PLANS.map((plan) => (
           <article
             key={plan.key}
             className={cn(
@@ -43,17 +46,24 @@ export function MembershipPlansSection({
               {plan.name}
             </p>
 
-            <p className="mt-4">
+            <p className="mt-4 text-sm font-semibold uppercase tracking-wide text-aleet-gold">
+              Your locked-in member rate
+            </p>
+            <p className="mt-2">
               <span className="font-serif text-5xl font-medium text-aleet-text">
-                ${plan.price}
+                ${plan.memberRate}
               </span>
-              <span className="text-base text-aleet-text-muted">/month</span>
+              <span className="text-base text-aleet-text-muted">
+                /hr on every ride
+              </span>
             </p>
-            <p className="mt-1 text-[13px] text-aleet-text-subtle">
-              Billed quarterly at ${plan.billedQuarterly.toLocaleString("en-US")}
+            <p className="mt-3 text-[13px] leading-relaxed text-aleet-text-muted">
+              {plan.hours} hours included every month · Save up to $111/hr vs
+              standard rates
             </p>
-            <p className="mt-4 text-sm font-semibold text-aleet-text-muted">
-              {plan.hours} hours / month included
+            <p className="mt-1 text-[12px] text-aleet-text-subtle">
+              Billed quarterly at $
+              {plan.billedQuarterly.toLocaleString("en-US")}
             </p>
 
             <ul className="mt-5 flex-1 space-y-2.5">
@@ -89,8 +99,8 @@ export function MembershipPlansSection({
             Member savings on every ride
           </h3>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-aleet-text-muted">
-            Locked-in hourly rates help you save on premium vehicles across every
-            market we serve.
+            Locked-in hourly rates help you save on premium vehicles across
+            every market we serve.
           </p>
 
           <div className="mt-6 grid gap-3 md:grid-cols-3">
@@ -99,7 +109,9 @@ export function MembershipPlansSection({
                 key={item.vehicle}
                 className="rounded-xl border border-aleet-border bg-aleet-cream px-5 py-4"
               >
-                <p className="text-sm font-semibold text-aleet-text">{item.vehicle}</p>
+                <p className="text-sm font-semibold text-aleet-text">
+                  {item.vehicle}
+                </p>
                 <div className="mt-2 flex items-center gap-2">
                   <span className="text-sm text-aleet-text-subtle line-through">
                     ${item.regularPrice}/hr
