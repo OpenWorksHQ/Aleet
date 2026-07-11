@@ -4,60 +4,50 @@ export type MembershipPlan = {
   price: number;
   billedQuarterly: number;
   hours: number;
+  memberRate: number;
   features: string[];
   highlight: boolean;
   tag?: string;
+  inviteOnly?: boolean;
 };
 
-export const MEMBERSHIP_PLANS: MembershipPlan[] = [
-  {
-    key: "basic",
-    name: "Basic",
-    price: 199,
-    billedQuarterly: 597,
-    hours: 2,
-    features: [
-      "2 hours per month",
-      "Standard member rates",
-      "Email support",
-      "Access to core vehicle fleet",
-    ],
-    highlight: false,
-  },
-  {
-    key: "pro",
-    name: "Premium Membership",
-    price: 449,
-    billedQuarterly: 1347,
-    hours: 5,
-    features: [
-      "5 hours per month at locked-in rates",
-      "No peak-hour add-ons or extra fees",
-      "Priority booking and support",
-      "Additional hours at member rates",
-    ],
-    highlight: true,
-    tag: "Most Popular",
-  },
-  {
-    key: "elite",
-    name: "Elite",
-    price: 799,
-    billedQuarterly: 2397,
-    hours: 10,
-    features: [
-      "10 hours per month at locked-in rates",
-      "No peak-hour add-ons or extra fees",
-      "Dedicated concierge support",
-      "Additional hours at member rates",
-      "Exclusive vehicle access",
-    ],
-    highlight: false,
-  },
+/** Single public offering — Founder 30 is invite-only (backend / admin only). */
+export const STANDARD_MEMBERSHIP_PLAN: MembershipPlan = {
+  key: "standard",
+  name: "Standard Membership",
+  price: 449,
+  billedQuarterly: 1347,
+  hours: 5,
+  memberRate: 89,
+  features: [
+    "Lock in $89/hr — save up to $111/hr on premium vehicles",
+    "5 prepaid hours every month (15 hours per quarter)",
+    "Any vehicle type at the same member rate",
+    "Overage stays at your locked member rate",
+  ],
+  highlight: true,
+  tag: "Member Deal",
+};
+
+export const PUBLIC_MEMBERSHIP_PLANS: MembershipPlan[] = [
+  STANDARD_MEMBERSHIP_PLAN,
 ];
+
+/** @deprecated Use PUBLIC_MEMBERSHIP_PLANS */
+export const MEMBERSHIP_PLANS = PUBLIC_MEMBERSHIP_PLANS;
 
 export const MEMBERSHIP_SAVINGS = [
   { vehicle: "Black Truck", regularPrice: 150, memberPrice: 89.8, savings: 60 },
-  { vehicle: "Luxury Sedan", regularPrice: 120, memberPrice: 89.08, savings: 30 },
-  { vehicle: "Sprinter & Stretch", regularPrice: 200, memberPrice: 89.8, savings: 110 },
+  {
+    vehicle: "Luxury Sedan",
+    regularPrice: 120,
+    memberPrice: 89.08,
+    savings: 30,
+  },
+  {
+    vehicle: "Sprinter & Stretch",
+    regularPrice: 200,
+    memberPrice: 89.8,
+    savings: 110,
+  },
 ];
