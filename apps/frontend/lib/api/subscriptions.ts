@@ -75,11 +75,14 @@ export function chargeSubscriptionSavedCard(
   body: { plan?: "standard" | "founder30"; paymentMethodId: string },
   token?: string,
 ) {
-  return apiFetch<{ subscription: Record<string, unknown> }>("/subscriptions/charge-saved-card", {
-    method: "POST",
-    body,
-    token,
-  });
+  return apiFetch<{ subscription: Record<string, unknown> }>(
+    "/subscriptions/charge-saved-card",
+    {
+      method: "POST",
+      body,
+      token,
+    },
+  );
 }
 
 export function cancelSubscription(token?: string) {

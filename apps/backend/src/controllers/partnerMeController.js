@@ -7,6 +7,8 @@ const {
 const {
   getPartnerDashboard,
   buildPartnerProfileDTO,
+  buildPartnerPayoutDTO,
+  upsertPartnerPayoutAccount,
   submitPartnerUpdateRequest,
   listPartnerUpdateRequestsForPartner,
   validatePartnerContactEmail,
@@ -34,6 +36,21 @@ const getProfile = asyncHandler(async (req, res) => {
   const partner = await Partner.findById(req.partnerId);
   if (!partner) return sendNotFound(res, 'Partner not found');
   return sendSuccess(res, 200, 'Partner profile loaded', buildPartnerProfileDTO(partner));
+});
+
+const getPayout = asyncHandler(async (req, res) => {
+  const partner = await Partner.findById(req.partnerId);
+  if (!partner) return sendNotFound(res, 'Partner not found');
+  return sendSuccess(res, 200, 'Payout account loaded', buildPartnerPayoutDTO(partner));
+});
+
+const updatePayout = asyncHandler(async (req, res) => {
+  try {
+    const payout = await upsertPartnerPayoutAccount(req.partnerId, req.body || {});
+    return sendSuccess(res, 200, 'Payout account saved', payout);
+  } catch (err) {
+    return handleServiceError(res, err);
+  }
 });
 
 const listUpdateRequests = asyncHandler(async (req, res) => {
@@ -72,6 +89,8 @@ const checkContactEmail = asyncHandler(async (req, res) => {
 module.exports = {
   getDashboard,
   getProfile,
+  getPayout,
+  updatePayout,
   listUpdateRequests,
   createUpdateRequest,
   checkContactEmail,

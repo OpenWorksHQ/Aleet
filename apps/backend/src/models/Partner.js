@@ -51,6 +51,8 @@ const partnerSchema = new mongoose.Schema({
   address: { type: String, default: null },
   city: { type: String, default: null },
   state: { type: String, default: null },
+  /** Verified Google Places location for mileage / distance. */
+  businessLocation: { type: placeSchema, default: null },
   website: { type: String, default: null },
   notes: { type: String, default: null },
   application: { type: mongoose.Schema.Types.ObjectId, ref: 'PartnerApplication', default: null },
@@ -59,6 +61,21 @@ const partnerSchema = new mongoose.Schema({
     completedBookings: { type: Number, default: 0 },
     lifetimeEarnings: { type: Number, default: 0 },
     pendingPayout: { type: Number, default: 0 },
+  },
+  /** Partner payout destination (UI + stored details; Stripe Connect later). */
+  payoutAccount: {
+    method: { type: String, enum: ['paypal', 'bank', null], default: null },
+    paypalEmail: { type: String, default: null, lowercase: true, trim: true },
+    accountHolderName: { type: String, default: null, trim: true },
+    bankName: { type: String, default: null, trim: true },
+    accountLast4: { type: String, default: null, trim: true },
+    routingLast4: { type: String, default: null, trim: true },
+    status: {
+      type: String,
+      enum: ['not_connected', 'connected'],
+      default: 'not_connected',
+    },
+    updatedAt: { type: Date, default: null },
   },
 }, { timestamps: true });
 

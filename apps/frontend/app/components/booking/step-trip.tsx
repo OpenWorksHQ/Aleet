@@ -31,6 +31,7 @@ export function StepTrip({ data, onChange, onNext, priceBar, isMember = false, s
     const [regionOptions, setRegionOptions] = useState<SelectOption[]>([]);
     const [vehicleTypes, setVehicleTypes] = useState<VehicleType[]>([]);
     const [regions, setRegions] = useState<Region[]>([]);
+    const skipNotice = data.bookingMode === "venue_access";
 
     useEffect(() => {
         getVehicleTypes()
@@ -162,8 +163,14 @@ export function StepTrip({ data, onChange, onNext, priceBar, isMember = false, s
                         label="Pick Up Time"
                         value={data.pickupTime}
                         onChange={handlePickupTimeChange}
-                        disableSlot={(slot) => isPickupTimeDisabled(data.pickupDate, slot, isMember)}
-                        disabledMessage={isMember ? "Cannot select a past time" : "Earliest pick-up is 3 hours from now"}
+                        disableSlot={(slot) =>
+                            isPickupTimeDisabled(data.pickupDate, slot, isMember, { skipNotice })
+                        }
+                        disabledMessage={
+                            isMember || skipNotice
+                                ? "Cannot select a past time"
+                                : "Earliest pick-up is 3 hours from now"
+                        }
                     />
                     <Select
                         label="Vehicle Type"

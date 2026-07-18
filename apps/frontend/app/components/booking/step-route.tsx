@@ -363,7 +363,7 @@ export function StepRoute({ data, quickBookingMode, serverPrice, priceLoading, o
                 <div className="mb-4 flex items-center justify-between">
                     <p className="text-[11px] font-semibold uppercase tracking-widest text-aleet-text-subtle">Optional Add-ons</p>
                     {addonTotal > 0 && (
-                        <span className="text-[12px] text-aleet-gold">+${addonTotal}/hr</span>
+                        <span className="text-[12px] text-aleet-gold">+${addonTotal}</span>
                     )}
                 </div>
 
@@ -396,7 +396,7 @@ export function StepRoute({ data, quickBookingMode, serverPrice, priceLoading, o
                                                             {addon.name}
                                                         </p>
                                                         <span className={`text-[11px] ${selected ? "text-aleet-gold/70" : "text-aleet-text-subtle"}`}>
-                                                            +${addon.price}/hr
+                                                            +${addon.price}
                                                         </span>
                                                     </div>
                                                     {addon.description && (

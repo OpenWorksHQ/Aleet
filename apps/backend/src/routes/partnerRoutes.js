@@ -26,6 +26,8 @@ router.get('/auth/me', requirePartnerAuth, partnerAuthController.me);
 
 router.get('/me/dashboard', requirePartnerAuth, partnerMeController.getDashboard);
 router.get('/me/profile', requirePartnerAuth, partnerMeController.getProfile);
+router.get('/me/payout', requirePartnerAuth, partnerMeController.getPayout);
+router.put('/me/payout', requirePartnerAuth, partnerMeController.updatePayout);
 router.get('/me/check-contact-email', requirePartnerAuth, partnerMeController.checkContactEmail);
 router.get('/me/update-requests', requirePartnerAuth, partnerMeController.listUpdateRequests);
 router.post('/me/update-requests', requirePartnerAuth, partnerMeController.createUpdateRequest);

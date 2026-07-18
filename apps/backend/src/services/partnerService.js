@@ -117,7 +117,7 @@ async function validatePartnerContactEmail(email, { excludePartnerId, excludeApp
         ok: false,
         field: 'contactEmail',
         code: 'portal_invite_pending',
-        message: 'A partner portal invite was already sent to this email. Check your inbox or use Forgot password on the partner sign-in page.',
+        message: 'A partner portal invite was already sent to this email. Check your inbox, or use Forgot password on the partner sign-in page to get a fresh activation link.',
         action: 'login',
       };
     }
@@ -492,8 +492,9 @@ async function createPartnerFromApplication(application, adminUserId, overrides 
   });
 
   const pickupLocation = overrides.pickupLocation || {
-    text: `${application.address}, ${application.city}, ${application.state}`,
-    placeId: '',
+    text: application.businessLocation?.text
+      || `${application.address}, ${application.city}, ${application.state}`,
+    placeId: application.businessLocation?.placeId || '',
   };
 
   const payload = {
@@ -519,6 +520,10 @@ async function createPartnerFromApplication(application, adminUserId, overrides 
     address: application.address,
     city: application.city,
     state: application.state,
+    businessLocation: application.businessLocation || {
+      text: pickupLocation.text,
+      placeId: pickupLocation.placeId || '',
+    },
     website: application.website,
     notes: application.notes || null,
     application: application._id,
@@ -573,6 +578,7 @@ async function verifyPartnerDashboardAccess(partnerId, token) {
 
 const PARTNER_REQUESTABLE_FIELDS = [
   'pickupLocation',
+  'businessLocation',
   'address',
   'city',
   'state',
@@ -588,6 +594,7 @@ function buildPartnerProfileSnapshot(partner) {
   const p = partner.toObject ? partner.toObject() : partner;
   return {
     pickupLocation: p.pickupLocation || null,
+    businessLocation: p.businessLocation || null,
     address: p.address || '',
     city: p.city || '',
     state: p.state || '',
@@ -600,6 +607,81 @@ function buildPartnerProfileSnapshot(partner) {
   };
 }
 
+function buildPartnerPayoutDTO(partner) {
+  const p = partner.toObject ? partner.toObject() : partner;
+  const acct = p.payoutAccount || {};
+  return {
+    method: acct.method || null,
+    paypalEmail: acct.paypalEmail || '',
+    accountHolderName: acct.accountHolderName || '',
+    bankName: acct.bankName || '',
+    accountLast4: acct.accountLast4 || '',
+    routingLast4: acct.routingLast4 || '',
+    status: acct.status || 'not_connected',
+    updatedAt: acct.updatedAt || null,
+    pendingPayout: Number(p.stats?.pendingPayout || 0),
+    lifetimeEarnings: Number(p.stats?.lifetimeEarnings || 0),
+    commissionPct: p.commissionPct ?? null,
+  };
+}
+
+async function upsertPartnerPayoutAccount(partnerId, body = {}) {
+  const partner = await Partner.findById(partnerId);
+  if (!partner) {
+    const err = new Error('Partner not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const method = body.method === 'bank' || body.method === 'paypal' ? body.method : null;
+  if (!method) {
+    const err = new Error('Payout method must be paypal or bank');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const next = {
+    method,
+    paypalEmail: null,
+    accountHolderName: String(body.accountHolderName || '').trim() || null,
+    bankName: null,
+    accountLast4: null,
+    routingLast4: null,
+    status: 'connected',
+    updatedAt: new Date(),
+  };
+
+  if (method === 'paypal') {
+    const email = String(body.paypalEmail || '').trim().toLowerCase();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      const err = new Error('A valid PayPal email is required');
+      err.statusCode = 400;
+      throw err;
+    }
+    next.paypalEmail = email;
+  } else {
+    const accountLast4 = String(body.accountLast4 || '').replace(/\D/g, '').slice(-4);
+    const routingLast4 = String(body.routingLast4 || '').replace(/\D/g, '').slice(-4);
+    if (accountLast4.length !== 4 || routingLast4.length !== 4) {
+      const err = new Error('Enter the last 4 digits of routing and account numbers');
+      err.statusCode = 400;
+      throw err;
+    }
+    if (!next.accountHolderName) {
+      const err = new Error('Account holder name is required');
+      err.statusCode = 400;
+      throw err;
+    }
+    next.bankName = String(body.bankName || '').trim() || null;
+    next.accountLast4 = accountLast4;
+    next.routingLast4 = routingLast4;
+  }
+
+  partner.payoutAccount = next;
+  await partner.save();
+  return buildPartnerPayoutDTO(partner);
+}
+
 function buildPartnerProfileDTO(partner) {
   const snapshot = buildPartnerProfileSnapshot(partner);
   return {
@@ -609,6 +691,7 @@ function buildPartnerProfileDTO(partner) {
     partnerType: partner.partnerType,
     bookingMode: partner.bookingMode,
     ...snapshot,
+    payoutAccount: buildPartnerPayoutDTO(partner),
   };
 }
 
@@ -616,10 +699,10 @@ function pickRequestableChanges(body = {}) {
   const changes = {};
   for (const field of PARTNER_REQUESTABLE_FIELDS) {
     if (body[field] === undefined) continue;
-    if (field === 'pickupLocation') {
-      changes.pickupLocation = {
-        text: String(body.pickupLocation?.text || '').trim(),
-        placeId: String(body.pickupLocation?.placeId || '').trim(),
+    if (field === 'pickupLocation' || field === 'businessLocation') {
+      changes[field] = {
+        text: String(body[field]?.text || '').trim(),
+        placeId: String(body[field]?.placeId || '').trim(),
       };
     } else if (field === 'contactEmail') {
       changes.contactEmail = String(body[field]).trim().toLowerCase();
@@ -734,6 +817,14 @@ async function approvePartnerUpdateRequest(requestId, adminUserId) {
 
   await partner.save();
 
+  try {
+    const { syncPartnerPortalUserFromPartner } = require('./partnerAuthService');
+    await syncPartnerPortalUserFromPartner(partner);
+  } catch (err) {
+    // Don't block approval if portal sync fails (e.g. email conflict) — surface later via resend.
+    console.error('syncPartnerPortalUserFromPartner after update-request approve:', err?.message);
+  }
+
   request.status = 'approved';
   request.reviewedBy = adminUserId;
   request.reviewedAt = new Date();
@@ -795,6 +886,8 @@ module.exports = {
   PARTNER_REQUESTABLE_FIELDS,
   buildPartnerProfileSnapshot,
   buildPartnerProfileDTO,
+  buildPartnerPayoutDTO,
+  upsertPartnerPayoutAccount,
   submitPartnerUpdateRequest,
   listPartnerUpdateRequestsForPartner,
   listPartnerUpdateRequestsAdmin,

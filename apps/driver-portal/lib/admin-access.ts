@@ -15,8 +15,10 @@ export const ADMIN_ROUTE_REQUIREMENTS: Array<{
 }> = [
   { prefix: "/admin", permission: "view-reports", exact: true },
   { prefix: "/admin/drivers", permission: "manage-users" },
-  { prefix: "/admin/tiers", permission: "manage-users" },
+  { prefix: "/admin/partners", permission: "manage-users" },
   { prefix: "/admin/trips", permission: "manage-bookings" },
+  // Legacy redirects
+  { prefix: "/admin/tiers", permission: "manage-users" },
   { prefix: "/admin/administrators", permission: "super-admin" },
 ];
 
@@ -45,8 +47,6 @@ export function getAdminFallbackPath(
   if (hasAdminPermission(permissions, "view-reports")) return "/admin";
   if (hasAdminPermission(permissions, "manage-users")) return "/admin/drivers";
   if (hasAdminPermission(permissions, "manage-bookings")) return "/admin/trips";
-  if (hasAdminPermission(permissions, "super-admin"))
-    return "/admin/administrators";
   return "/admin/settings";
 }
 

@@ -128,6 +128,7 @@ function validateBookingInput({
     region, startDate, endDate, quantity,
     bookingMode = 'multi_day', durationHours,
     isSubscriber = false,
+    skipSameDayNotice = false,
     settings = null
 }) {
     assertIsoUtc('startDate', startDate);
@@ -139,14 +140,18 @@ function validateBookingInput({
     const start = new Date(startDate);
     const end   = new Date(endDate);
 
-    if (start < now) throw new Error('Start date must be in future');
+    // Allow a small clock-skew grace for "book now" partner venue pickups.
+    const pastGraceMs = skipSameDayNotice ? 60_000 : 0;
+    if (start.getTime() < now.getTime() - pastGraceMs) {
+        throw new Error('Start date must be in future');
+    }
 
     // Dynamic thresholds — fall back to defaults when settings not passed
     const noticeHours = Number(settings?.sameDayNoticeHours) || 3;
     const minHours    = Number(settings?.minBookingHours)    || 3;
 
-    // Same-day notice rule (non-members only)
-    if (!isSubscriber) {
+    // Same-day notice rule (non-members). Partner venue_access bookings skip this.
+    if (!isSubscriber && !skipSameDayNotice) {
         const noticeMs = noticeHours * 60 * 60 * 1000;
         const earliestPickup = new Date(now.getTime() + noticeMs);
         if (start < earliestPickup) {

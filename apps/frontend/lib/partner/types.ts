@@ -52,6 +52,7 @@ export type PartnerApplicationPayload = {
   address: string;
   city: string;
   state: string;
+  businessLocation: PlaceValue;
   website?: string;
   notes?: string;
 };
@@ -105,6 +106,7 @@ export type PartnerProfile = {
   partnerType: PartnerType;
   bookingMode: "venue_access" | "standard";
   pickupLocation?: PlaceValue | null;
+  businessLocation?: PlaceValue | null;
   address: string;
   city: string;
   state: string;
@@ -114,6 +116,21 @@ export type PartnerProfile = {
   businessName: string;
   website: string;
   notes: string;
+  payoutAccount?: PartnerPayoutAccount;
+};
+
+export type PartnerPayoutAccount = {
+  method: "paypal" | "bank" | null;
+  paypalEmail: string;
+  accountHolderName: string;
+  bankName: string;
+  accountLast4: string;
+  routingLast4: string;
+  status: "not_connected" | "connected";
+  updatedAt?: string | null;
+  pendingPayout?: number;
+  lifetimeEarnings?: number;
+  commissionPct?: number | null;
 };
 
 export type PartnerUpdateRequestStatus = "pending" | "approved" | "rejected";
@@ -133,6 +150,7 @@ export type PartnerUpdateRequest = {
 
 export type PartnerUpdateRequestPayload = Partial<{
   pickupLocation: PlaceValue;
+  businessLocation: PlaceValue;
   address: string;
   city: string;
   state: string;

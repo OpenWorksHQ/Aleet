@@ -25,6 +25,7 @@ import {
 import { toast } from "@/app/components/ui";
 import { PartnerUpdateRequestForm } from "@/app/components/partner/partner-update-request-form";
 import { PartnerUpdateRequestsList } from "@/app/components/partner/partner-update-requests-list";
+import { PartnerPayoutsPanel } from "@/app/components/partner/partner-payouts-panel";
 
 function buildBookingUrl(stats: PartnerDashboardStats): string {
   const base = getSiteUrl();
@@ -114,7 +115,7 @@ export default function PartnerDashboardPage() {
             </p>
             <h1 className="mt-2 font-serif text-3xl text-aleet-text sm:text-4xl">{partnerName}</h1>
             <p className="mt-2 text-sm text-aleet-text-muted">
-              Track referrals, bookings, commission, and request profile updates.
+              Track referrals, bookings, commission, and manage payout details.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -205,17 +206,23 @@ export default function PartnerDashboardPage() {
             </div>
 
             <div className="mt-8 grid gap-6 lg:grid-cols-2">
-              <PartnerUpdateRequestForm
-                profile={profile}
-                hasPendingRequest={hasPendingRequest}
-                onSubmitted={() => void loadAll()}
-              />
-              <section className="rounded-2xl border border-aleet-border bg-aleet-card p-6 shadow-sm">
-                <h2 className="font-serif text-xl text-aleet-text">My update requests</h2>
-                <div className="mt-4">
-                  <PartnerUpdateRequestsList requests={requests} />
-                </div>
-              </section>
+              <PartnerPayoutsPanel stats={stats} />
+              <div className="space-y-6">
+                <PartnerUpdateRequestForm
+                  profile={profile}
+                  hasPendingRequest={hasPendingRequest}
+                  onSubmitted={() => void loadAll()}
+                />
+                <section className="rounded-2xl border border-aleet-border bg-aleet-card p-6 shadow-sm">
+                  <h2 className="font-serif text-xl text-aleet-text">Profile update requests</h2>
+                  <p className="mt-2 text-[13px] text-aleet-text-muted">
+                    Optional — request business or contact changes for admin review.
+                  </p>
+                  <div className="mt-4">
+                    <PartnerUpdateRequestsList requests={requests} />
+                  </div>
+                </section>
+              </div>
             </div>
           </>
         ) : null}

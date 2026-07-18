@@ -4,49 +4,45 @@ export type MembershipPlan = {
   price: number;
   billedQuarterly: number;
   hours: number;
+  memberRate: number;
   features: string[];
   highlight: boolean;
   tag?: string;
   inviteOnly?: boolean;
 };
 
-/** Fallback marketing copy — live rates come from GET /subscriptions/benefits on /subscription. */
-export const MEMBERSHIP_PLANS: MembershipPlan[] = [
-  {
-    key: "standard",
-    name: "Standard Membership",
-    price: 445,
-    billedQuarterly: 1335,
-    hours: 5,
-    features: [
-      "5 prepaid hours per month at $89/hr",
-      "Any vehicle type at the member rate",
-      "Hours pool across the full quarter (15 hrs)",
-      "Overage billed at the same member rate",
-    ],
-    highlight: true,
-    tag: "Most Popular",
-  },
-  {
-    key: "founder30",
-    name: "Founder 30",
-    price: 345,
-    billedQuarterly: 1035,
-    hours: 5,
-    features: [
-      "Invite-only membership at $69/hr",
-      "5 prepaid hours per month (15/quarter)",
-      "Any vehicle type at the Founder rate",
-      "Same booking benefits as Standard",
-    ],
-    highlight: false,
-    tag: "Invite only",
-    inviteOnly: true,
-  },
+/** Single public offering — Founder 30 is invite-only (backend / admin only). */
+export const STANDARD_MEMBERSHIP_PLAN: MembershipPlan = {
+  key: "standard",
+  name: "Standard Membership",
+  price: 449,
+  billedQuarterly: 1347,
+  hours: 5,
+  memberRate: 89,
+  features: [
+    "Lock in $89/hr — save up to $111/hr on premium vehicles",
+    "5 prepaid hours every month (15 hours per quarter)",
+    "Any vehicle type at the same member rate",
+    "Overage stays at your locked member rate",
+  ],
+  highlight: true,
+  tag: "Member Deal",
+};
+
+export const PUBLIC_MEMBERSHIP_PLANS: MembershipPlan[] = [
+  STANDARD_MEMBERSHIP_PLAN,
 ];
+
+/** @deprecated Use PUBLIC_MEMBERSHIP_PLANS */
+export const MEMBERSHIP_PLANS = PUBLIC_MEMBERSHIP_PLANS;
 
 export const MEMBERSHIP_SAVINGS = [
   { vehicle: "Black Truck", regularPrice: 150, memberPrice: 89, savings: 61 },
   { vehicle: "Luxury Sedan", regularPrice: 120, memberPrice: 89, savings: 31 },
-  { vehicle: "Sprinter & Stretch", regularPrice: 200, memberPrice: 89, savings: 111 },
+  {
+    vehicle: "Sprinter & Stretch",
+    regularPrice: 200,
+    memberPrice: 89,
+    savings: 111,
+  },
 ];

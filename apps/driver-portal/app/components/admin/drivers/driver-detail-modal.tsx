@@ -20,6 +20,7 @@ import { StatusBadge, TierBadge } from "./driver-badges";
 import { AdminDriverControls } from "./admin-driver-controls";
 import { PhotoPreview } from "@/app/components/ui/photo-preview";
 import { Upload, X } from "lucide-react";
+import { PhoneLink } from "@/app/components/ui/phone-link";
 
 type Props = {
     driver: Driver;
@@ -448,7 +449,10 @@ export function DriverDetailModal({ driver, onClose, onUpdate }: Props) {
                             <SectionTitle>Contact Information</SectionTitle>
                             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                                 <InfoCell label="Full Name" value={driver.name} />
-                                <InfoCell label="Phone" value={driver.phone} />
+                                <InfoCell
+                                    label="Phone"
+                                    value={<PhoneLink phone={driver.phone} className="font-medium text-gold" />}
+                                />
                                 <InfoCell label="Email" value={driver.email} />
                                 <InfoCell label="Joined" value={driver.joinedAt} />
                             </div>

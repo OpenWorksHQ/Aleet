@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Button, Input, toast } from "@/app/components/ui";
+import { Button, Input, toast, AddressAutocomplete } from "@/app/components/ui";
 import {
   checkPartnerApplicationEmail,
   submitPartnerApplication,
@@ -25,6 +25,8 @@ export function PartnerApplicationForm() {
     ReturnType<typeof getPartnerFieldError>
   >(null);
   const [checkingEmail, setCheckingEmail] = useState(false);
+  const [businessAddress, setBusinessAddress] = useState("");
+  const [businessPlaceId, setBusinessPlaceId] = useState("");
   const emailCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const applyContactEmailError = useCallback((err: unknown) => {
@@ -102,6 +104,13 @@ export function PartnerApplicationForm() {
     const emailOk = await validateContactEmail(email);
     if (!emailOk) return;
 
+    const addressText = businessAddress.trim();
+    if (!addressText || !businessPlaceId.trim()) {
+      setFormError("Select your business location from the Google address suggestions.");
+      toast.error("Select a verified Google address suggestion.");
+      return;
+    }
+
     setIsLoading(true);
     try {
       const websiteRaw = String(form.get("website") ?? "").trim();
@@ -124,9 +133,10 @@ export function PartnerApplicationForm() {
         contactName: String(form.get("contactName") ?? "").trim(),
         contactEmail: email,
         contactPhone: String(form.get("contactPhone") ?? "").trim(),
-        address: String(form.get("address") ?? "").trim(),
+        address: addressText,
         city: String(form.get("city") ?? "").trim(),
         state: String(form.get("state") ?? "").trim(),
+        businessLocation: { text: addressText, placeId: businessPlaceId.trim() },
         website,
         notes: String(form.get("notes") ?? "").trim() || undefined,
       });
@@ -221,7 +231,29 @@ export function PartnerApplicationForm() {
           ) : null}
         </div>
         <Field label="Contact phone" name="contactPhone" type="tel" required />
-        <Field label="Street address" name="address" required />
+        <div>
+          <AddressAutocomplete
+            label="Business location (Google verified)"
+            value={businessAddress}
+            onChange={(value) => {
+              setBusinessAddress(value);
+              setBusinessPlaceId("");
+              setFormError(null);
+            }}
+            onPlaceChange={(place) => {
+              setBusinessAddress(place.text);
+              setBusinessPlaceId(place.placeId);
+              setFormError(null);
+            }}
+            placeholder="Start typing your street address…"
+          />
+          <p className="mt-1.5 text-[12px] text-aleet-text-subtle">
+            Pick a suggestion so distance and mileage calculations use a verified place ID.
+          </p>
+          {businessAddress && !businessPlaceId ? (
+            <p className="mt-1 text-[12px] text-amber-700">Select an address from the list.</p>
+          ) : null}
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <Field label="City" name="city" required />
           <Field label="State" name="state" required />

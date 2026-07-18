@@ -15,6 +15,7 @@ import {
     redispatchBooking,
     unassignDriverFromBooking,
 } from "@/lib/admin-api";
+import { PhoneLink } from "@/app/components/ui/phone-link";
 
 const LIMIT = 10;
 
@@ -503,13 +504,20 @@ export function TripsList({ initialBookings, initialPagination }: Props) {
                                                 <p className="text-xs text-muted">Customer</p>
                                                 <p className="text-sm text-text">{booking.user?.name ?? "—"}</p>
                                                 <p className="text-xs text-muted">{booking.user?.email}</p>
-                                                <p className="text-xs text-muted">{booking.user?.phone}</p>
+                                                <p className="text-xs text-muted">
+                                                    <PhoneLink phone={booking.user?.phone} className="text-muted hover:text-gold" />
+                                                </p>
                                             </div>
                                             <div>
                                                 <p className="text-xs text-muted">Driver</p>
                                                 <p className={cn("text-sm", booking.assignedDriver ? "text-text" : "text-muted")}>
                                                     {booking.assignedDriver ? booking.assignedDriver.name : "Not assigned"}
                                                 </p>
+                                                {booking.assignedDriver?.phone ? (
+                                                    <p className="text-xs text-muted">
+                                                        <PhoneLink phone={booking.assignedDriver.phone} className="text-muted hover:text-gold" />
+                                                    </p>
+                                                ) : null}
                                             </div>
                                             <div>
                                                 <p className="text-xs text-muted">Price</p>

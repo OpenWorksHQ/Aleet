@@ -1,6 +1,15 @@
 import Link from "next/link";
+import {
+  CONTACT_EMAIL,
+  INSTAGRAM_LABEL,
+  INSTAGRAM_URL,
+  contactPhoneTelHref,
+  formatContactPhone,
+} from "@/lib/site-contact";
 
 export function SiteFooter() {
+  const phoneDisplay = formatContactPhone();
+
   return (
     <footer className="border-t border-aleet-border-strong bg-aleet-footer px-5 py-8 sm:px-8 lg:px-12 xl:px-16">
       <div className="mx-auto grid w-full max-w-[1440px] grid-cols-1 gap-8 lg:grid-cols-[1.15fr_1fr_1fr] lg:items-center lg:gap-0">
@@ -19,18 +28,28 @@ export function SiteFooter() {
 
         <div className="flex flex-col gap-4 border-t border-aleet-border-strong pt-8 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-8 sm:gap-y-3 lg:border-t-0 lg:border-l lg:px-10 lg:pt-0">
           <a
-            href="tel:18003052535"
+            href={contactPhoneTelHref()}
             className="inline-flex items-center gap-2.5 text-[13px] text-aleet-text-muted no-underline transition-colors hover:text-aleet-text"
           >
             <PhoneIcon />
-            1 (800) 305-2535
+            {phoneDisplay}
           </a>
           <a
-            href="mailto:support@aleetluxury.com"
+            href={`mailto:${CONTACT_EMAIL}`}
             className="inline-flex items-center gap-2.5 text-[13px] text-aleet-text-muted no-underline transition-colors hover:text-aleet-text"
           >
             <MailIcon />
-            support@aleetluxury.com
+            {CONTACT_EMAIL}
+          </a>
+          <a
+            href={INSTAGRAM_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Follow Aleet on Instagram"
+            className="inline-flex items-center gap-2.5 text-[13px] text-aleet-text-muted no-underline transition-colors hover:text-aleet-text"
+          >
+            <InstagramIcon />
+            {INSTAGRAM_LABEL}
           </a>
         </div>
 
@@ -87,6 +106,16 @@ function MailIcon() {
     <svg viewBox="0 0 24 24" fill="none" stroke="#c5a386" strokeWidth="1.5" className="h-4 w-4 shrink-0">
       <rect x="3" y="5" width="18" height="14" rx="2" />
       <path d="m3 7 9 6 9-6" />
+    </svg>
+  );
+}
+
+function InstagramIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="#c5a386" strokeWidth="1.5" className="h-4 w-4 shrink-0">
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="0.75" fill="#c5a386" stroke="none" />
     </svg>
   );
 }

@@ -10,6 +10,7 @@ import type {
   PartnerAuthSession,
   PartnerContext,
   PartnerDashboardStats,
+  PartnerPayoutAccount,
   PartnerProfile,
   PartnerUpdateRequest,
   PartnerUpdateRequestPayload,
@@ -244,6 +245,26 @@ export async function getPartnerDashboardMe() {
 
 export async function getPartnerProfileMe() {
   return partnerApiFetch<PartnerProfile>("/partners/me/profile", { method: "GET" });
+}
+
+export async function getPartnerPayoutMe() {
+  return partnerApiFetch<PartnerPayoutAccount>("/partners/me/payout", {
+    method: "GET",
+  });
+}
+
+export async function savePartnerPayoutMe(payload: {
+  method: "paypal" | "bank";
+  paypalEmail?: string;
+  accountHolderName?: string;
+  bankName?: string;
+  accountLast4?: string;
+  routingLast4?: string;
+}) {
+  return partnerApiFetch<PartnerPayoutAccount>("/partners/me/payout", {
+    method: "PUT",
+    body: payload,
+  });
 }
 
 export async function listPartnerUpdateRequestsMe() {
