@@ -21,6 +21,7 @@ export type DashboardTrip = {
   dropoffLocation: string | null;
   freeRouting?: boolean;
   stops?: DashboardTripStop[];
+  expectedPickupBy?: string | null;
   vehicleType: { id?: string; name: string; hourlyPrice?: number } | null;
   driver: DashboardTripDriver | null;
   quantity?: number;

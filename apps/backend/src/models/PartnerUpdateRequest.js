@@ -25,6 +25,7 @@ const partnerUpdateRequestSchema = new mongoose.Schema({
   },
   proposedChanges: {
     pickupLocation: { type: placeSchema, default: undefined },
+    businessLocation: { type: placeSchema, default: undefined },
     address: { type: String },
     city: { type: String },
     state: { type: String },

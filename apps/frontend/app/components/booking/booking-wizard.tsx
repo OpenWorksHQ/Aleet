@@ -22,6 +22,7 @@ import { loadPartnerContext } from "@/lib/partner/attribution";
 import { useSameDayAvailability } from "@/lib/use-same-day-availability";
 import { SameDayNotice } from "./same-day-notice";
 import { PartnerContextBanner } from "@/app/components/partner/partner-context-banner";
+import { BookingConfirmationPanel } from "./booking-confirmation-panel";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -370,17 +371,21 @@ export function BookingWizard({ onStepChange, renderIndicator }: { onStepChange?
         }
     }
 
+    if (paymentComplete && pendingBookingId) {
+        return (
+            <BookingConfirmationPanel
+                bookingId={pendingBookingId}
+                isPartnerVenue={data.bookingMode === "venue_access" || quickBookingMode === "venue_access"}
+            />
+        );
+    }
+
     if (paymentComplete) {
         return (
             <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
-                <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full border border-aleet-gold/30 bg-aleet-gold/10 text-aleet-gold">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-8 w-8">
-                        <path d="m5 13 4 4L19 7" />
-                    </svg>
-                </div>
                 <h2 className="mb-2 font-serif text-[24px] font-medium text-aleet-text">Payment Complete</h2>
                 <p className="max-w-sm text-[14px] text-aleet-text-muted">
-                    Your trip is confirmed and paid. You&apos;ll get a confirmation email shortly.
+                    Your trip is confirmed and paid.
                 </p>
                 <Link
                     href="/dashboard"

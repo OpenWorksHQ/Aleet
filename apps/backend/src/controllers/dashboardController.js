@@ -208,6 +208,7 @@ const getTripHistory = asyncHandler(async (req, res) => {
       dropoffLocation: booking.dropoffLocation,
       freeRouting: !!booking.freeRouting,
       stops: mapGuestTripStops(booking),
+      expectedPickupBy: booking.expectedPickupBy ?? null,
       vehicleType: {
         id: booking.vehicleType?._id,
         name: booking.vehicleType?.name,
@@ -272,6 +273,7 @@ const getUpcomingTrips = asyncHandler(async (req, res) => {
       dropoffLocation: booking.dropoffLocation,
       freeRouting: !!booking.freeRouting,
       stops: mapGuestTripStops(booking),
+      expectedPickupBy: booking.expectedPickupBy ?? null,
       vehicleType: {
         id: booking.vehicleType?._id,
         name: booking.vehicleType?.name,
@@ -333,6 +335,7 @@ const getActiveTrips = asyncHandler(async (req, res) => {
         dropoffLocation: booking.dropoffLocation,
         freeRouting: !!booking.freeRouting,
         stops: mapGuestTripStops(booking),
+        expectedPickupBy: booking.expectedPickupBy ?? null,
         vehicleType: {
           id: booking.vehicleType?._id,
           name: booking.vehicleType?.name,

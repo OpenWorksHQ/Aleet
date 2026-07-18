@@ -121,9 +121,29 @@ function mapTrip(trip: DashboardTrip, tab: TripTab): TripCardData {
             trip.timeRemaining != null
                 ? `About ${Math.round(trip.timeRemaining)} min remaining`
                 : "Trip is in progress";
+        if (trip.expectedPickupBy) {
+            const eta = new Date(trip.expectedPickupBy);
+            if (!Number.isNaN(eta.getTime()) && eta.getTime() > Date.now()) {
+                meta = `Driver expected by ${eta.toLocaleTimeString("en-US", {
+                    hour: "numeric",
+                    minute: "2-digit",
+                })} (~30 min max)`;
+            }
+        }
     } else if (tab === "upcoming") {
         const days = daysUntil(trip.startDate);
-        if (days == null) meta = "Upcoming trip";
+        if (trip.expectedPickupBy) {
+            const eta = new Date(trip.expectedPickupBy);
+            if (!Number.isNaN(eta.getTime())) {
+                meta = `Driver expected by ${eta.toLocaleTimeString("en-US", {
+                    hour: "numeric",
+                    minute: "2-digit",
+                })} (~30 min max)`;
+            } else if (days == null) meta = "Upcoming trip";
+            else if (days <= 0) meta = "Trip starts today";
+            else if (days === 1) meta = "Trip starts in 1 day";
+            else meta = `Trip starts in ${days} days`;
+        } else if (days == null) meta = "Upcoming trip";
         else if (days <= 0) meta = "Trip starts today";
         else if (days === 1) meta = "Trip starts in 1 day";
         else meta = `Trip starts in ${days} days`;

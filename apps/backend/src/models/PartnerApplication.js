@@ -1,5 +1,10 @@
 const mongoose = require('mongoose');
 
+const placeSchema = new mongoose.Schema({
+  text: { type: String, default: '' },
+  placeId: { type: String, default: '' },
+}, { _id: false });
+
 const partnerApplicationSchema = new mongoose.Schema({
   businessName: { type: String, required: true, trim: true },
   businessType: { type: String, required: true, trim: true },
@@ -9,6 +14,8 @@ const partnerApplicationSchema = new mongoose.Schema({
   address: { type: String, required: true, trim: true },
   city: { type: String, required: true, trim: true },
   state: { type: String, required: true, trim: true },
+  /** Verified Google Places selection (required for accurate mileage). */
+  businessLocation: { type: placeSchema, default: null },
   website: { type: String, default: null, trim: true },
   notes: { type: String, default: null, trim: true },
   status: {

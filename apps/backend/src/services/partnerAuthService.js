@@ -17,7 +17,7 @@ class PartnerAuthError extends Error {
   }
 }
 
-const INVITE_EXPIRY_MS = 72 * 60 * 60 * 1000;
+const INVITE_EXPIRY_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 const RESET_EXPIRY_MS = 30 * 60 * 1000;
 
 function normalizeEmail(email) {
@@ -99,6 +99,65 @@ function syncPartnerUserFields(user, partner) {
   user.active = true;
   user.partnerProfile = user.partnerProfile || {};
   user.partnerProfile.partnerId = partner._id;
+}
+
+/**
+ * Keep portal User.email/name in sync when Partner contact fields change
+ * (admin edit or approved update request). Prevents login/forgot against
+ * stale emails after contactEmail is updated on the Partner doc only.
+ */
+async function syncPartnerPortalUserFromPartner(partnerDoc) {
+  const partner = partnerDoc?.toObject ? partnerDoc.toObject() : partnerDoc;
+  if (!partner?._id) return null;
+
+  const email = normalizeEmail(partner.contactEmail);
+  const user = await User.findOne({
+    role: 'partner',
+    'partnerProfile.partnerId': partner._id,
+  });
+  if (!user) return null;
+
+  syncPartnerUserFields(user, partner);
+  if (email) user.email = email;
+
+  try {
+    await user.save();
+  } catch (err) {
+    wrapMongoError(err);
+  }
+  return user;
+}
+
+/**
+ * Resolve portal user by email, with fallback via Partner.contactEmail
+ * when Partner doc and User.email have drifted.
+ */
+async function findPartnerPortalUserByLoginEmail(email) {
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) return null;
+
+  let user = await User.findOne({ email: normalizedEmail, role: 'partner' });
+  if (user) return user;
+
+  const partner = await Partner.findOne({ contactEmail: normalizedEmail });
+  if (!partner) return null;
+
+  user = await User.findOne({
+    role: 'partner',
+    'partnerProfile.partnerId': partner._id,
+  });
+  if (!user) return null;
+
+  // Heal drift so future login / forgot hits User.email directly.
+  if (normalizeEmail(user.email) !== normalizedEmail) {
+    user.email = normalizedEmail;
+    try {
+      await user.save();
+    } catch (err) {
+      wrapMongoError(err);
+    }
+  }
+  return user;
 }
 
 async function createPartnerUserFromPartner(partnerDoc, { sendInvite = true } = {}) {
@@ -269,14 +328,14 @@ async function loginPartner({ email, password }) {
     throw new PartnerAuthError('Email and password are required', 400);
   }
 
-  const user = await User.findOne({ email: normalizedEmail, role: 'partner' });
+  const user = await findPartnerPortalUserByLoginEmail(normalizedEmail);
   if (!user || !user.active) {
     throw new PartnerAuthError('Invalid email or password', 401);
   }
 
   if (user.partnerProfile?.accountStatus !== 'active' || !user.password) {
     throw new PartnerAuthError(
-      'Your portal account is not activated yet. Check your email for the invite link.',
+      'Your portal account is not activated yet. Use Forgot password on the partner sign-in page to get a new activation link.',
       403,
     );
   }
@@ -303,9 +362,23 @@ async function loginPartner({ email, password }) {
 
 async function forgotPartnerPassword({ email }) {
   const normalizedEmail = normalizeEmail(email);
-  const user = await User.findOne({ email: normalizedEmail, role: 'partner' });
+  const user = await findPartnerPortalUserByLoginEmail(normalizedEmail);
 
-  if (user && user.partnerProfile?.accountStatus === 'active') {
+  if (user) {
+    // Never activated / invite expired — re-send set-password invite (not a no-op).
+    if (user.partnerProfile?.accountStatus !== 'active' || !user.password) {
+      try {
+        await issuePartnerInvite(user);
+        return {
+          message:
+            'If this email exists, a new activation link has been sent. Check your inbox to set your password.',
+        };
+      } catch (err) {
+        if (err instanceof PartnerAuthError) throw err;
+        throw new PartnerAuthError('Could not send activation email. Try again later.', 502);
+      }
+    }
+
     const rawToken = crypto.randomBytes(32).toString('hex');
     user.resetPasswordToken = hashToken(rawToken);
     user.resetPasswordExpires = new Date(Date.now() + RESET_EXPIRY_MS);
@@ -388,5 +461,6 @@ module.exports = {
   resetPartnerPassword,
   getPartnerAuthMe,
   getPartnerUserByPartnerId,
+  syncPartnerPortalUserFromPartner,
   parseMongoDuplicateKeyError,
 };

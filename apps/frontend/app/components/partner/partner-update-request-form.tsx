@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { normalizeWebsiteUrl } from "@/lib/normalize-website";
 import { checkPartnerContactEmailForUpdate, submitPartnerUpdateRequestMe } from "@/lib/api/partners";
 import { ApiError } from "@/lib/api";
-import { toast } from "@/app/components/ui";
+import { toast, AddressAutocomplete } from "@/app/components/ui";
 import type { PartnerProfile, PartnerUpdateRequestPayload } from "@/lib/partner/types";
 import { partnerAuthInputClass } from "@/app/components/partner/partner-auth-card";
 import {
@@ -20,7 +20,9 @@ type Props = {
 
 export function PartnerUpdateRequestForm({ profile, hasPendingRequest, onSubmitted }: Props) {
   const [pickupText, setPickupText] = useState(profile.pickupLocation?.text ?? "");
+  const [pickupPlaceId, setPickupPlaceId] = useState(profile.pickupLocation?.placeId ?? "");
   const [address, setAddress] = useState(profile.address ?? "");
+  const [businessPlaceId, setBusinessPlaceId] = useState(profile.businessLocation?.placeId ?? "");
   const [city, setCity] = useState(profile.city ?? "");
   const [state, setState] = useState(profile.state ?? "");
   const [contactName, setContactName] = useState(profile.contactName ?? "");
@@ -130,10 +132,29 @@ export function PartnerUpdateRequestForm({ profile, hasPendingRequest, onSubmitt
 
     const payload: PartnerUpdateRequestPayload = {};
     const currentPickup = profile.pickupLocation?.text ?? "";
-    if (pickupText.trim() !== currentPickup) {
-      payload.pickupLocation = { text: pickupText.trim(), placeId: profile.pickupLocation?.placeId ?? "" };
+    if (
+      pickupText.trim() !== currentPickup ||
+      pickupPlaceId.trim() !== (profile.pickupLocation?.placeId ?? "")
+    ) {
+      if (pickupText.trim() && !pickupPlaceId.trim()) {
+        setError("Select a verified Google address for the pickup location.");
+        setLoading(false);
+        return;
+      }
+      payload.pickupLocation = { text: pickupText.trim(), placeId: pickupPlaceId.trim() };
     }
-    if (address.trim() !== (profile.address ?? "")) payload.address = address.trim();
+    if (
+      address.trim() !== (profile.address ?? "") ||
+      businessPlaceId.trim() !== (profile.businessLocation?.placeId ?? "")
+    ) {
+      if (address.trim() && !businessPlaceId.trim()) {
+        setError("Select a verified Google address for the business location.");
+        setLoading(false);
+        return;
+      }
+      payload.address = address.trim();
+      payload.businessLocation = { text: address.trim(), placeId: businessPlaceId.trim() };
+    }
     if (city.trim() !== (profile.city ?? "")) payload.city = city.trim();
     if (state.trim() !== (profile.state ?? "")) payload.state = state.trim();
     if (contactName.trim() !== (profile.contactName ?? "")) payload.contactName = contactName.trim();
@@ -178,12 +199,36 @@ export function PartnerUpdateRequestForm({ profile, hasPendingRequest, onSubmitt
         </p>
       ) : null}
       <form onSubmit={handleSubmit} className="mt-5 grid gap-4 sm:grid-cols-2">
-        <Field label="Venue / pickup location" className="sm:col-span-2">
-          <input value={pickupText} onChange={(e) => setPickupText(e.target.value)} className={partnerAuthInputClass} />
-        </Field>
-        <Field label="Street address">
-          <input value={address} onChange={(e) => setAddress(e.target.value)} className={partnerAuthInputClass} />
-        </Field>
+        <div className="sm:col-span-2">
+          <AddressAutocomplete
+            label="Venue / pickup location"
+            value={pickupText}
+            onChange={(value) => {
+              setPickupText(value);
+              setPickupPlaceId("");
+            }}
+            onPlaceChange={(place) => {
+              setPickupText(place.text);
+              setPickupPlaceId(place.placeId);
+            }}
+            placeholder="Search Google address…"
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <AddressAutocomplete
+            label="Business street address"
+            value={address}
+            onChange={(value) => {
+              setAddress(value);
+              setBusinessPlaceId("");
+            }}
+            onPlaceChange={(place) => {
+              setAddress(place.text);
+              setBusinessPlaceId(place.placeId);
+            }}
+            placeholder="Search Google address…"
+          />
+        </div>
         <Field label="City">
           <input value={city} onChange={(e) => setCity(e.target.value)} className={partnerAuthInputClass} />
         </Field>
