@@ -8,6 +8,7 @@ import { createSetupIntent } from "@/lib/api/payments";
 import { getToken } from "@/lib/auth";
 import { ApiError } from "@/lib/api";
 import { Button } from "@/app/components/ui";
+import type { Stripe } from "@stripe/stripe-js";
 
 type InnerProps = {
   onSuccess: () => void;
@@ -19,6 +20,7 @@ function SetupForm({ onSuccess, onCancel }: InnerProps) {
   const elements = useElements();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [elementReady, setElementReady] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,10 +46,27 @@ function SetupForm({ onSuccess, onCancel }: InnerProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <PaymentElement options={{ layout: "tabs" }} />
+      {!elementReady && (
+        <div className="flex items-center gap-2 py-4 text-aleet-text-muted">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="text-sm">Loading card fields…</span>
+        </div>
+      )}
+      <div className={elementReady ? "block" : "min-h-[1px]"}>
+        <PaymentElement
+          options={{ layout: "tabs" }}
+          onReady={() => setElementReady(true)}
+          onLoadError={(event) => {
+            setError(
+              event.error?.message ??
+                "Stripe card form failed to load. Check that NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY matches the backend secret key account.",
+            );
+          }}
+        />
+      </div>
       {error && <p className="text-sm text-red-400">{error}</p>}
       <div className="flex flex-wrap gap-3">
-        <Button type="submit" disabled={!stripe || busy}>
+        <Button type="submit" disabled={!stripe || !elementReady || busy}>
           {busy ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -78,9 +97,36 @@ type Props = {
 
 export function AddCardForm({ onSuccess, onCancel }: Props) {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [stripe, setStripe] = useState<Stripe | null | undefined>(undefined);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
+    const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+    if (!publishableKey) {
+      setLoadError(
+        "Stripe is not configured on this site (missing NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY). Add the client test publishable key in Vercel and redeploy.",
+      );
+      setStripe(null);
+      return;
+    }
+
+    getStripe()
+      .then((instance) => {
+        if (!instance) {
+          setLoadError("Failed to initialize Stripe.js. Check the publishable key on Vercel.");
+          setStripe(null);
+          return;
+        }
+        setStripe(instance);
+      })
+      .catch(() => {
+        setLoadError("Failed to load Stripe.js");
+        setStripe(null);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (loadError) return;
     const token = getToken() ?? undefined;
     createSetupIntent(token)
       .then((res) => {
@@ -90,13 +136,13 @@ export function AddCardForm({ onSuccess, onCancel }: Props) {
       .catch((err) => {
         setLoadError(err instanceof ApiError ? err.message : "Could not start card setup");
       });
-  }, []);
+  }, [loadError]);
 
   if (loadError) {
     return <p className="text-sm text-red-400">{loadError}</p>;
   }
 
-  if (!clientSecret) {
+  if (!clientSecret || stripe === undefined) {
     return (
       <div className="flex items-center gap-2 py-6 text-aleet-text-muted">
         <Loader2 className="h-4 w-4 animate-spin" />
@@ -105,9 +151,17 @@ export function AddCardForm({ onSuccess, onCancel }: Props) {
     );
   }
 
+  if (!stripe) {
+    return (
+      <p className="text-sm text-red-400">
+        Stripe could not start. Confirm NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is set on Vercel.
+      </p>
+    );
+  }
+
   return (
     <Elements
-      stripe={getStripe()}
+      stripe={stripe}
       options={{
         clientSecret,
         appearance: {

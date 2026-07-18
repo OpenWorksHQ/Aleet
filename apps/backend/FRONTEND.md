@@ -13,6 +13,20 @@
 
 ---
 
+## Ready-Made Test Accounts (Stripe Test Mode)
+
+Use these for local/staging QA — each already has a saved Stripe test card attached:
+
+| Account | Email | Password | Plan |
+|---|---|---|---|
+| Founder 30 | `test.founder30@aleet.app` | `AleetTest123!` | `founder30`, 15 hrs/quarter balance |
+| Standard Member | `test.standard@aleet.app` | `AleetTest123!` | `standard`, 15 hrs/quarter balance |
+| Regular Guest | `test.regular@aleet.app` | `AleetTest123!` | none (pay-per-ride) |
+
+Login via `POST /api/auth/login` with `{ "identifier": "<email>", "password": "AleetTest123!" }`.
+
+---
+
 ## Authentication
 
 Every protected endpoint requires a **Bearer token** in the `Authorization` header.
@@ -159,7 +173,9 @@ The booking flow is: Preview → Start → Pay → Confirm (driver assigned)
 **Auth:** Customer JWT  
 **Purpose:** Calculate the price before creating a booking. Useful for the booking form price breakdown. Does not persist anything.
 
-**Important:** The `bookingFee` ($34 by default) is now included in `regularPrice` and `subscriptionPrice`.
+**Important:** The `bookingFee` ($34 by default) is now included in `regularPrice` and `subscriptionPrice`. On the Stripe checkout page itself (see `POST /api/payments/checkout-session` below) it is shown as its **own small line item**, like a tax/service fee — not folded silently into the fare.
+
+**3-hour minimum is BILLED, not rejected (non-members only):** If a non-member selects fewer than `minBookingHours` (default 3), the preview no longer throws a validation error — it silently bills the minimum instead. Show the guest a note like *"3-hour minimum applies"* when `breakdown.minimumHoursApplied` is `true`. Members are exempt (no minimum at all).
 
 **Request Body:**
 ```typescript
@@ -190,14 +206,17 @@ The booking flow is: Preview → Start → Pay → Confirm (driver assigned)
     "baseRate": 120,
     "memberRate": 89,
     "hours": 3,
+    "billedHours": 3,
+    "minimumHoursApplied": false,
+    "minimumHoursNote": null,
     "qty": 1,
     "bookingFee": 34,
     "addOnsCost": 0,
     "isLateNight": false,
     "lateNightHours": 0,
     "lateNightNote": null,
-    "freeHoursUsed": 0,
-    "freeHoursLeft": 5,
+    "freeHoursUsed": 3,
+    "freeHoursLeft": 12,
     "distance": {
       "baseToPickupMiles": 12.5,
       "freeMiles": 20,
@@ -207,6 +226,26 @@ The booking flow is: Preview → Start → Pay → Confirm (driver assigned)
   }
 }
 ```
+
+> `freeHoursUsed` / `freeHoursLeft` are computed against the member's **quarterly** 15-hour
+> pool (5 hrs/mo × 3), not a single month's 5-hour slice — hours carry across the whole
+> billing cycle. A member can use 0 hrs in month 1 and 12 hrs in month 2 with zero overage.
+
+**Non-member, under-minimum example** (guest selects only 1 hour; `minBookingHours` = 3):
+```json
+{
+  "hours": 1,
+  "regularPrice": 394,
+  "breakdown": {
+    "hours": 1,
+    "billedHours": 3,
+    "minimumHoursApplied": true,
+    "minimumHoursNote": "Selected 1h is below the 3h minimum — billed at the 3h minimum rate."
+  }
+}
+```
+> Show `minimumHoursNote` to the guest so they understand why the price reflects 3 hours
+> even though they selected 1. This request no longer returns a 400 error.
 
 **Late-night example** (member books 10PM–2AM):
 ```json
@@ -219,6 +258,10 @@ The booking flow is: Preview → Start → Pay → Confirm (driver assigned)
   }
 }
 ```
+> Only the portion of the trip that falls between `lateNightStart` and `lateNightEnd`
+> (default 12:00 AM–9:00 AM) switches to the standard vehicle rate — the rest of the trip
+> stays at the member's locked rate ($89/hr standard, $69/hr Founder 30). This matches the
+> client's clarification exactly (a 1AM trip only has its midnight–9AM hours affected).
 
 ---
 
@@ -279,6 +322,11 @@ type Stop = {
 
 **Auth:** Customer JWT  
 **Purpose:** Create a Stripe-hosted checkout session (redirect to Stripe page). The card used is automatically saved for future bookings.
+
+**Booking fee display:** The Stripe checkout page shows **two line items** — the ride fare
+(minus the booking fee) and a separate small **"Booking Fee"** line (e.g. $34), just like a
+tax or service fee. Nothing changes in the request/response shape below; this is purely
+what the guest sees on Stripe's hosted page and on their email receipt.
 
 **Request Body:**
 ```typescript
@@ -724,6 +772,85 @@ if (!error) {
 ```
 
 ---
+
+---
+
+# SECTION 5b — Driver Payouts & Company Revenue (Admin)
+
+All driver payout math (whether triggered from `acceptBooking`, `confirmBooking`, the driver
+payout endpoints, or the dashboard) now runs through one shared formula in
+`services/payoutUtils.js`, driven entirely by `TierSettings.tiers[tier]`:
+
+```
+driverPayout = (finalPrice × payoutRate) + (bookingFee, only if tier.keepsBookingFee) − tier.vehicleCostDeduction
+companyRevenue = finalPrice − driverPayout − tier.companyCostAbsorption
+```
+
+`vehicleCostDeduction` (e.g. −$50 for S-Level) is charged TO the driver — it reduces their
+payout. `companyCostAbsorption` (e.g. −$100 for S-Level) is a cost the COMPANY eats — it does
+not touch the driver's payout, but it does reduce company net revenue.
+
+### `GET /api/admin/finance/bookings/:id/payout-breakdown`
+
+**Auth:** Admin JWT + `view-reports`  
+**Purpose:** Full line-item payout math for one booking — useful for an admin-facing
+"payout details" drawer.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "bookingId": "...",
+    "driver": { "id": "...", "name": "John Driver", "tier": "S-Level" },
+    "tier": "S-Level",
+    "finalPrice": 500,
+    "payoutRate": 0.30,
+    "keepsBookingFee": false,
+    "bookingFee": 34,
+    "earningsFromFare": 150,
+    "earningsFromFee": 0,
+    "vehicleCostDeduction": 50,
+    "companyCostAbsorption": 100,
+    "driverPayout": 100,
+    "companyRevenue": 300
+  }
+}
+```
+
+---
+
+### `GET /api/admin/finance/revenue`
+
+**Auth:** Admin JWT + `view-reports`  
+**Query params (all optional):** `startDate`, `endDate` (ISO dates, filtered on trip start),
+`status` (default `"Completed"`)  
+**Purpose:** Company-wide (or date-ranged) revenue report — for an Admin → Finance dashboard.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "range": { "startDate": null, "endDate": null, "status": "Completed" },
+    "totalTrips": 128,
+    "totalRevenue": 42500.00,
+    "totalBookingFees": 4352.00,
+    "totalDriverPayouts": 15800.00,
+    "totalCompanyCostAbsorption": 1200.00,
+    "totalTips": 980.00,
+    "companyNetRevenue": 25500.00,
+    "byTier": {
+      "S-Level": { "trips": 40, "revenue": 12000, "driverPayouts": 3200, "companyRevenue": 4800 },
+      "Pro":     { "trips": 60, "revenue": 20000, "driverPayouts": 9600, "companyRevenue": 10400 },
+      "Diamond": { "trips": 20, "revenue": 8500,  "driverPayouts": 2900, "companyRevenue": 5600 },
+      "Unassigned": { "trips": 8, "revenue": 2000, "driverPayouts": 0, "companyRevenue": 2000 }
+    }
+  }
+}
+```
+
+`companyNetRevenue = totalRevenue − totalDriverPayouts − totalCompanyCostAbsorption`
 
 ---
 
