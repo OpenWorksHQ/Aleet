@@ -56,6 +56,7 @@ const submitApplication = asyncHandler(async (req, res) => {
     address,
     city,
     state,
+    businessLocation,
     website,
     notes,
   } = req.body || {};
@@ -77,6 +78,14 @@ const submitApplication = asyncHandler(async (req, res) => {
         [field]: { code: 'required' },
       });
     }
+  }
+
+  const placeText = String(businessLocation?.text || address || '').trim();
+  const placeId = String(businessLocation?.placeId || '').trim();
+  if (!placeText || !placeId) {
+    return sendValidationError(res, 'Select a verified Google business address from the suggestions.', {
+      businessLocation: { code: 'place_required' },
+    });
   }
 
   const emailCheck = await validatePartnerContactEmail(contactEmail);
@@ -105,6 +114,7 @@ const submitApplication = asyncHandler(async (req, res) => {
     address: String(address).trim(),
     city: String(city).trim(),
     state: String(state).trim(),
+    businessLocation: { text: placeText, placeId },
     website: normalizedWebsite,
     notes: notes ? String(notes).trim() : null,
   });
@@ -119,6 +129,7 @@ const submitApplication = asyncHandler(async (req, res) => {
     address: application.address,
     city: application.city,
     state: application.state,
+    businessLocation: application.businessLocation,
     website: application.website,
     notes: application.notes,
     status: application.status,

@@ -224,11 +224,15 @@ const previewBooking = asyncHandler(async (req, res) => {
 
         const isSubscriber = user.subscriptionStatus === 'subscriber';
 
+        const partnerDoc = await resolveBookingPartner(req.body);
+        const skipSameDayNotice = partnerDoc?.bookingMode === 'venue_access';
+
         const { bookingHours } = validateBookingInput({
             region, startDate: effectiveStartDate, endDate: effectiveEndDate,
             quantity, bookingMode: resolvedBookingMode,
             durationHours: effectiveDurationHours,
             isSubscriber,
+            skipSameDayNotice,
             settings: tierSettings
         });
 
@@ -266,7 +270,6 @@ const previewBooking = asyncHandler(async (req, res) => {
         const subTotal = Number((subscriberPrice + distanceSurcharge).toFixed(2));
         const total    = isSubscriber ? subTotal : regTotal;
 
-        const partnerDoc = await resolveBookingPartner(req.body);
         let partnerSnapshot = null;
         let finalTotal = total;
         if (partnerDoc) {
@@ -340,11 +343,15 @@ const startBooking = asyncHandler(async (req, res) => {
 
         const isSubscriber = user.subscriptionStatus === 'subscriber';
 
+        const partnerDoc = await resolveBookingPartner(req.body);
+        const skipSameDayNotice = partnerDoc?.bookingMode === 'venue_access';
+
         const { bookingHours } = validateBookingInput({
             region, startDate: effectiveStartDate, endDate: effectiveEndDate,
             quantity, bookingMode: resolvedBookingMode,
             durationHours: effectiveDurationHours,
             isSubscriber,
+            skipSameDayNotice,
             settings: tierSettings
         });
 
@@ -437,7 +444,6 @@ const startBooking = asyncHandler(async (req, res) => {
         const baseFinalPrice     = isSubscriber ? adjustedSubscriber : adjustedRegular;
         const savings            = isSubscriber ? Number((adjustedRegular - adjustedSubscriber).toFixed(2)) : 0;
 
-        const partnerDoc = await resolveBookingPartner(req.body);
         let partnerSnapshot = null;
         let finalPrice = baseFinalPrice;
         if (partnerDoc) {
@@ -474,6 +480,9 @@ const startBooking = asyncHandler(async (req, res) => {
             bookingFee: breakdown?.bookingFee ?? tierSettings?.bookingFee ?? 34,
             minimumHoursApplied: !!breakdown?.minimumHoursApplied,
             partner: partnerSnapshot || undefined,
+            expectedPickupBy: partnerDoc?.bookingMode === 'venue_access'
+              ? new Date(Date.now() + 30 * 60 * 1000)
+              : null,
             status: 'Pending',
             routeValidation: routeValidation || undefined,
             adminOverride: _adminOverride,

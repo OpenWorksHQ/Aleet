@@ -8,14 +8,18 @@ import type { PendingBooking } from "@/lib/pending-booking";
 import type { PartnerContext } from "./types";
 import { applyRouteDurationToBookingTimes } from "./route-estimate";
 
-function findNearestValidPickupTime(date: Date, isMember = false): string {
+function findNearestValidPickupTime(
+  date: Date,
+  isMember = false,
+  skipNotice = false,
+): string {
   const hours = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0"));
   const minutes = ["00", "15", "30", "45"];
   for (const period of ["AM", "PM"] as const) {
     for (const hour of hours) {
       for (const minute of minutes) {
         const time = `${hour}:${minute} ${period}`;
-        if (!isPickupTimeDisabled(date, slotFromTimeStr(time), isMember)) {
+        if (!isPickupTimeDisabled(date, slotFromTimeStr(time), isMember, { skipNotice })) {
           return time;
         }
       }
@@ -29,7 +33,8 @@ export function buildVenueAccessPendingBooking(
   overrides?: Partial<PendingBooking>,
 ): Omit<PendingBooking, "_savedAt"> {
   const pickupDate = today();
-  const pickupTime = findNearestValidPickupTime(pickupDate, false);
+  // Partner venue: waive 3h notice — earliest open slot from now.
+  const pickupTime = findNearestValidPickupTime(pickupDate, false, true);
 
   return {
     pickupDate: pickupDate.toISOString(),

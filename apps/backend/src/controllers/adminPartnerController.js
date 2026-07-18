@@ -24,6 +24,7 @@ const {
   createPartnerUserFromPartner,
   resendPartnerPortalInvite,
   getPartnerUserByPartnerId,
+  syncPartnerPortalUserFromPartner,
   PartnerAuthError,
   parseMongoDuplicateKeyError,
 } = require('../services/partnerAuthService');
@@ -281,6 +282,14 @@ const updatePartner = asyncHandler(async (req, res) => {
   }
 
   await partner.save();
+  try {
+    await syncPartnerPortalUserFromPartner(partner);
+  } catch (err) {
+    if (err instanceof PartnerAuthError) {
+      return sendError(res, err.statusCode || 400, err.message);
+    }
+    throw err;
+  }
   const context = await populatePartnerContext(partner);
   return sendSuccess(res, 200, 'Partner updated', context);
 });

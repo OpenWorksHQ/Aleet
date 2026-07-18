@@ -9,6 +9,7 @@ import {
 } from "@/lib/admin-api";
 import type { AdminPartner, PartnerApplication, PartnerApplicationStatus } from "./partner-types";
 import { ApproveApplicationModal } from "./approve-application-modal";
+import { PhoneLink } from "@/app/components/ui/phone-link";
 
 const STATUS_FILTERS: Array<{ label: string; value: PartnerApplicationStatus | "all" }> = [
   { label: "All", value: "all" },
@@ -232,7 +233,7 @@ function ApplicationCard({
             <a href={`mailto:${application.contactEmail}`} className="text-gold hover:underline">
               {application.contactEmail}
             </a>{" "}
-            · {application.contactPhone}
+            · <PhoneLink phone={application.contactPhone} />
           </p>
           <p className="mt-1 text-[13px] text-muted">{application.address}</p>
           {application.website ? (

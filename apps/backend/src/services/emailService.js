@@ -128,15 +128,14 @@ const sendPartnerPortalInviteEmail = async (email, inviteLink, dashboardLink) =>
     from: getMailFrom(),
     to: email,
     subject: 'Activate your Aleet partner portal',
-    text: `${intro}\n\nActivate your account: ${inviteLink}\n\nPartner dashboard: ${dashboardLink}\n\nThe activation link expires in 72 hours.`,
+    text: `${intro}\n\nActivate your account: ${inviteLink}\n\nThe activation link expires in 14 days.`,
     html: buildEmailShell({
       preheader: intro,
       bodyHtml: `
         <p style="margin:0 0 20px;">${intro}</p>
         <p style="margin:0 0 24px;">${buildEmailButton(inviteLink, 'Activate partner portal')}</p>
         <p style="margin:0 0 20px;">${dashboardIntro}</p>
-        <p style="margin:0 0 24px;">${buildEmailButton(dashboardLink, 'Go to partner dashboard')}</p>
-        <p style="margin:0;color:#666;font-size:13px;">The activation link expires in 72 hours. Do not share these links with anyone.</p>
+        <p style="margin:0;color:#666;font-size:13px;">The activation link expires in 14 days. Do not share this link with anyone.</p>
       `,
     }),
   });

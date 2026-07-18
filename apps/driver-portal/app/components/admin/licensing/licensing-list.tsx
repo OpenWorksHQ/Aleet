@@ -11,6 +11,7 @@ import {
 } from "./licensing-types";
 import type { ApiLicensingDriver, LicensingStats, LicensingPage } from "@/lib/admin-api";
 import { fetchLicensingClient } from "@/lib/admin-api";
+import { PhoneLink } from "@/app/components/ui/phone-link";
 
 const LIMIT = 20;
 
@@ -154,7 +155,9 @@ export function LicensingList({ initialDrivers, initialStats, initialTotal, init
                                         )}
                                     </div>
                                     <p className="truncate text-xs text-muted">{driver.email}</p>
-                                    <p className="text-xs text-muted">{driver.phone}</p>
+                                    <p className="text-xs text-muted">
+                                        <PhoneLink phone={driver.phone} className="text-muted hover:text-gold" />
+                                    </p>
 
                                     {/* License status */}
                                     <div className="flex justify-center">
@@ -195,7 +198,9 @@ export function LicensingList({ initialDrivers, initialStats, initialTotal, init
                                         </div>
                                         <p className="text-xs text-muted">{driver.email}</p>
                                         <p className="text-xs text-muted">
-                                            {driver.phone} · <span className={cn("font-medium", TIER_COLORS[driver.tier])}>{driver.tier}</span>
+                                            <PhoneLink phone={driver.phone} className="text-muted hover:text-gold" />
+                                            {" · "}
+                                            <span className={cn("font-medium", TIER_COLORS[driver.tier])}>{driver.tier}</span>
                                         </p>
                                     </div>
                                 </div>

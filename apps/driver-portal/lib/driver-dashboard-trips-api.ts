@@ -12,6 +12,11 @@ export interface DriverTripStop {
   notes: string | null;
 }
 
+export interface DriverTripPassenger {
+  name: string | null;
+  phone: string | null;
+}
+
 export interface DriverDashboardTrip {
   id: string;
   status: string;
@@ -27,6 +32,8 @@ export interface DriverDashboardTrip {
   originalEarnings: number;
   specialNotes: string | null;
   stops: DriverTripStop[];
+  /** Present on My Trips / History only (not available pool). */
+  passenger: DriverTripPassenger | null;
 }
 
 export interface DriverTripsStats {
@@ -91,8 +98,17 @@ function normalizeStop(input: unknown): DriverTripStop {
   };
 }
 
+function normalizePassenger(input: unknown): DriverTripPassenger | null {
+  if (!input || typeof input !== "object") return null;
+  const passenger = input as Partial<DriverTripPassenger>;
+  const name = typeof passenger.name === "string" && passenger.name.trim() ? passenger.name : null;
+  const phone = typeof passenger.phone === "string" && passenger.phone.trim() ? passenger.phone : null;
+  if (!name && !phone) return null;
+  return { name, phone };
+}
+
 function normalizeTrip(input: unknown): DriverDashboardTrip {
-  const trip = (input ?? {}) as Partial<DriverDashboardTrip>;
+  const trip = (input ?? {}) as Partial<DriverDashboardTrip> & { passenger?: unknown };
   const region = trip.region && typeof trip.region === "object"
     ? {
         name: toString((trip.region as { name?: unknown }).name),
@@ -118,6 +134,7 @@ function normalizeTrip(input: unknown): DriverDashboardTrip {
         ? trip.specialNotes
         : null,
     stops: Array.isArray(trip.stops) ? trip.stops.map(normalizeStop) : [],
+    passenger: normalizePassenger(trip.passenger),
   };
 }
 

@@ -1,16 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { MapPin, Flag, Navigation } from "lucide-react";
+import { MapPin, Flag, Navigation, Loader2 } from "lucide-react";
 import { EditIcon, PhoneIcon } from "@/app/components/ui/icons";
+import { getToken } from "@/lib/auth";
+import { toTelHref } from "@/lib/phone";
+import {
+    fetchActiveTrips,
+    fetchCompletedTrips,
+    fetchUpcomingTrips,
+    type DashboardTrip,
+} from "@/lib/api/dashboard-trips";
 
 type TripTab = "active" | "upcoming" | "completed";
 
-type TripData = {
+type TripCardData = {
+    id: string;
     date: string;
     badge: string;
-    badgeVariant: "active" | "upcoming" | "completed";
+    badgeVariant: "active" | "upcoming" | "completed" | "pending" | "cancelled";
     meta: string;
     pickupTitle: string;
     pickupText: string;
@@ -20,87 +29,16 @@ type TripData = {
     dropoffText?: string;
     driver: string;
     car: string;
+    driverPhone: string | null;
+    rating?: number | null;
 };
 
-const MOCK_TRIPS: Record<TripTab, TripData[]> = {
-    active: [
-        {
-            date: "Apr 21, 2026 at 10:00 AM",
-            badge: "Active",
-            badgeVariant: "active",
-            meta: "Trip is in progress",
-            pickupTitle: "Pickup",
-            pickupText: "Grand Hyatt Hotel, Midtown",
-            stopTitle: "Stops (1)",
-            stopText: "Union Square",
-            dropoffTitle: "Drop-off",
-            dropoffText: "JFK International Airport",
-            driver: "James Carter",
-            car: "Cadillac Escalade",
-        },
-    ],
-    upcoming: [
-        {
-            date: "Dec 15, 2025 at 9:00 AM",
-            badge: "Upcoming",
-            badgeVariant: "upcoming",
-            meta: "Trip starts in 2 days",
-            pickupTitle: "Pickup",
-            pickupText: "123 Business District, Downtown",
-            stopTitle: "Stops (1)",
-            stopText: "Coffee Shop on 5th St",
-            dropoffTitle: "Drop-off",
-            dropoffText: "Airport Terminal 1",
-            driver: "Michael Johnson",
-            car: "Mercedes S-Class",
-        },
-        {
-            date: "Dec 18, 2025 at 2:30 PM",
-            badge: "Upcoming",
-            badgeVariant: "upcoming",
-            meta: "Trip starts in 5 days",
-            pickupTitle: "Pickup",
-            pickupText: "Home - 456 Oak Avenue",
-            dropoffTitle: "Drop-off",
-            dropoffText: "City Conference Center",
-            driver: "Sarah Williams",
-            car: "BMW 7 Series",
-        },
-    ],
-    completed: [
-        {
-            date: "Apr 10, 2026 at 8:00 AM",
-            badge: "Completed",
-            badgeVariant: "completed",
-            meta: "Trip completed",
-            pickupTitle: "Pickup",
-            pickupText: "Ritz-Carlton, Central Park",
-            dropoffTitle: "Drop-off",
-            dropoffText: "LaGuardia Airport",
-            driver: "David Kim",
-            car: "Lincoln Navigator",
-        },
-        {
-            date: "Mar 28, 2026 at 3:15 PM",
-            badge: "Completed",
-            badgeVariant: "completed",
-            meta: "Trip completed",
-            pickupTitle: "Pickup",
-            pickupText: "Brooklyn Bridge Park",
-            stopTitle: "Stops (2)",
-            stopText: "SoHo, Chelsea Market",
-            dropoffTitle: "Drop-off",
-            dropoffText: "Newark Liberty Airport",
-            driver: "Elena Rossi",
-            car: "Mercedes S-Class",
-        },
-    ],
-};
-
-const BADGE_STYLES: Record<TripData["badgeVariant"], string> = {
+const BADGE_STYLES: Record<TripCardData["badgeVariant"], string> = {
     active: "bg-aleet-gold text-aleet-text",
     upcoming: "bg-aleet-gold text-aleet-text",
     completed: "bg-aleet-cream text-aleet-text-muted",
+    pending: "bg-amber-100 text-amber-800",
+    cancelled: "bg-red-100 text-red-700",
 };
 
 const TAB_BADGE_STYLES: Record<TripTab, { active: string; inactive: string }> = {
@@ -118,10 +56,183 @@ const TAB_BADGE_STYLES: Record<TripTab, { active: string; inactive: string }> = 
     },
 };
 
+function formatDatePart(iso: string) {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "—";
+    return d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+    });
+}
+
+function formatTimePart(iso: string) {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+    });
+}
+
+function sameCalendarDay(a: string, b: string) {
+    const da = new Date(a);
+    const db = new Date(b);
+    if (Number.isNaN(da.getTime()) || Number.isNaN(db.getTime())) return true;
+    return (
+        da.getFullYear() === db.getFullYear() &&
+        da.getMonth() === db.getMonth() &&
+        da.getDate() === db.getDate()
+    );
+}
+
+/** Show booking window: single day "Jul 15, 2026 at 9:00 AM" or multi-day range. */
+function formatTripWindow(startIso: string, endIso: string) {
+    const startDate = formatDatePart(startIso);
+    const startTime = formatTimePart(startIso);
+    if (!endIso || sameCalendarDay(startIso, endIso)) {
+        return startTime ? `${startDate} at ${startTime}` : startDate;
+    }
+    const endDate = formatDatePart(endIso);
+    const endTime = formatTimePart(endIso);
+    return `${startDate} ${startTime} → ${endDate} ${endTime}`.trim();
+}
+
+function daysUntil(iso: string) {
+    const start = new Date(iso).getTime();
+    if (Number.isNaN(start)) return null;
+    const diff = Math.ceil((start - Date.now()) / (1000 * 60 * 60 * 24));
+    return diff;
+}
+
+function statusBadgeVariant(status: string): TripCardData["badgeVariant"] {
+    const s = status.trim().toLowerCase();
+    if (s === "completed") return "completed";
+    if (s === "cancelled" || s === "expired") return "cancelled";
+    if (s === "pending") return "pending";
+    if (s === "in progress" || s === "confirmed") return "active";
+    return "upcoming";
+}
+
+function mapTrip(trip: DashboardTrip, tab: TripTab): TripCardData {
+    let meta = "";
+    if (tab === "active") {
+        meta =
+            trip.timeRemaining != null
+                ? `About ${Math.round(trip.timeRemaining)} min remaining`
+                : "Trip is in progress";
+        if (trip.expectedPickupBy) {
+            const eta = new Date(trip.expectedPickupBy);
+            if (!Number.isNaN(eta.getTime()) && eta.getTime() > Date.now()) {
+                meta = `Driver expected by ${eta.toLocaleTimeString("en-US", {
+                    hour: "numeric",
+                    minute: "2-digit",
+                })} (~30 min max)`;
+            }
+        }
+    } else if (tab === "upcoming") {
+        const days = daysUntil(trip.startDate);
+        if (trip.expectedPickupBy) {
+            const eta = new Date(trip.expectedPickupBy);
+            if (!Number.isNaN(eta.getTime())) {
+                meta = `Driver expected by ${eta.toLocaleTimeString("en-US", {
+                    hour: "numeric",
+                    minute: "2-digit",
+                })} (~30 min max)`;
+            } else if (days == null) meta = "Upcoming trip";
+            else if (days <= 0) meta = "Trip starts today";
+            else if (days === 1) meta = "Trip starts in 1 day";
+            else meta = `Trip starts in ${days} days`;
+        } else if (days == null) meta = "Upcoming trip";
+        else if (days <= 0) meta = "Trip starts today";
+        else if (days === 1) meta = "Trip starts in 1 day";
+        else meta = `Trip starts in ${days} days`;
+    } else {
+        meta = trip.completedAt
+            ? `Completed ${formatDatePart(trip.completedAt)}`
+            : "Trip completed";
+    }
+
+    const stops = trip.stops ?? [];
+    const stopLocations = stops.map((s) => s.location).filter(Boolean);
+
+    let dropoffTitle: string | undefined;
+    let dropoffText: string | undefined;
+    if (trip.freeRouting) {
+        dropoffTitle = "Drop-off";
+        dropoffText = "Free routing";
+    } else if (trip.dropoffLocation) {
+        dropoffTitle = "Drop-off";
+        dropoffText = trip.dropoffLocation;
+    }
+
+    return {
+        id: trip.id,
+        date: formatTripWindow(trip.startDate, trip.endDate),
+        badge: trip.status?.trim() || (tab === "active" ? "Active" : tab === "upcoming" ? "Upcoming" : "Completed"),
+        badgeVariant: statusBadgeVariant(trip.status || tab),
+        meta,
+        pickupTitle: "Pickup",
+        pickupText: trip.pickupLocation || "—",
+        stopTitle: stopLocations.length ? `Stops (${stopLocations.length})` : undefined,
+        stopText: stopLocations.length ? stopLocations.join(" → ") : undefined,
+        dropoffTitle,
+        dropoffText,
+        driver: trip.driver?.name?.trim() || "Driver unassigned",
+        car: trip.vehicleType?.name ?? "Vehicle TBD",
+        driverPhone: trip.driver?.phone ?? null,
+        rating: trip.rating,
+    };
+}
+
 export function TripsSection() {
     const [tab, setTab] = useState<TripTab>("upcoming");
+    const [tripsByTab, setTripsByTab] = useState<Record<TripTab, TripCardData[]>>({
+        active: [],
+        upcoming: [],
+        completed: [],
+    });
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-    const trips = MOCK_TRIPS[tab];
+    useEffect(() => {
+        const token = getToken();
+        let cancelled = false;
+
+        async function load() {
+            setIsLoading(true);
+            setError(null);
+            try {
+                const [activeRes, upcomingRes, completedRes] = await Promise.all([
+                    fetchActiveTrips(token ?? undefined),
+                    fetchUpcomingTrips(token ?? undefined),
+                    fetchCompletedTrips(token ?? undefined),
+                ]);
+
+                if (cancelled) return;
+
+                setTripsByTab({
+                    active: (activeRes.data?.trips ?? []).map((t) => mapTrip(t, "active")),
+                    upcoming: (upcomingRes.data?.trips ?? []).map((t) => mapTrip(t, "upcoming")),
+                    completed: (completedRes.data?.trips ?? []).map((t) => mapTrip(t, "completed")),
+                });
+            } catch (e) {
+                if (!cancelled) {
+                    setError(e instanceof Error ? e.message : "Failed to load trips");
+                    setTripsByTab({ active: [], upcoming: [], completed: [] });
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        }
+
+        void load();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    const trips = tripsByTab[tab];
 
     const tabs: { key: TripTab; label: string }[] = [
         { key: "active", label: "Active" },
@@ -134,7 +245,6 @@ export function TripsSection() {
     return (
         <section className="rounded-2xl border border-aleet-border bg-aleet-card shadow-sm">
             <header className="border-b border-aleet-border px-3 py-4 sm:px-6">
-                {/* Tabs */}
                 <div className="grid grid-cols-3 gap-1 rounded-xl border border-aleet-border bg-aleet-card p-1">
                     {tabs.map(({ key, label }) => {
                         const isActive = tab === key;
@@ -153,7 +263,7 @@ export function TripsSection() {
                             >
                                 <span className="truncate">{label}</span>
                                 <span className={cn("rounded-full px-1.5 py-0.5 text-[11px] font-bold", badgeStyle)}>
-                                    {MOCK_TRIPS[key].length}
+                                    {tripsByTab[key].length}
                                 </span>
                             </button>
                         );
@@ -161,14 +271,21 @@ export function TripsSection() {
                 </div>
             </header>
 
-            {trips.length === 0 ? (
+            {isLoading ? (
+                <div className="flex items-center justify-center gap-2 py-12 text-sm text-aleet-text-muted">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading trips…
+                </div>
+            ) : error ? (
+                <p className="py-10 text-center text-[13px] text-red-500">{error}</p>
+            ) : trips.length === 0 ? (
                 <p className="py-10 text-center text-[13px] text-aleet-text-subtle">
                     No {totalLabel.toLowerCase()} trips.
                 </p>
             ) : (
                 <div className="grid gap-3 p-3 lg:grid-cols-2">
-                    {trips.map((trip, i) => (
-                        <TripCard key={i} {...trip} />
+                    {trips.map((trip) => (
+                        <TripCard key={trip.id} {...trip} />
                     ))}
                 </div>
             )}
@@ -189,7 +306,11 @@ function TripCard({
     dropoffText,
     driver,
     car,
-}: TripData) {
+    driverPhone,
+    rating,
+}: TripCardData) {
+    const telHref = toTelHref(driverPhone);
+
     return (
         <article className="overflow-hidden rounded-2xl border border-aleet-border bg-aleet-card">
             <div className="space-y-4 px-5 py-5">
@@ -217,22 +338,35 @@ function TripCard({
                             .split(" ")
                             .map((p) => p[0])
                             .join("")
-                            .slice(0, 2)}
+                            .slice(0, 2)
+                            .toUpperCase()}
                     </span>
                     <div className="min-w-0">
                         <p className="truncate text-base font-medium text-aleet-gold">{driver}</p>
                         <p className="truncate text-xs text-aleet-text-muted">{car}</p>
-                        <p className="text-[11px] text-aleet-text-muted">★ 4.9</p>
+                        {rating != null && rating > 0 ? (
+                            <p className="text-[11px] text-aleet-text-muted">★ {rating.toFixed(1)}</p>
+                        ) : null}
                     </div>
                 </div>
 
-                <button
-                    type="button"
-                    className="inline-flex items-center gap-2 text-sm font-medium text-aleet-text transition-colors hover:text-aleet-gold"
-                >
-                    <PhoneIcon className="h-4 w-4" />
-                    Contact
-                </button>
+                {telHref ? (
+                    <a
+                        href={telHref}
+                        className="inline-flex items-center gap-2 text-sm font-medium text-aleet-text transition-colors hover:text-aleet-gold"
+                    >
+                        <PhoneIcon className="h-4 w-4" />
+                        Contact
+                    </a>
+                ) : (
+                    <span
+                        className="inline-flex cursor-not-allowed items-center gap-2 text-sm font-medium text-aleet-text-subtle"
+                        title="Driver phone not available yet"
+                    >
+                        <PhoneIcon className="h-4 w-4" />
+                        Contact
+                    </span>
+                )}
             </footer>
         </article>
     );

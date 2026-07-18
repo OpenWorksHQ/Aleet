@@ -8,7 +8,7 @@
  * • endDate > startDate
  */
 
-/** Minimum booking duration in hours. */
+/** Minimum booking duration in hours for non-members. */
 export const MIN_DURATION_HOURS = 3;
 
 /**
@@ -17,6 +17,11 @@ export const MIN_DURATION_HOURS = 3;
  * Members are exempt ("Members = no minimums").
  */
 export const NON_MEMBER_NOTICE_HOURS = 3;
+
+/** Same rule as homepage booking bar: guests 3h, members 1h. */
+export function minBookingHours(isMember: boolean): number {
+  return isMember ? 1 : MIN_DURATION_HOURS;
+}
 
 // ── time helpers ────────────────────────────────────────────────────────────
 
@@ -104,12 +109,14 @@ function slotToMinutes(slot: TimeSlot): number {
  *
  * Always disabled when the slot is in the past. For non-members it is also
  * disabled when it falls inside the `NON_MEMBER_NOTICE_HOURS` notice window
- * from now. Members give no notice and are only blocked from past slots.
+ * from now. Members and partner venue bookings (`skipNotice`) give no notice
+ * and are only blocked from past slots.
  */
 export function isPickupTimeDisabled(
   date: Date | undefined,
   slot: TimeSlot,
   isMember = false,
+  options?: { skipNotice?: boolean },
 ): boolean {
   if (!date) return false;
   const now = new Date();
@@ -126,7 +133,8 @@ export function isPickupTimeDisabled(
   // Past slots are always disabled.
   if (slotMinutes <= nowMinutes) return true;
   // Non-members must give NON_MEMBER_NOTICE_HOURS notice before pick-up.
-  if (!isMember && slotMinutes < nowMinutes + NON_MEMBER_NOTICE_HOURS * 60) {
+  const skipNotice = Boolean(options?.skipNotice);
+  if (!isMember && !skipNotice && slotMinutes < nowMinutes + NON_MEMBER_NOTICE_HOURS * 60) {
     return true;
   }
   return false;

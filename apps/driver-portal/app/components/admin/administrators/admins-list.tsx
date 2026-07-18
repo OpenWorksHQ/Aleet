@@ -7,6 +7,7 @@ import type { AdminUser } from "./admin-types";
 import { AddAdminModal } from "./add-admin-modal";
 import { EditAdminModal } from "./edit-admin-modal";
 import { updateAdmin, deleteAdmin } from "@/lib/admin-api";
+import { PhoneLink } from "@/app/components/ui/phone-link";
 
 type Props = { initialAdmins: AdminUser[] };
 
@@ -105,7 +106,9 @@ export function AdminsList({ initialAdmins }: Props) {
                                     </span>
                                 </div>
                                 <span className="mt-0.5 text-sm text-muted">{admin.email}</span>
-                                <span className="text-xs text-muted">{admin.phone}</span>
+                                <span className="text-xs text-muted">
+                                    <PhoneLink phone={admin.phone} className="text-muted hover:text-gold" />
+                                </span>
                             </div>
 
                             {/* Permissions */}

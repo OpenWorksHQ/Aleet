@@ -145,6 +145,9 @@ const bookingSchema = new mongoose.Schema({
     commissionPct: { type: Number, default: 0 },
     commissionAmount: { type: Number, default: 0 },
   },
+
+  /** Soft SLA for partner venue same-day: driver expected by this time (~30 min after booking). */
+  expectedPickupBy: { type: Date, default: null },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Booking', bookingSchema);
