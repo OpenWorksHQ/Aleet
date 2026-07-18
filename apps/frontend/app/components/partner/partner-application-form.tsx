@@ -14,6 +14,7 @@ import {
   PartnerContactEmailError,
 } from "@/app/components/partner/partner-contact-email-error";
 import { PartnerDashboardNavButton } from "@/app/components/partner/partner-dashboard-nav-button";
+import { fetchPlaceDetails } from "@/lib/api/maps";
 
 export function PartnerApplicationForm() {
   const [isLoading, setIsLoading] = useState(false);
@@ -27,6 +28,8 @@ export function PartnerApplicationForm() {
   const [checkingEmail, setCheckingEmail] = useState(false);
   const [businessAddress, setBusinessAddress] = useState("");
   const [businessPlaceId, setBusinessPlaceId] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
   const emailCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const applyContactEmailError = useCallback((err: unknown) => {
@@ -240,10 +243,20 @@ export function PartnerApplicationForm() {
               setBusinessPlaceId("");
               setFormError(null);
             }}
-            onPlaceChange={(place) => {
+            onPlaceChange={async (place) => {
               setBusinessAddress(place.text);
               setBusinessPlaceId(place.placeId);
               setFormError(null);
+              try {
+                const details = await fetchPlaceDetails(place.placeId);
+                if (details) {
+                  setBusinessAddress(details.formattedAddress || details.street || place.text);
+                  if (details.city) setCity(details.city);
+                  if (details.state) setState(details.state);
+                }
+              } catch {
+                // Keep suggestion text if Details API fails
+              }
             }}
             placeholder="Start typing your street address…"
           />
@@ -255,8 +268,26 @@ export function PartnerApplicationForm() {
           ) : null}
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="City" name="city" required />
-          <Field label="State" name="state" required />
+          <label className="block text-sm text-aleet-text-muted">
+            City
+            <input
+              name="city"
+              required
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              className="mt-2 w-full rounded-lg border border-aleet-border-strong bg-aleet-cream px-[14px] py-3 text-[15px] text-aleet-text outline-none focus:border-aleet-gold"
+            />
+          </label>
+          <label className="block text-sm text-aleet-text-muted">
+            State
+            <input
+              name="state"
+              required
+              value={state}
+              onChange={(e) => setState(e.target.value)}
+              className="mt-2 w-full rounded-lg border border-aleet-border-strong bg-aleet-cream px-[14px] py-3 text-[15px] text-aleet-text outline-none focus:border-aleet-gold"
+            />
+          </label>
         </div>
         <Field label="Website" name="website" placeholder="mango.com or https://mango.com" />
         <div>

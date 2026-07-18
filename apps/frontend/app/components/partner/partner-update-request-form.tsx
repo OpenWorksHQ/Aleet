@@ -5,6 +5,7 @@ import { normalizeWebsiteUrl } from "@/lib/normalize-website";
 import { checkPartnerContactEmailForUpdate, submitPartnerUpdateRequestMe } from "@/lib/api/partners";
 import { ApiError } from "@/lib/api";
 import { toast, AddressAutocomplete } from "@/app/components/ui";
+import { fetchPlaceDetails } from "@/lib/api/maps";
 import type { PartnerProfile, PartnerUpdateRequestPayload } from "@/lib/partner/types";
 import { partnerAuthInputClass } from "@/app/components/partner/partner-auth-card";
 import {
@@ -222,9 +223,19 @@ export function PartnerUpdateRequestForm({ profile, hasPendingRequest, onSubmitt
               setAddress(value);
               setBusinessPlaceId("");
             }}
-            onPlaceChange={(place) => {
+            onPlaceChange={async (place) => {
               setAddress(place.text);
               setBusinessPlaceId(place.placeId);
+              try {
+                const details = await fetchPlaceDetails(place.placeId);
+                if (details) {
+                  setAddress(details.formattedAddress || details.street || place.text);
+                  if (details.city) setCity(details.city);
+                  if (details.state) setState(details.state);
+                }
+              } catch {
+                // Keep autocomplete text if Details API fails
+              }
             }}
             placeholder="Search Google address…"
           />

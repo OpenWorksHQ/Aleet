@@ -62,6 +62,27 @@ export async function fetchRouteEstimate(
   return res.data ?? null;
 }
 
+export type PlaceDetails = {
+  placeId: string;
+  formattedAddress: string;
+  street: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  lat: number | null;
+  lng: number | null;
+  displayName: string;
+};
+
+/** Server-side Places Details — full verified street address for partners / mileage. */
+export async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails | null> {
+  const res = await apiFetch<PlaceDetails>(
+    `/maps/place-details?placeId=${encodeURIComponent(placeId)}`,
+  );
+  return res.data ?? null;
+}
+
 export function isMapsApiConfigured(): boolean {
   return Boolean(process.env.NEXT_PUBLIC_API_URL?.trim());
 }

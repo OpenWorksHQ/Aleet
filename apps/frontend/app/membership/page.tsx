@@ -1,21 +1,21 @@
-import type { Metadata } from "next";
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { MembershipPlansSection } from "@/app/components/membership-plans-section";
-import { SiteFooter } from "@/app/components/site-footer";
-import { createPageMetadata } from "@/lib/metadata";
 import {
   MarketingPageShell,
   MarketingSection,
 } from "@/app/components/marketing-page-shell";
-
-export const metadata: Metadata = createPageMetadata({
-  path: "/membership",
-  title: "Aleet - Membership",
-  description:
-    "Explore Aleet membership plans with locked-in rates, priority booking, and concierge access.",
-});
+import { getToken } from "@/lib/auth";
 
 export default function MembershipPage() {
+  const [ctaHref, setCtaHref] = useState("/login?next=/subscription");
+
+  useEffect(() => {
+    setCtaHref(getToken() ? "/subscription" : "/login?next=/subscription");
+  }, []);
+
   return (
     <MarketingPageShell>
       <MarketingSection className="pb-10 pt-12 sm:pb-14 sm:pt-16">
@@ -36,10 +36,14 @@ export default function MembershipPage() {
             One membership unlocks locked-in $89/hr rates, priority support, and access to
             Aleet&apos;s curated transportation and concierge network.
           </p>
+          <p className="mt-3 text-[13px] text-aleet-text-subtle">
+            Founder 30 is a private invite-only offer — invited members see it on their
+            Subscription page after signing in.
+          </p>
         </div>
 
         <div className="mt-12">
-          <MembershipPlansSection />
+          <MembershipPlansSection ctaHref={ctaHref} ctaLabel="Get membership" />
         </div>
 
         <div className="mt-12 rounded-2xl border border-aleet-border bg-aleet-card px-6 py-8 text-center sm:px-10">
@@ -47,18 +51,18 @@ export default function MembershipPage() {
             Ready to join?
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-aleet-text-muted">
-            Create your account to activate membership, manage bookings, and
-            unlock member pricing across every market we serve.
+            Continue to checkout on your Aleet account so the membership is attached to
+            the same profile you use for bookings.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link
-              href="/login"
+              href={ctaHref}
               className="inline-flex h-12 items-center justify-center rounded-lg bg-aleet-gold px-6 text-[14px] font-semibold text-aleet-text no-underline transition-opacity hover:opacity-90"
             >
-              Join Aleet
+              Continue to payment
             </Link>
             <Link
-              href="/login"
+              href="/login?next=/subscription"
               className="inline-flex h-12 items-center justify-center rounded-lg border border-aleet-border-strong bg-aleet-cream px-6 text-[14px] font-semibold text-aleet-text no-underline transition-colors hover:border-aleet-gold/40"
             >
               Log in

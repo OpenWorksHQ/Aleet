@@ -14,7 +14,7 @@ type MembershipPlansSectionProps = {
 
 export function MembershipPlansSection({
   showSavings = true,
-  ctaHref = "/login",
+  ctaHref = "/login?next=/subscription",
   ctaLabel = "Join Aleet",
   className,
 }: MembershipPlansSectionProps) {
