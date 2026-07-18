@@ -13,6 +13,7 @@ import {
   isPickupTimeDisabled,
   slotFromTimeStr,
   combineDateAndTime,
+  minBookingHours,
 } from "@/lib/booking-constraints";
 import {
   loadPartnerContext,
@@ -165,7 +166,7 @@ export function BuyHoursBookingForm({
     endDate &&
     startDate.getTime() !== endDate.getTime()
   );
-  const minHours = isMember ? 1 : 3;
+  const minHours = minBookingHours(isMember);
 
   const vehicle = vehicleValue || pickDefaultVehicle(filteredVehicleList);
   const state = stateValue || pickDefaultRegion(regionList);

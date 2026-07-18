@@ -8,7 +8,7 @@
  * • endDate > startDate
  */
 
-/** Minimum booking duration in hours. */
+/** Minimum booking duration in hours for non-members. */
 export const MIN_DURATION_HOURS = 3;
 
 /**
@@ -17,6 +17,11 @@ export const MIN_DURATION_HOURS = 3;
  * Members are exempt ("Members = no minimums").
  */
 export const NON_MEMBER_NOTICE_HOURS = 3;
+
+/** Same rule as homepage booking bar: guests 3h, members 1h. */
+export function minBookingHours(isMember: boolean): number {
+  return isMember ? 1 : MIN_DURATION_HOURS;
+}
 
 // ── time helpers ────────────────────────────────────────────────────────────
 

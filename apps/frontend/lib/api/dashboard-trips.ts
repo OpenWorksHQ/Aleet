@@ -1,5 +1,11 @@
 import { apiFetch } from "@/lib/api";
 
+export type DashboardTripStop = {
+  location: string;
+  timeType?: string;
+  dwellMinutes?: number;
+};
+
 export type DashboardTripDriver = {
   id: string;
   name: string;
@@ -13,6 +19,8 @@ export type DashboardTrip = {
   endDate: string;
   pickupLocation: string;
   dropoffLocation: string | null;
+  freeRouting?: boolean;
+  stops?: DashboardTripStop[];
   vehicleType: { id?: string; name: string; hourlyPrice?: number } | null;
   driver: DashboardTripDriver | null;
   quantity?: number;

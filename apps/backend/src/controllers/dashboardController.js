@@ -13,6 +13,16 @@ const {
   sendNotFound,
 } = require('../utils/responseHelper');
 
+/** Normalize booking stops for guest dashboard trip cards. */
+function mapGuestTripStops(booking) {
+  if (!Array.isArray(booking.stops)) return [];
+  return booking.stops.map((s) => ({
+    location: s.location,
+    timeType: s.timeType ?? 'arrival',
+    dwellMinutes: s.dwellMinutes ?? 0,
+  }));
+}
+
 // ===== DASHBOARD STATISTICS ===== //
 
 // Get Customer Dashboard Statistics
@@ -196,6 +206,8 @@ const getTripHistory = asyncHandler(async (req, res) => {
       endDate: booking.dates.endDate,
       pickupLocation: booking.pickupLocation,
       dropoffLocation: booking.dropoffLocation,
+      freeRouting: !!booking.freeRouting,
+      stops: mapGuestTripStops(booking),
       vehicleType: {
         id: booking.vehicleType?._id,
         name: booking.vehicleType?.name,
@@ -258,6 +270,8 @@ const getUpcomingTrips = asyncHandler(async (req, res) => {
       endDate: booking.dates.endDate,
       pickupLocation: booking.pickupLocation,
       dropoffLocation: booking.dropoffLocation,
+      freeRouting: !!booking.freeRouting,
+      stops: mapGuestTripStops(booking),
       vehicleType: {
         id: booking.vehicleType?._id,
         name: booking.vehicleType?.name,
@@ -297,7 +311,7 @@ const getActiveTrips = asyncHandler(async (req, res) => {
       user: userId,
       'dates.startDate': { $lte: now },
       'dates.endDate': { $gt: now },
-      status: 'Confirmed'
+      status: { $in: ['Confirmed', 'In Progress'] },
     })
       .populate('vehicleType', 'name hourlyPrice')
       .populate('assignedDriver', 'name phone')
@@ -317,6 +331,8 @@ const getActiveTrips = asyncHandler(async (req, res) => {
         endDate: booking.dates.endDate,
         pickupLocation: booking.pickupLocation,
         dropoffLocation: booking.dropoffLocation,
+        freeRouting: !!booking.freeRouting,
+        stops: mapGuestTripStops(booking),
         vehicleType: {
           id: booking.vehicleType?._id,
           name: booking.vehicleType?.name,

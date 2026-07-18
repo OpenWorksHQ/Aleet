@@ -19,7 +19,7 @@ type TripCardData = {
     id: string;
     date: string;
     badge: string;
-    badgeVariant: "active" | "upcoming" | "completed";
+    badgeVariant: "active" | "upcoming" | "completed" | "pending" | "cancelled";
     meta: string;
     pickupTitle: string;
     pickupText: string;
@@ -37,6 +37,8 @@ const BADGE_STYLES: Record<TripCardData["badgeVariant"], string> = {
     active: "bg-aleet-gold text-aleet-text",
     upcoming: "bg-aleet-gold text-aleet-text",
     completed: "bg-aleet-cream text-aleet-text-muted",
+    pending: "bg-amber-100 text-amber-800",
+    cancelled: "bg-red-100 text-red-700",
 };
 
 const TAB_BADGE_STYLES: Record<TripTab, { active: string; inactive: string }> = {
@@ -54,16 +56,46 @@ const TAB_BADGE_STYLES: Record<TripTab, { active: string; inactive: string }> = 
     },
 };
 
-function formatTripDate(iso: string) {
+function formatDatePart(iso: string) {
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return "—";
-    return d.toLocaleString("en-US", {
+    return d.toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
         year: "numeric",
+    });
+}
+
+function formatTimePart(iso: string) {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleTimeString("en-US", {
         hour: "numeric",
         minute: "2-digit",
     });
+}
+
+function sameCalendarDay(a: string, b: string) {
+    const da = new Date(a);
+    const db = new Date(b);
+    if (Number.isNaN(da.getTime()) || Number.isNaN(db.getTime())) return true;
+    return (
+        da.getFullYear() === db.getFullYear() &&
+        da.getMonth() === db.getMonth() &&
+        da.getDate() === db.getDate()
+    );
+}
+
+/** Show booking window: single day "Jul 15, 2026 at 9:00 AM" or multi-day range. */
+function formatTripWindow(startIso: string, endIso: string) {
+    const startDate = formatDatePart(startIso);
+    const startTime = formatTimePart(startIso);
+    if (!endIso || sameCalendarDay(startIso, endIso)) {
+        return startTime ? `${startDate} at ${startTime}` : startDate;
+    }
+    const endDate = formatDatePart(endIso);
+    const endTime = formatTimePart(endIso);
+    return `${startDate} ${startTime} → ${endDate} ${endTime}`.trim();
 }
 
 function daysUntil(iso: string) {
@@ -73,33 +105,59 @@ function daysUntil(iso: string) {
     return diff;
 }
 
-function mapTrip(trip: DashboardTrip, variant: TripCardData["badgeVariant"]): TripCardData {
+function statusBadgeVariant(status: string): TripCardData["badgeVariant"] {
+    const s = status.trim().toLowerCase();
+    if (s === "completed") return "completed";
+    if (s === "cancelled" || s === "expired") return "cancelled";
+    if (s === "pending") return "pending";
+    if (s === "in progress" || s === "confirmed") return "active";
+    return "upcoming";
+}
+
+function mapTrip(trip: DashboardTrip, tab: TripTab): TripCardData {
     let meta = "";
-    if (variant === "active") {
+    if (tab === "active") {
         meta =
             trip.timeRemaining != null
-                ? `About ${trip.timeRemaining} min remaining`
+                ? `About ${Math.round(trip.timeRemaining)} min remaining`
                 : "Trip is in progress";
-    } else if (variant === "upcoming") {
+    } else if (tab === "upcoming") {
         const days = daysUntil(trip.startDate);
         if (days == null) meta = "Upcoming trip";
         else if (days <= 0) meta = "Trip starts today";
         else if (days === 1) meta = "Trip starts in 1 day";
         else meta = `Trip starts in ${days} days`;
     } else {
-        meta = "Trip completed";
+        meta = trip.completedAt
+            ? `Completed ${formatDatePart(trip.completedAt)}`
+            : "Trip completed";
+    }
+
+    const stops = trip.stops ?? [];
+    const stopLocations = stops.map((s) => s.location).filter(Boolean);
+
+    let dropoffTitle: string | undefined;
+    let dropoffText: string | undefined;
+    if (trip.freeRouting) {
+        dropoffTitle = "Drop-off";
+        dropoffText = "Free routing";
+    } else if (trip.dropoffLocation) {
+        dropoffTitle = "Drop-off";
+        dropoffText = trip.dropoffLocation;
     }
 
     return {
         id: trip.id,
-        date: formatTripDate(trip.startDate),
-        badge: variant === "active" ? "Active" : variant === "upcoming" ? "Upcoming" : "Completed",
-        badgeVariant: variant,
+        date: formatTripWindow(trip.startDate, trip.endDate),
+        badge: trip.status?.trim() || (tab === "active" ? "Active" : tab === "upcoming" ? "Upcoming" : "Completed"),
+        badgeVariant: statusBadgeVariant(trip.status || tab),
         meta,
         pickupTitle: "Pickup",
-        pickupText: trip.pickupLocation,
-        dropoffTitle: trip.dropoffLocation ? "Drop-off" : undefined,
-        dropoffText: trip.dropoffLocation ?? undefined,
+        pickupText: trip.pickupLocation || "—",
+        stopTitle: stopLocations.length ? `Stops (${stopLocations.length})` : undefined,
+        stopText: stopLocations.length ? stopLocations.join(" → ") : undefined,
+        dropoffTitle,
+        dropoffText,
         driver: trip.driver?.name?.trim() || "Driver unassigned",
         car: trip.vehicleType?.name ?? "Vehicle TBD",
         driverPhone: trip.driver?.phone ?? null,

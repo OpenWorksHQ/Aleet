@@ -8,7 +8,7 @@ export { SectionTitle } from "./section-title";
 export { TextLink } from "./text-link";
 export { toast } from "./toast";
 export { Dropdown, FieldTrigger, Popup } from "./dropdown";
-export { DatePicker } from "./date-picker";
+export { DatePicker, DateRangePicker } from "./date-picker";
 export { TimePicker } from "./time-picker";
 export { Select } from "./select";
 export type { SelectOption } from "./select";
