@@ -1,3 +1,5 @@
+import { toTelHref } from "@/lib/phone";
+
 /** Public contact details — override phone via NEXT_PUBLIC_CONTACT_PHONE in .env.local */
 const DEFAULT_CONTACT_PHONE = "5714449112";
 
@@ -19,7 +21,5 @@ export function formatContactPhone(digits = getContactPhoneDigits()): string {
 }
 
 export function contactPhoneTelHref(digits = getContactPhoneDigits()): string {
-  if (digits.length === 10) return `tel:+1${digits}`;
-  if (digits.length === 11 && digits.startsWith("1")) return `tel:+${digits}`;
-  return `tel:${digits}`;
+  return toTelHref(digits) ?? `tel:${digits}`;
 }

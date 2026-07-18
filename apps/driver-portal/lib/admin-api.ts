@@ -350,7 +350,7 @@ export interface ApiBooking {
   quantity: number;
   pickupLocation: string;
   dropoffLocation: string;
-  assignedDriver: { _id: string; name: string } | null;
+  assignedDriver: { _id: string; name: string; phone?: string } | null;
   addOns: ApiBookingAddon[];
   regularPrice: number;
   finalPrice: number;

@@ -33,7 +33,7 @@ export type MyBooking = {
   vehicleType: MyBookingVehicleType;
   quantity: number;
   stops: MyBookingStop[];
-  assignedDriver: unknown | null;
+  assignedDriver: { _id: string; name: string; phone?: string } | null;
   addOns: MyBookingAddon[];
   regularPrice: number;
   finalPrice: number;

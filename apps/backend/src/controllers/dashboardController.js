@@ -604,10 +604,17 @@ const getDriverTrips = asyncHandler(async (req, res) => {
       sortOrder = { completedAt: -1 };
     }
 
+    const tripsQuery = Booking.find(tripFilter)
+      .populate('vehicleType', 'name')
+      .populate('region', 'name code');
+
+    // Passenger phone only for assigned trips (mine / history) — not the open pool.
+    if (tab !== 'available') {
+      tripsQuery.populate('user', 'name phone');
+    }
+
     const [bookings, total] = await Promise.all([
-      Booking.find(tripFilter)
-        .populate('vehicleType', 'name')
-        .populate('region', 'name code')
+      tripsQuery
         .sort(sortOrder)
         .skip(skip)
         .limit(parseInt(limit))
@@ -622,6 +629,14 @@ const getDriverTrips = asyncHandler(async (req, res) => {
       const originalEarnings =
         booking.regularPrice && booking.regularPrice !== booking.finalPrice
           ? computePayoutCents({ ...booking, finalPrice: booking.regularPrice }, driver, settings) / 100
+          : null;
+
+      const passenger =
+        tab !== 'available' && booking.user
+          ? {
+              name: booking.user.name || null,
+              phone: booking.user.phone || null,
+            }
           : null;
 
       return {
@@ -639,6 +654,7 @@ const getDriverTrips = asyncHandler(async (req, res) => {
         originalEarnings: originalEarnings ? Math.round(originalEarnings * 100) / 100 : null,
         completedAt: booking.completedAt ?? null,
         specialNotes: booking.specialNotes ?? null,
+        passenger,
         stops: Array.isArray(booking.stops)
           ? booking.stops.map((s) => ({
               location: s.location,
