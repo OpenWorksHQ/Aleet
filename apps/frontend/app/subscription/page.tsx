@@ -60,13 +60,15 @@ export default function SubscriptionPage() {
 
   const isSubscriber = status?.status === "subscriber";
   const standard = benefits?.standard;
+  const founder30 = benefits?.founder30;
+  const showFounder30 = !!status?.founder30Invited && !isSubscriber;
 
-  async function handleCheckout() {
+  async function handleCheckout(plan: "standard" | "founder30" = "standard") {
     setBusy(true);
     setError(null);
     try {
       const token = getToken() ?? undefined;
-      const res = await createSubscriptionCheckout("standard", token);
+      const res = await createSubscriptionCheckout(plan, token);
       if (res.data?.url) {
         window.location.href = res.data.url;
         return;
@@ -79,7 +81,7 @@ export default function SubscriptionPage() {
     }
   }
 
-  async function handleChargeSaved() {
+  async function handleChargeSaved(plan: "standard" | "founder30" = "standard") {
     const card = cards.find((c) => c.isDefault) ?? cards[0];
     if (!card) {
       setShowAddCard(true);
@@ -91,7 +93,7 @@ export default function SubscriptionPage() {
     try {
       const token = getToken() ?? undefined;
       await chargeSubscriptionSavedCard(
-        { plan: "standard", paymentMethodId: card.id },
+        { plan, paymentMethodId: card.id },
         token,
       );
       await load();
@@ -225,42 +227,65 @@ export default function SubscriptionPage() {
             <div className="grid gap-6 lg:grid-cols-2">
               {standard ? (
                 <PlanCard
+                  title="Standard Membership"
+                  tag={STANDARD_MEMBERSHIP_PLAN.tag}
+                  features={STANDARD_MEMBERSHIP_PLAN.features}
                   plan={standard}
+                  monthlyDisplay={standard.monthlyCharge}
                   busy={busy}
-                  onCheckout={handleCheckout}
-                  onSavedCard={handleChargeSaved}
+                  onCheckout={() => handleCheckout("standard")}
+                  onSavedCard={() => handleChargeSaved("standard")}
                   hasCard={cards.length > 0}
                 />
               ) : null}
 
-              <div className="flex flex-col justify-center space-y-3">
-                <p className="text-base font-medium text-aleet-text">
-                  Your savings breakdown
-                </p>
-                {MEMBERSHIP_SAVINGS.map((item) => (
-                  <div
-                    key={item.vehicle}
-                    className="flex items-center justify-between gap-3 rounded-2xl border border-aleet-border bg-aleet-cream px-5 py-4"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-aleet-text">
-                        {item.vehicle}
-                      </p>
-                      <div className="mt-0.5 flex items-center gap-2">
-                        <span className="text-sm text-aleet-text-subtle line-through">
-                          ${item.regularPrice}/hr
-                        </span>
-                        <span className="text-sm font-semibold text-aleet-gold">
-                          ${item.memberPrice}/hr
-                        </span>
+              {showFounder30 && founder30 ? (
+                <PlanCard
+                  title="Founder 30"
+                  tag="Invite only"
+                  features={[
+                    "Private invite-only rate — $69/hr any vehicle",
+                    "5 prepaid hours every month",
+                    "Same booking benefits as Standard",
+                    "Overage stays at your Founder rate",
+                  ]}
+                  plan={founder30}
+                  monthlyDisplay={founder30.monthlyCharge}
+                  busy={busy}
+                  onCheckout={() => handleCheckout("founder30")}
+                  onSavedCard={() => handleChargeSaved("founder30")}
+                  hasCard={cards.length > 0}
+                />
+              ) : (
+                <div className="flex flex-col justify-center space-y-3">
+                  <p className="text-base font-medium text-aleet-text">
+                    Your savings breakdown
+                  </p>
+                  {MEMBERSHIP_SAVINGS.map((item) => (
+                    <div
+                      key={item.vehicle}
+                      className="flex items-center justify-between gap-3 rounded-2xl border border-aleet-border bg-aleet-cream px-5 py-4"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-aleet-text">
+                          {item.vehicle}
+                        </p>
+                        <div className="mt-0.5 flex items-center gap-2">
+                          <span className="text-sm text-aleet-text-subtle line-through">
+                            ${item.regularPrice}/hr
+                          </span>
+                          <span className="text-sm font-semibold text-aleet-gold">
+                            ${item.memberPrice}/hr
+                          </span>
+                        </div>
                       </div>
+                      <span className="shrink-0 rounded-full border border-aleet-border bg-aleet-cream px-3 py-1 text-xs font-semibold text-aleet-text-muted">
+                        Save ${item.savings}/hr
+                      </span>
                     </div>
-                    <span className="shrink-0 rounded-full border border-aleet-border bg-aleet-cream px-3 py-1 text-xs font-semibold text-aleet-text-muted">
-                      Save ${item.savings}/hr
-                    </span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -313,23 +338,34 @@ export default function SubscriptionPage() {
 }
 
 function PlanCard({
+  title,
+  tag,
+  features,
   plan,
+  monthlyDisplay,
   busy,
   onCheckout,
   onSavedCard,
   hasCard,
 }: {
+  title: string;
+  tag?: string;
+  features: string[];
   plan: {
     ratePerHour: number;
     monthlyHours: number;
+    monthlyCharge?: number;
     quarterlyCharge: number;
     description: string;
   };
+  monthlyDisplay?: number;
   busy: boolean;
   onCheckout: () => void;
   onSavedCard: () => void;
   hasCard: boolean;
 }) {
+  const monthly = monthlyDisplay ?? plan.monthlyCharge ?? plan.ratePerHour * plan.monthlyHours;
+
   return (
     <article
       className={cn(
@@ -340,35 +376,32 @@ function PlanCard({
           "linear-gradient(145deg, #d4b896 0%, #c5a386 45%, #9a7d62 100%)",
       }}
     >
-      {STANDARD_MEMBERSHIP_PLAN.tag ? (
+      {tag ? (
         <span className="absolute right-5 top-5 rounded-full bg-white/20 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
-          {STANDARD_MEMBERSHIP_PLAN.tag}
+          {tag}
         </span>
       ) : null}
 
       <p className="text-center font-serif text-2xl font-semibold text-white/95">
-        Standard Membership
+        {title}
       </p>
 
       <p className="mt-4 text-center text-sm font-semibold uppercase tracking-wide text-white/80">
-        Your locked-in member rate
+        Initial monthly membership
       </p>
       <p className="mt-2 text-center">
-        <span className="text-5xl font-bold text-white">
-          ${plan.ratePerHour}
-        </span>
-        <span className="text-lg text-white/75">/hr on every ride</span>
+        <span className="text-5xl font-bold text-white">${monthly}</span>
+        <span className="text-lg text-white/75">/mo</span>
       </p>
       <p className="mt-3 text-center text-sm text-white/75">
-        {plan.monthlyHours} hours included every month · Save up to $111/hr vs
-        standard rates
+        ${plan.ratePerHour}/hr · {plan.monthlyHours} hrs included every month
       </p>
       <p className="mt-1 text-center text-xs text-white/60">
-        Billed quarterly at ${plan.quarterlyCharge.toLocaleString("en-US")}
+        Ongoing prepaid hours renew automatically while you stay on the plan
       </p>
 
       <ul className="mt-5 space-y-1">
-        {STANDARD_MEMBERSHIP_PLAN.features.map((feature) => (
+        {features.map((feature) => (
           <li key={feature} className="text-sm text-white/75">
             &bull; {feature}
           </li>

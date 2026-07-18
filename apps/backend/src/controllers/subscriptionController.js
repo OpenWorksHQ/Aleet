@@ -83,9 +83,12 @@ const createSubscriptionCheckout = asyncHandler(async (req, res) => {
 
         const settings = await TierSettings.findOne();
         const { ratePerHour, monthlyHours, quarterlyHours, quarterlyCharge } = computeQuarterlyCharge(settings, plan);
+        // Client: Stripe Checkout shows initial MONTHLY amount ($445 / $345), not the
+        // full quarterly prepaid total. Quarterly renewal is handled by membershipRenewalJob.
+        const monthlyCharge = ratePerHour * monthlyHours;
 
         const planLabel = plan === 'founder30' ? 'Founder 30 Membership' : 'Aleet Standard Membership';
-        const description = `${monthlyHours} prepaid hours/month at $${ratePerHour}/hr (any vehicle). Billed quarterly — ${quarterlyHours} total hrs per cycle.`;
+        const description = `Initial monthly membership — $${monthlyCharge}/mo (${monthlyHours} hrs @ $${ratePerHour}/hr). Ongoing prepaid hours renew automatically while you stay on the plan.`;
 
         const session = await stripe.checkout.sessions.create({
             mode:                 'payment',
@@ -105,7 +108,7 @@ const createSubscriptionCheckout = asyncHandler(async (req, res) => {
                     price_data: {
                         currency:     CURRENCY,
                         product_data: { name: planLabel, description },
-                        unit_amount:  Math.round(quarterlyCharge * 100)
+                        unit_amount:  Math.round(monthlyCharge * 100)
                     },
                     quantity: 1
                 }
@@ -121,6 +124,7 @@ const createSubscriptionCheckout = asyncHandler(async (req, res) => {
             ratePerHour,
             monthlyHours,
             quarterlyHours,
+            monthlyCharge,
             quarterlyCharge,
             message: `Redirect to Stripe checkout to activate your ${planLabel}`
         });
@@ -155,6 +159,7 @@ const chargeSubscriptionWithSavedCard = asyncHandler(async (req, res) => {
 
         const settings = await TierSettings.findOne();
         const { ratePerHour, monthlyHours, quarterlyHours, quarterlyCharge } = computeQuarterlyCharge(settings, plan);
+        const monthlyCharge = ratePerHour * monthlyHours;
 
         const customerId = await getOrCreateStripeCustomer(user);
 
@@ -164,13 +169,13 @@ const chargeSubscriptionWithSavedCard = asyncHandler(async (req, res) => {
             return sendValidationError(res, 'This card does not belong to your account');
 
         const paymentIntent = await stripe.paymentIntents.create({
-            amount:         Math.round(quarterlyCharge * 100),
+            amount:         Math.round(monthlyCharge * 100),
             currency:       CURRENCY,
             customer:       customerId,
             payment_method: paymentMethodId,
             confirm:        true,
             off_session:    true,
-            description:    `Aleet ${plan === 'founder30' ? 'Founder 30' : 'Standard'} Membership — quarterly`,
+            description:    `Aleet ${plan === 'founder30' ? 'Founder 30' : 'Standard'} Membership — $${monthlyCharge}/mo initial`,
             metadata:       { userId: userId.toString(), type: 'subscription', plan }
         });
 
@@ -340,7 +345,9 @@ const getSubscriptionStatus = asyncHandler(async (req, res) => {
             status:       user.subscriptionStatus,
             plan,
             isFounder30:  isFounder,
+            founder30Invited: !!user.founder30Invited,
             ratePerHour:  isSubscriber ? ratePerHour : null,
+            monthlyCharge: isSubscriber ? ratePerHour * monthlyHours : null,
             quarterlyCharge: isSubscriber ? ratePerHour * quarterlyHours : null,
             currentQuarter: {
                 totalHoursIncluded: isSubscriber ? quarterlyHours : 0,

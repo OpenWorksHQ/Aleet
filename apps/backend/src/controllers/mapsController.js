@@ -1,5 +1,5 @@
 const { getRouteEstimate } = require('../services/googleRoutesService');
-const { fetchAutocompleteSuggestions } = require('../services/googlePlacesService');
+const { fetchAutocompleteSuggestions, fetchPlaceDetails } = require('../services/googlePlacesService');
 const { reverseGeocode } = require('../services/googleGeocodingService');
 const {
     sendSuccess,
@@ -40,6 +40,24 @@ const autocompletePlaces = async (req, res) => {
         }
 
         return sendError(res, 500, googleMessage || error.message || 'Failed to fetch address suggestions');
+    }
+};
+
+/**
+ * GET /api/maps/place-details?placeId=...
+ * Returns a verified full street address + city/state/postal/lat/lng.
+ */
+const getPlaceDetails = async (req, res) => {
+    try {
+        const placeId = typeof req.query.placeId === 'string' ? req.query.placeId.trim() : '';
+        if (!placeId) return sendValidationError(res, 'placeId is required');
+
+        const details = await fetchPlaceDetails(placeId);
+        return sendSuccess(res, 200, 'Place details retrieved', details);
+    } catch (error) {
+        const googleMessage = error.response?.data?.error?.message;
+        console.error('Place details error:', googleMessage || error.message);
+        return sendError(res, 500, googleMessage || error.message || 'Failed to fetch place details');
     }
 };
 
@@ -119,4 +137,4 @@ const estimateRoute = async (req, res) => {
     }
 };
 
-module.exports = { autocompletePlaces, reverseGeocodeLocation, estimateRoute };
+module.exports = { autocompletePlaces, getPlaceDetails, reverseGeocodeLocation, estimateRoute };

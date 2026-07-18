@@ -205,24 +205,30 @@ export default function PartnerDashboardPage() {
               </section>
             </div>
 
-            <div className="mt-8 grid gap-6 lg:grid-cols-2">
+            <div className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
               <PartnerPayoutsPanel stats={stats} />
-              <div className="space-y-6">
-                <PartnerUpdateRequestForm
-                  profile={profile}
-                  hasPendingRequest={hasPendingRequest}
-                  onSubmitted={() => void loadAll()}
-                />
-                <section className="rounded-2xl border border-aleet-border bg-aleet-card p-6 shadow-sm">
-                  <h2 className="font-serif text-xl text-aleet-text">Profile update requests</h2>
-                  <p className="mt-2 text-[13px] text-aleet-text-muted">
-                    Optional — request business or contact changes for admin review.
-                  </p>
-                  <div className="mt-4">
-                    <PartnerUpdateRequestsList requests={requests} />
+
+              <details className="rounded-2xl border border-aleet-border bg-aleet-card p-6 shadow-sm">
+                <summary className="cursor-pointer list-none font-serif text-xl text-aleet-text">
+                  Business profile updates
+                  <span className="mt-1 block text-[13px] font-sans font-normal text-aleet-text-muted">
+                    Optional — request address or contact changes for admin review
+                  </span>
+                </summary>
+                <div className="mt-5 border-t border-aleet-border pt-5">
+                  <PartnerUpdateRequestForm
+                    profile={profile}
+                    hasPendingRequest={hasPendingRequest}
+                    onSubmitted={() => void loadAll()}
+                  />
+                  <div className="mt-6">
+                    <h3 className="text-sm font-semibold text-aleet-text">Request history</h3>
+                    <div className="mt-3">
+                      <PartnerUpdateRequestsList requests={requests} />
+                    </div>
                   </div>
-                </section>
-              </div>
+                </div>
+              </details>
             </div>
           </>
         ) : null}

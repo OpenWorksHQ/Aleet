@@ -11,12 +11,12 @@ export type MembershipPlan = {
   inviteOnly?: boolean;
 };
 
-/** Single public offering — Founder 30 is invite-only (backend / admin only). */
+/** Public Standard plan — Founder 30 is invite-only and shown on /subscription when invited. */
 export const STANDARD_MEMBERSHIP_PLAN: MembershipPlan = {
   key: "standard",
   name: "Standard Membership",
-  price: 449,
-  billedQuarterly: 1347,
+  price: 445,
+  billedQuarterly: 1335,
   hours: 5,
   memberRate: 89,
   features: [
@@ -27,6 +27,24 @@ export const STANDARD_MEMBERSHIP_PLAN: MembershipPlan = {
   ],
   highlight: true,
   tag: "Member Deal",
+};
+
+export const FOUNDER30_MEMBERSHIP_PLAN: MembershipPlan = {
+  key: "founder30",
+  name: "Founder 30",
+  price: 345,
+  billedQuarterly: 1035,
+  hours: 5,
+  memberRate: 69,
+  features: [
+    "Private invite-only rate — $69/hr any vehicle",
+    "5 prepaid hours every month (15 hours per quarter)",
+    "Same booking benefits as Standard",
+    "Overage stays at your Founder rate",
+  ],
+  highlight: false,
+  tag: "Invite only",
+  inviteOnly: true,
 };
 
 export const PUBLIC_MEMBERSHIP_PLANS: MembershipPlan[] = [

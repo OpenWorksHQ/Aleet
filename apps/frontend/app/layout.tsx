@@ -23,8 +23,8 @@ const siteUrl = getSiteUrl();
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: "Aleet - Book a Ride, Track Your Trip",
-  description: "Aleet is your go-to platform for seamless ride booking, real-time trip tracking, and effortless account management.",
+  title: "ALEET | Luxury Transportation & Concierge",
+  description: "ALEET is your go-to platform for seamless ride booking, real-time trip tracking, and effortless account management.",
   alternates: {
     canonical: siteUrl,
   },
@@ -35,6 +35,21 @@ export const metadata: Metadata = {
   ...(gscVerification
     ? { verification: { google: gscVerification } }
     : {}),
+};
+
+const organizationJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "ALEET",
+  url: siteUrl,
+  logo: `${siteUrl}/icon.png`,
+};
+
+const websiteJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "ALEET",
+  url: siteUrl,
 };
 
 export default function RootLayout({
@@ -48,6 +63,14 @@ export default function RootLayout({
       className={`${karla.variable} ${playfair.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-aleet-cream text-aleet-text">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+        />
         <Suspense fallback={null}>
           <GoogleAnalytics />
         </Suspense>

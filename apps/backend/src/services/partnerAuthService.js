@@ -17,7 +17,7 @@ class PartnerAuthError extends Error {
   }
 }
 
-const INVITE_EXPIRY_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+const INVITE_EXPIRY_MS = 90 * 24 * 60 * 60 * 1000; // 90 days — partners were locking out after the old 14-day window
 const RESET_EXPIRY_MS = 30 * 60 * 1000;
 
 function normalizeEmail(email) {

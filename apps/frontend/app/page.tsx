@@ -15,9 +15,9 @@ import heroImage from "@/public/images/homepage/homepage_hero.jpeg";
 
 export const metadata = createPageMetadata({
   path: "/",
-  title: "Aleet - Book a Ride, Track Your Trip",
+  title: "ALEET | Luxury Transportation & Concierge",
   description:
-    "Aleet is your go-to platform for seamless ride booking, real-time trip tracking, and effortless account management.",
+    "ALEET is your go-to platform for seamless ride booking, real-time trip tracking, and effortless account management.",
 });
 
 const GOLD = "#c5a386";
@@ -67,6 +67,7 @@ export default function HomePage() {
               <h1
                 className="font-serif text-[32px] leading-[1.14] text-aleet-text sm:text-[40px] xl:text-[48px]"
               >
+                <span className="block tracking-[0.04em]">ALEET</span>
                 Curated access.
                 <br />
                 Transportation and

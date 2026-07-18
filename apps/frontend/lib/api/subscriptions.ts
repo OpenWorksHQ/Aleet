@@ -19,7 +19,9 @@ export type SubscriptionStatus = {
   status: string;
   plan: string | null;
   isFounder30: boolean;
+  founder30Invited?: boolean;
   ratePerHour: number | null;
+  monthlyCharge?: number | null;
   quarterlyCharge: number | null;
   currentQuarter: {
     totalHoursIncluded: number;
@@ -48,6 +50,7 @@ export type SubscriptionCheckoutData = {
   ratePerHour: number;
   monthlyHours: number;
   quarterlyHours: number;
+  monthlyCharge?: number;
   quarterlyCharge: number;
   message?: string;
 };

@@ -83,12 +83,16 @@ export function PartnerPayoutsPanel({ stats }: Props) {
   const lifetime = payout?.lifetimeEarnings ?? stats.lifetimeEarnings;
 
   return (
-    <section className="rounded-2xl border border-aleet-border bg-aleet-card p-6 shadow-sm">
-      <h2 className="font-serif text-xl text-aleet-text">Payouts & earnings</h2>
+    <section className="rounded-2xl border border-aleet-gold/30 bg-aleet-card p-6 shadow-sm">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-aleet-gold">
+        Partner payouts
+      </p>
+      <h2 className="mt-2 font-serif text-xl text-aleet-text">Bank &amp; earnings payout</h2>
       <p className="mt-2 text-[13px] leading-relaxed text-aleet-text-muted">
         Connect where you want to receive your commission (
         <strong>{commissionPct}%</strong> of completed bookings assigned by Admin).
-        Bank transfers via Stripe Connect come next — save PayPal or bank details here for now.
+        Save PayPal or bank details here. Stripe Connect bank onboarding can be added when
+        the platform Connect account is fully configured.
       </p>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
