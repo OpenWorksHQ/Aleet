@@ -15,6 +15,7 @@ import {
     slotFromTimeStr,
     combineDateAndTime,
     minBookingHours,
+    getDefaultPickupTime,
 } from "@/lib/booking-constraints";
 import { filterVehiclesByPartner } from "@/lib/partner/venue-access";
 
@@ -283,6 +284,17 @@ export function TripSummaryBar({
                     label="Pick Up Time"
                     value={data.pickupTime}
                     onChange={handlePickupTimeChange}
+                    anchorSlot={
+                        data.pickupDate
+                            ? slotFromTimeStr(
+                                  getDefaultPickupTime(data.pickupDate, {
+                                      isMember,
+                                      skipNotice: isVenueAccess,
+                                      preferredTime: data.pickupTime,
+                                  }),
+                              )
+                            : undefined
+                    }
                     disableSlot={(slot) =>
                         isPickupTimeDisabled(data.pickupDate, slot, isMember, {
                             skipNotice: isVenueAccess,

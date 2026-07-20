@@ -1,16 +1,47 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Clock, ChevronUp, ChevronDown } from "lucide-react";
 import { Dropdown, FieldTrigger, Popup } from "./dropdown";
+import { slotFromTimeStr, type TimeSlot } from "@/lib/booking-constraints";
 
 const HOURS = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0"));
 const MINUTES = ["00", "15", "30", "45"];
-const PERIODS = ["AM", "PM"];
+const PERIODS = ["AM", "PM"] as const;
 
-function cycle<T>(arr: T[], current: T, dir: 1 | -1): T {
+function cycle<T>(arr: readonly T[], current: T, dir: 1 | -1): T {
     const idx = arr.indexOf(current);
-    return arr[(idx + dir + arr.length) % arr.length];
+    const safeIdx = idx === -1 ? 0 : idx;
+    return arr[(safeIdx + dir + arr.length) % arr.length];
+}
+
+function snapMinute(minute: string): string {
+    const n = parseInt(minute, 10);
+    if (Number.isNaN(n)) return "00";
+    if (n < 8) return "00";
+    if (n < 23) return "15";
+    if (n < 38) return "30";
+    if (n < 53) return "45";
+    return "00";
+}
+
+function slotFromValue(value: string | undefined, fallback?: TimeSlot): TimeSlot {
+    if (value?.trim()) {
+        const slot = slotFromTimeStr(value);
+        return {
+            hour: HOURS.includes(slot.hour) ? slot.hour : "12",
+            minute: MINUTES.includes(slot.minute) ? slot.minute : snapMinute(slot.minute),
+            period: slot.period === "AM" || slot.period === "PM" ? slot.period : "PM",
+        };
+    }
+    if (fallback) {
+        return {
+            hour: HOURS.includes(fallback.hour) ? fallback.hour : "12",
+            minute: MINUTES.includes(fallback.minute) ? fallback.minute : snapMinute(fallback.minute),
+            period: fallback.period === "AM" || fallback.period === "PM" ? fallback.period : "PM",
+        };
+    }
+    return { hour: "12", minute: "00", period: "PM" };
 }
 
 export function TimePicker({
@@ -21,6 +52,8 @@ export function TimePicker({
     placement = "bottom",
     disableSlot,
     disabledMessage = "This time is not available",
+    /** When value is empty, open the spinner on this slot (e.g. next available). */
+    anchorSlot,
 }: {
     label: string;
     value: string;
@@ -29,12 +62,23 @@ export function TimePicker({
     placement?: "top" | "bottom";
     disableSlot?: (slot: { hour: string; minute: string; period: string }) => boolean;
     disabledMessage?: string;
+    anchorSlot?: TimeSlot;
 }) {
+    const initial = slotFromValue(value, anchorSlot);
     const [open, setOpen] = useState(false);
-    const [hour, setHour] = useState("12");
-    const [minute, setMinute] = useState("00");
-    const [period, setPeriod] = useState("PM");
+    const [hour, setHour] = useState(initial.hour);
+    const [minute, setMinute] = useState(initial.minute);
+    const [period, setPeriod] = useState(initial.period);
     const triggerRef = useRef<HTMLDivElement>(null);
+
+    // Keep spinner aligned with the committed value (or anchor) whenever the popup opens.
+    useEffect(() => {
+        if (!open) return;
+        const slot = slotFromValue(value, anchorSlot);
+        setHour(slot.hour);
+        setMinute(slot.minute);
+        setPeriod(slot.period);
+    }, [open, value, anchorSlot]);
 
     const isCurrentSlotDisabled = disableSlot?.({ hour, minute, period }) ?? false;
 
