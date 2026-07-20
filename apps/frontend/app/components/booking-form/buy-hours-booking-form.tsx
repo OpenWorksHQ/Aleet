@@ -13,10 +13,8 @@ import {
   combineDateAndTime,
   getDefaultPickupTime,
   getTimeListAnchorMinutes,
-  isPickupTimeDisabled,
   minBookingHours,
   parseTime,
-  slotFromTimeStr,
 } from "@/lib/booking-constraints";
 import {
   loadPartnerContext,
@@ -128,7 +126,6 @@ export function BuyHoursBookingForm({
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [durationHours, setDurationHours] = useState(3);
-  const [pickupTime, setPickupTime] = useState("");
   const [dropoffTime, setDropoffTime] = useState("");
   const [promoCode, setPromoCode] = useState("");
   const [partnerLabel, setPartnerLabel] = useState<string | null>(null);
@@ -250,12 +247,10 @@ export function BuyHoursBookingForm({
 
     let departureTime: string | undefined;
     if (startDate) {
-      const time =
-        pickupTime ||
-        getDefaultPickupTime(startDate, {
-          isMember,
-          skipNotice: isVenueAccess,
-        });
+      const time = getDefaultPickupTime(startDate, {
+        isMember,
+        skipNotice: isVenueAccess,
+      });
       const pickupAt = combineDateAndTime(startDate, time);
       if (pickupAt && pickupAt.getTime() > Date.now()) {
         departureTime = pickupAt.toISOString();
@@ -294,7 +289,6 @@ export function BuyHoursBookingForm({
     dropoffPlaceId,
     dropoffText,
     startDate,
-    pickupTime,
     isMember,
   ]);
 
@@ -302,7 +296,6 @@ export function BuyHoursBookingForm({
     if (!range?.from) {
       setStartDate(undefined);
       setEndDate(undefined);
-      setPickupTime("");
       setDropoffTime("");
       return;
     }
@@ -310,19 +303,11 @@ export function BuyHoursBookingForm({
     const multiDay = nextEnd.getTime() !== range.from.getTime();
     setStartDate(range.from);
     setEndDate(nextEnd);
-    setPickupTime((prev) =>
-      getDefaultPickupTime(range.from!, {
-        isMember,
-        skipNotice: isVenueAccess,
-        preferredTime: prev,
-      }),
-    );
     setDropoffTime((prev) => (multiDay ? prev || "12:00 PM" : ""));
-  }, [isMember, isVenueAccess]);
+  }, []);
 
   const isValid = isVenueAccess
     ? !!startDate &&
-      !!pickupTime &&
       !!dropoffText &&
       !!dropoffPlaceId &&
       !!vehicle &&
@@ -330,20 +315,21 @@ export function BuyHoursBookingForm({
       routeDurationHours != null &&
       !routeLoading
     : !!startDate &&
-      !!pickupTime &&
       !!dropoffText &&
       !!vehicle &&
       !!state &&
       (isMultiDay ? !!dropoffTime : durationHours >= minHours);
 
   const handleContinue = useCallback(() => {
-    if (!isValid || !startDate || !pickupTime) return;
+    if (!isValid || !startDate) return;
 
     const pickupDate = startDate;
+    // Homepage does not show a pickup-time control — auto-set from account type
+    // (member / venue → from now; guest → next available after notice). User can
+    // change it on the routing page after Continue.
     const resolvedPickupTime = getDefaultPickupTime(pickupDate, {
       isMember,
       skipNotice: isVenueAccess,
-      preferredTime: pickupTime,
     });
 
     let computedDropoffDate: Date;
@@ -392,7 +378,6 @@ export function BuyHoursBookingForm({
     isValid,
     startDate,
     endDate,
-    pickupTime,
     dropoffText,
     dropoffPlaceId,
     durationHours,
@@ -464,7 +449,7 @@ export function BuyHoursBookingForm({
       </div>
 
       {/* Fields */}
-      <div className="grid grid-cols-1 gap-3 px-5 pb-5 sm:grid-cols-2 sm:px-6 lg:grid-cols-[1.3fr_0.85fr_0.75fr_0.7fr_0.9fr_0.75fr_auto] lg:gap-2.5 lg:px-7 lg:pb-6">
+      <div className="grid grid-cols-1 gap-3 px-5 pb-5 sm:grid-cols-2 sm:px-6 lg:grid-cols-[1.45fr_0.95fr_0.8fr_1fr_0.8fr_auto] lg:gap-2.5 lg:px-7 lg:pb-6">
         <BarAddress
           label={isVenueAccess ? "Drop-off destination" : undefined}
           value={dropoffText}
@@ -484,23 +469,6 @@ export function BuyHoursBookingForm({
           dateDisplay={dateDisplay}
           onSelect={handleDateSelect}
           minDate={today}
-        />
-
-        <BarTimeSelect
-          label="Pick Up Time"
-          value={pickupTime}
-          onChange={setPickupTime}
-          date={startDate}
-          isMember={isMember}
-          skipNotice={isVenueAccess}
-          disableSlot={
-            startDate
-              ? (slot) =>
-                  isPickupTimeDisabled(startDate, slotFromTimeStr(slot), isMember, {
-                    skipNotice: isVenueAccess,
-                  })
-              : undefined
-          }
         />
 
         {isMultiDay ? (
