@@ -4,7 +4,7 @@ import { Loader2 } from "lucide-react";
 import { DatePicker, TimePicker, Select } from "../ui";
 import { CarIcon, MapPinIcon } from "../ui/icons";
 import { cn } from "@/lib/utils";
-import { isPickupTimeDisabled, isDropoffTimeBeforePickup } from "@/lib/booking-constraints";
+import { isPickupTimeDisabled, isDropoffTimeBeforePickup, getDefaultPickupTime, slotFromTimeStr } from "@/lib/booking-constraints";
 import type { SelectOption } from "../ui/select";
 
 type MultiDayBookingFormProps = {
@@ -56,6 +56,16 @@ export function MultiDayBookingForm({
                     label="Pick Up Time"
                     value={pickupTime}
                     onChange={onPickupTimeChange}
+                    anchorSlot={
+                        pickupDate
+                            ? slotFromTimeStr(
+                                  getDefaultPickupTime(pickupDate, {
+                                      isMember,
+                                      preferredTime: pickupTime,
+                                  }),
+                              )
+                            : undefined
+                    }
                     disableSlot={(slot) => isPickupTimeDisabled(pickupDate, slot, isMember)}
                     disabledMessage={isMember ? "Cannot select a past time" : "Earliest pick-up is 3 hours from now"}
                 />

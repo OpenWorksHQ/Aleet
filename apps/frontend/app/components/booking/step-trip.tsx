@@ -9,6 +9,7 @@ import { getRegions, type Region } from "@/lib/api/regions";
 import { filterVehiclesByPartner } from "@/lib/partner/venue-access";
 import { Button } from "@/app/components/ui";
 import {
+    getDefaultPickupTime,
     isPickupTimeDisabled,
     isDropoffTimeDisabled,
     slotFromTimeStr,
@@ -69,12 +70,20 @@ export function StepTrip({ data, onChange, onNext, priceBar, isMember = false, s
         });
     }
 
-    // Reset drop-off when pickup date moves outside the valid window
+    // Reset drop-off when pickup date moves outside the valid window.
+    // If pickup time is empty or invalid for the new date, seed the next available / current time.
     function handlePickupDateChange(d: Date | undefined) {
         const patch: Partial<BookingData> = { pickupDate: d };
         if (d && data.dropoffDate && data.dropoffDate < d) {
             patch.dropoffDate = undefined;
             patch.dropoffTime = "";
+        }
+        if (d) {
+            patch.pickupTime = getDefaultPickupTime(d, {
+                isMember,
+                skipNotice,
+                preferredTime: data.pickupTime,
+            });
         }
         onChange(patch);
     }
@@ -163,6 +172,17 @@ export function StepTrip({ data, onChange, onNext, priceBar, isMember = false, s
                         label="Pick Up Time"
                         value={data.pickupTime}
                         onChange={handlePickupTimeChange}
+                        anchorSlot={
+                            data.pickupDate
+                                ? slotFromTimeStr(
+                                      getDefaultPickupTime(data.pickupDate, {
+                                          isMember,
+                                          skipNotice,
+                                          preferredTime: data.pickupTime,
+                                      }),
+                                  )
+                                : undefined
+                        }
                         disableSlot={(slot) =>
                             isPickupTimeDisabled(data.pickupDate, slot, isMember, { skipNotice })
                         }

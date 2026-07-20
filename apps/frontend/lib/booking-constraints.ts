@@ -103,6 +103,112 @@ function slotToMinutes(slot: TimeSlot): number {
   return h * 60 + m;
 }
 
+/** Format minutes-since-midnight as "HH:MM AM/PM". */
+export function formatMinutesAsTime(totalMinutes: number): string {
+  const clamped = ((Math.floor(totalMinutes) % (24 * 60)) + 24 * 60) % (24 * 60);
+  const h24 = Math.floor(clamped / 60);
+  const minute = clamped % 60;
+  const period = h24 >= 12 ? "PM" : "AM";
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  return `${String(h12).padStart(2, "0")}:${String(minute).padStart(2, "0")} ${period}`;
+}
+
+/** Snap minutes up to the next 15-minute grid (00 / 15 / 30 / 45). */
+export function ceilToQuarterHour(date = new Date()): number {
+  const total = date.getHours() * 60 + date.getMinutes();
+  const rem = total % 15;
+  return rem === 0 ? total : total + (15 - rem);
+}
+
+function isSameCalendarDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+/**
+ * Earliest selectable pickup time for a date.
+ *
+ * - Today (guest): first slot after now + notice window
+ * - Today (member / venue): first slot after now
+ * - Future dates: wall-clock "now" rounded up (not 01:00 AM)
+ * - If `preferredTime` is still valid for that date, keep it
+ */
+export function getDefaultPickupTime(
+  date: Date,
+  options?: {
+    isMember?: boolean;
+    skipNotice?: boolean;
+    preferredTime?: string;
+  },
+): string {
+  const isMember = Boolean(options?.isMember);
+  const skipNotice = Boolean(options?.skipNotice);
+  const preferred = options?.preferredTime?.trim();
+
+  if (preferred) {
+    const slot = slotFromTimeStr(preferred);
+    if (!isPickupTimeDisabled(date, slot, isMember, { skipNotice })) {
+      return `${slot.hour}:${slot.minute} ${slot.period}`;
+    }
+  }
+
+  const now = new Date();
+  let startMinutes = ceilToQuarterHour(now);
+
+  if (isSameCalendarDay(date, now)) {
+    if (!isMember && !skipNotice) {
+      const withNotice =
+        now.getHours() * 60 + now.getMinutes() + NON_MEMBER_NOTICE_HOURS * 60;
+      const rem = withNotice % 15;
+      startMinutes = rem === 0 ? withNotice : withNotice + (15 - rem);
+    }
+    if (startMinutes >= 24 * 60) {
+      // Notice window pushes past midnight — no valid slot left today
+      return formatMinutesAsTime(23 * 60 + 45);
+    }
+  }
+
+  // Search forward from the anchor through end of day, then wrap from midnight
+  // only as a last resort (should not hit for normal booking hours).
+  for (let offset = 0; offset < 24 * 60; offset += 15) {
+    const mins = (startMinutes + offset) % (24 * 60);
+    // On today, do not wrap into earlier (past) slots
+    if (isSameCalendarDay(date, now) && mins < startMinutes && offset > 0) {
+      break;
+    }
+    const time = formatMinutesAsTime(mins);
+    if (!isPickupTimeDisabled(date, slotFromTimeStr(time), isMember, { skipNotice })) {
+      return time;
+    }
+  }
+
+  return formatMinutesAsTime(startMinutes >= 24 * 60 ? 23 * 60 + 45 : startMinutes);
+}
+
+/**
+ * Minutes-since-midnight to scroll a time dropdown to.
+ * Prefers current value, else next sensible default for the booking type.
+ */
+export function getTimeListAnchorMinutes(
+  value: string | undefined,
+  date?: Date,
+  options?: { isMember?: boolean; skipNotice?: boolean },
+): number {
+  if (value) {
+    const parsed = parseTime(value);
+    if (parsed) return parsed.hours * 60 + parsed.minutes;
+  }
+  if (date) {
+    const fallback = getDefaultPickupTime(date, options);
+    const parsed = parseTime(fallback);
+    if (parsed) return parsed.hours * 60 + parsed.minutes;
+  }
+  return ceilToQuarterHour(new Date());
+}
+
 /**
  * Returns `true` when a given time-slot should be **disabled** for a
  * *pickup* field on a given date.

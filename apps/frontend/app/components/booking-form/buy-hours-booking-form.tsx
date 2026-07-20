@@ -10,10 +10,13 @@ import {
 } from "@/lib/api/maps";
 import { useDebouncedAddressSuggestions } from "@/lib/hooks/use-debounced-address-suggestions";
 import {
-  isPickupTimeDisabled,
-  slotFromTimeStr,
   combineDateAndTime,
+  getDefaultPickupTime,
+  getTimeListAnchorMinutes,
+  isPickupTimeDisabled,
   minBookingHours,
+  parseTime,
+  slotFromTimeStr,
 } from "@/lib/booking-constraints";
 import {
   loadPartnerContext,
@@ -63,24 +66,6 @@ function todayStart(): Date {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
   return d;
-}
-
-function findNearestValidTime(date: Date, isMember = false): string {
-  const hours = Array.from({ length: 12 }, (_, i) =>
-    String(i + 1).padStart(2, "0"),
-  );
-  const minutes = ["00", "15", "30", "45"];
-  for (const period of ["AM", "PM"] as const) {
-    for (const hour of hours) {
-      for (const minute of minutes) {
-        const time = `${hour}:${minute} ${period}`;
-        if (!isPickupTimeDisabled(date, slotFromTimeStr(time), isMember)) {
-          return time;
-        }
-      }
-    }
-  }
-  return "12:00 AM";
 }
 
 function pickDefaultVehicle(list: VehicleOption[]): string {
@@ -143,6 +128,7 @@ export function BuyHoursBookingForm({
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [durationHours, setDurationHours] = useState(3);
+  const [pickupTime, setPickupTime] = useState("");
   const [dropoffTime, setDropoffTime] = useState("");
   const [promoCode, setPromoCode] = useState("");
   const [partnerLabel, setPartnerLabel] = useState<string | null>(null);
@@ -264,8 +250,13 @@ export function BuyHoursBookingForm({
 
     let departureTime: string | undefined;
     if (startDate) {
-      const pickupTime = findNearestValidTime(startDate, isMember);
-      const pickupAt = combineDateAndTime(startDate, pickupTime);
+      const time =
+        pickupTime ||
+        getDefaultPickupTime(startDate, {
+          isMember,
+          skipNotice: isVenueAccess,
+        });
+      const pickupAt = combineDateAndTime(startDate, time);
       if (pickupAt && pickupAt.getTime() > Date.now()) {
         departureTime = pickupAt.toISOString();
       }
@@ -297,12 +288,21 @@ export function BuyHoursBookingForm({
       cancelled = true;
       setRouteLoading(false);
     };
-  }, [isVenueAccess, venuePickup, dropoffPlaceId, dropoffText, startDate, isMember]);
+  }, [
+    isVenueAccess,
+    venuePickup,
+    dropoffPlaceId,
+    dropoffText,
+    startDate,
+    pickupTime,
+    isMember,
+  ]);
 
   const handleDateSelect = useCallback((range: DateRange | undefined) => {
     if (!range?.from) {
       setStartDate(undefined);
       setEndDate(undefined);
+      setPickupTime("");
       setDropoffTime("");
       return;
     }
@@ -310,11 +310,19 @@ export function BuyHoursBookingForm({
     const multiDay = nextEnd.getTime() !== range.from.getTime();
     setStartDate(range.from);
     setEndDate(nextEnd);
+    setPickupTime((prev) =>
+      getDefaultPickupTime(range.from!, {
+        isMember,
+        skipNotice: isVenueAccess,
+        preferredTime: prev,
+      }),
+    );
     setDropoffTime((prev) => (multiDay ? prev || "12:00 PM" : ""));
-  }, []);
+  }, [isMember, isVenueAccess]);
 
   const isValid = isVenueAccess
     ? !!startDate &&
+      !!pickupTime &&
       !!dropoffText &&
       !!dropoffPlaceId &&
       !!vehicle &&
@@ -322,16 +330,21 @@ export function BuyHoursBookingForm({
       routeDurationHours != null &&
       !routeLoading
     : !!startDate &&
+      !!pickupTime &&
       !!dropoffText &&
       !!vehicle &&
       !!state &&
       (isMultiDay ? !!dropoffTime : durationHours >= minHours);
 
   const handleContinue = useCallback(() => {
-    if (!isValid || !startDate) return;
+    if (!isValid || !startDate || !pickupTime) return;
 
     const pickupDate = startDate;
-    const pickupTime = findNearestValidTime(pickupDate, isMember);
+    const resolvedPickupTime = getDefaultPickupTime(pickupDate, {
+      isMember,
+      skipNotice: isVenueAccess,
+      preferredTime: pickupTime,
+    });
 
     let computedDropoffDate: Date;
     let computedDropoffTime: string;
@@ -340,7 +353,7 @@ export function BuyHoursBookingForm({
       computedDropoffDate = endDate;
       computedDropoffTime = dropoffTime || "12:00 PM";
     } else if (isVenueAccess && routeDurationHours != null) {
-      const start = combineDateAndTime(pickupDate, pickupTime);
+      const start = combineDateAndTime(pickupDate, resolvedPickupTime);
       if (!start) return;
       const end = new Date(start.getTime() + routeDurationHours * 3_600_000);
       computedDropoffDate = end;
@@ -350,7 +363,7 @@ export function BuyHoursBookingForm({
       const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
       computedDropoffTime = `${String(h12).padStart(2, "0")}:${minute} ${period}`;
     } else {
-      const start = combineDateAndTime(pickupDate, pickupTime);
+      const start = combineDateAndTime(pickupDate, resolvedPickupTime);
       if (!start) return;
       const end = new Date(start.getTime() + durationHours * 3_600_000);
       computedDropoffDate = end;
@@ -363,7 +376,7 @@ export function BuyHoursBookingForm({
 
     onContinue({
       pickupDate,
-      pickupTime,
+      pickupTime: resolvedPickupTime,
       dropoffDate: computedDropoffDate,
       dropoffTime: computedDropoffTime,
       durationHours: isMultiDay ? 0 : isVenueAccess ? (routeDurationHours ?? 0) : durationHours,
@@ -379,6 +392,7 @@ export function BuyHoursBookingForm({
     isValid,
     startDate,
     endDate,
+    pickupTime,
     dropoffText,
     dropoffPlaceId,
     durationHours,
@@ -450,7 +464,7 @@ export function BuyHoursBookingForm({
       </div>
 
       {/* Fields */}
-      <div className="grid grid-cols-1 gap-3 px-5 pb-5 sm:grid-cols-2 sm:px-6 lg:grid-cols-[1.45fr_0.95fr_0.8fr_1fr_0.8fr_auto] lg:gap-2.5 lg:px-7 lg:pb-6">
+      <div className="grid grid-cols-1 gap-3 px-5 pb-5 sm:grid-cols-2 sm:px-6 lg:grid-cols-[1.3fr_0.85fr_0.75fr_0.7fr_0.9fr_0.75fr_auto] lg:gap-2.5 lg:px-7 lg:pb-6">
         <BarAddress
           label={isVenueAccess ? "Drop-off destination" : undefined}
           value={dropoffText}
@@ -472,8 +486,31 @@ export function BuyHoursBookingForm({
           minDate={today}
         />
 
+        <BarTimeSelect
+          label="Pick Up Time"
+          value={pickupTime}
+          onChange={setPickupTime}
+          date={startDate}
+          isMember={isMember}
+          skipNotice={isVenueAccess}
+          disableSlot={
+            startDate
+              ? (slot) =>
+                  isPickupTimeDisabled(startDate, slotFromTimeStr(slot), isMember, {
+                    skipNotice: isVenueAccess,
+                  })
+              : undefined
+          }
+        />
+
         {isMultiDay ? (
-          <BarTimeSelect value={dropoffTime} onChange={setDropoffTime} />
+          <BarTimeSelect
+            label="Drop-off Time"
+            value={dropoffTime}
+            onChange={setDropoffTime}
+            date={endDate ?? startDate}
+            isMember={isMember}
+          />
         ) : isVenueAccess ? (
           <BarRouteMiles
             miles={routeMiles}
@@ -934,14 +971,25 @@ function BarDuration({
 }
 
 function BarTimeSelect({
+  label = "Drop-off Time",
   value,
   onChange,
+  date,
+  isMember = false,
+  skipNotice = false,
+  disableSlot,
 }: {
+  label?: string;
   value: string;
   onChange: (v: string) => void;
+  date?: Date;
+  isMember?: boolean;
+  skipNotice?: boolean;
+  disableSlot?: (slot: string) => boolean;
 }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function down(e: PointerEvent) {
@@ -955,9 +1003,34 @@ function BarTimeSelect({
     return () => document.removeEventListener("pointerdown", down);
   }, []);
 
+  // Scroll dropdown to the selected time (or next available / current time).
+  useEffect(() => {
+    if (!open || !listRef.current) return;
+    const anchorMins = getTimeListAnchorMinutes(value, date, {
+      isMember,
+      skipNotice,
+    });
+    const target =
+      value ||
+      TIME_SLOTS.find((slot) => {
+        const parsed = parseTime(slot);
+        if (!parsed) return false;
+        return parsed.hours * 60 + parsed.minutes >= anchorMins;
+      }) ||
+      TIME_SLOTS[0];
+
+    const el = listRef.current.querySelector<HTMLElement>(
+      `[data-time-slot="${target}"]`,
+    );
+    if (el) {
+      // Keep the anchored slot near the top of the visible list
+      listRef.current.scrollTop = Math.max(0, el.offsetTop - 8);
+    }
+  }, [open, value, date, isMember, skipNotice]);
+
   return (
     <div ref={containerRef} className="relative">
-      <p className={LABEL}>Drop-off Time</p>
+      <p className={LABEL}>{label}</p>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -991,28 +1064,39 @@ function BarTimeSelect({
         />
       </button>
       {open && (
-        <div className="absolute left-0 right-0 z-50 mt-1 max-h-52 overflow-y-auto rounded-xl border border-white/10 bg-[#2a302e] py-1 shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
-          {TIME_SLOTS.map((slot) => (
-            <button
-              key={slot}
-              type="button"
-              onClick={() => {
-                onChange(slot);
-                setOpen(false);
-              }}
-              className={cn(
-                "flex w-full items-center px-3 py-2 text-[13px] transition-colors",
-                value === slot
-                  ? "bg-white/8 font-medium text-[#bca066]"
-                  : "text-white/85 hover:bg-white/6",
-              )}
-            >
-              {slot}
-              {value === slot && (
-                <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#bca066]" />
-              )}
-            </button>
-          ))}
+        <div
+          ref={listRef}
+          className="absolute left-0 right-0 z-50 mt-1 max-h-52 overflow-y-auto rounded-xl border border-white/10 bg-[#2a302e] py-1 shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
+        >
+          {TIME_SLOTS.map((slot) => {
+            const disabled = disableSlot?.(slot) ?? false;
+            return (
+              <button
+                key={slot}
+                type="button"
+                data-time-slot={slot}
+                disabled={disabled}
+                onClick={() => {
+                  if (disabled) return;
+                  onChange(slot);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "flex w-full items-center px-3 py-2 text-[13px] transition-colors",
+                  disabled && "cursor-not-allowed opacity-35",
+                  !disabled && value === slot
+                    ? "bg-white/8 font-medium text-[#bca066]"
+                    : !disabled && "text-white/85 hover:bg-white/6",
+                  disabled && "text-white/35",
+                )}
+              >
+                {slot}
+                {value === slot && !disabled && (
+                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#bca066]" />
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
