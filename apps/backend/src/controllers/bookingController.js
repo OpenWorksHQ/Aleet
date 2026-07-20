@@ -42,7 +42,7 @@ const {
     resolveMemberRate,
     calculateBookingPrice
 } = require('../utils/bookingHelpers');
-const { getQuarterlyUsedHours } = require('../utils/membershipHours');
+const { getMembershipHourBalance } = require('../utils/membershipHours');
 const {
     resolveBookingPartner,
     computePartnerAdjustments,
@@ -157,19 +157,14 @@ function handleBookingError(res, err, context) {
 // Helper: deduct member hours for a booking and return overage if any.
 // Used in confirmBooking. Returns { hoursDeducted, overageHours, newTotalUsed }
 //
-// IMPORTANT: Overage is determined against the QUARTERLY pool (15 hrs = 5/mo × 3),
-// not a single month's 5-hour slice. A member who used 0 hrs in month 1 still has
-// those hours available in month 2 — hours pool across the full billing cycle.
-// Per-month MonthlyHours records are still kept for reporting granularity.
+// Overage uses the monthly soft-cap (5 hrs/mo) and quarterly ceiling (15 hrs).
+// Per-month MonthlyHours records are kept for reporting + the monthly soft-cap.
 // ---------------------------------------------------------------------------
 async function deductMemberHours(userId, bookingHours, startDate, settings) {
-    const monthlyHoursIncluded   = Number(settings?.membershipMonthlyHours) || 5;
-    const quarterlyHoursIncluded = monthlyHoursIncluded * 3;
-    const currentMonth = `${new Date(startDate).getFullYear()}-${String(new Date(startDate).getMonth() + 1).padStart(2, '0')}`;
-
-    const quarterlyUsedBefore = await getQuarterlyUsedHours(MonthlyHours, userId, startDate);
-    const freeLeft     = Math.max(0, quarterlyHoursIncluded - quarterlyUsedBefore);
+    const balance = await getMembershipHourBalance(MonthlyHours, userId, settings, startDate);
+    const freeLeft = balance.freeHoursLeft;
     const overageHours = Math.max(0, bookingHours - freeLeft);
+    const currentMonth = `${new Date(startDate).getFullYear()}-${String(new Date(startDate).getMonth() + 1).padStart(2, '0')}`;
 
     let record = await MonthlyHours.findOne({ user: userId, yearMonth: currentMonth });
     if (!record) {
@@ -182,8 +177,10 @@ async function deductMemberHours(userId, bookingHours, startDate, settings) {
         hoursDeducted: bookingHours,
         overageHours: Number(overageHours.toFixed(4)),
         newTotalUsed: record.totalHoursUsed,
-        quarterlyUsed: Number((quarterlyUsedBefore + bookingHours).toFixed(4)),
-        quarterlyIncluded: quarterlyHoursIncluded
+        monthlyUsed: Number((balance.monthlyUsed + bookingHours).toFixed(4)),
+        quarterlyUsed: Number((balance.quarterlyUsed + bookingHours).toFixed(4)),
+        monthlyIncluded: balance.monthlyIncluded,
+        quarterlyIncluded: balance.quarterlyIncluded,
     };
 }
 
@@ -247,17 +244,18 @@ const previewBooking = asyncHandler(async (req, res) => {
             routeValidation = await validateItinerary(itinerary, { bufferMinutes: 15 });
         }
 
-        // Pooled quarterly hours used so far (NOT just the current month — see
-        // utils/membershipHours.js for why membership hours pool across the cycle).
-        const quarterlyUsedHours = isSubscriber
-            ? await getQuarterlyUsedHours(MonthlyHours, req.user.id, effectiveStartDate)
-            : 0;
+        // Monthly soft-cap (5h) + quarterly ceiling (15h) — see membershipHours.js
+        const hourBalance = isSubscriber
+            ? await getMembershipHourBalance(MonthlyHours, req.user.id, tierSettings, effectiveStartDate)
+            : null;
 
         const memberRate = resolveMemberRate(user, tierSettings);
 
         const { regularPrice, subscriberPrice, breakdown } = await calculateBookingPrice({
             vehicleType, quantity, addOns: safeAddOnIds, isSubscriber, memberRate,
-            usedHours: quarterlyUsedHours, bookingHours,
+            usedHours: hourBalance?.quarterlyUsed || 0,
+            freeHoursLeft: hourBalance?.freeHoursLeft,
+            bookingHours,
             bookingFee:  tierSettings?.bookingFee,
             startDate:   effectiveStartDate,
             endDate:     effectiveEndDate,
@@ -294,6 +292,15 @@ const previewBooking = asyncHandler(async (req, res) => {
                 ...breakdown,
                 distance: buildDistanceBreakdown(baseToPickupMiles, distanceSurcharge),
                 partnerDiscount: partnerSnapshot?.discountAmount || 0,
+                membershipHours: hourBalance ? {
+                    monthlyIncluded: hourBalance.monthlyIncluded,
+                    monthlyUsed: hourBalance.monthlyUsed,
+                    monthlyRemaining: hourBalance.monthlyRemaining,
+                    quarterlyIncluded: hourBalance.quarterlyIncluded,
+                    quarterlyUsed: hourBalance.quarterlyUsed,
+                    quarterlyRemaining: hourBalance.quarterlyRemaining,
+                    freeHoursAvailable: hourBalance.freeHoursLeft,
+                } : undefined,
             },
             routeValidation
         });
@@ -420,17 +427,18 @@ const startBooking = asyncHandler(async (req, res) => {
 
         // NOTE: Hours are NOT deducted here anymore.
         // Deduction happens in confirmBooking when a driver is assigned.
-        // Pooled quarterly hours used so far (NOT just the current month).
-        const quarterlyUsedHours = isSubscriber
-            ? await getQuarterlyUsedHours(MonthlyHours, req.user.id, effectiveStartDate)
-            : 0;
+        const hourBalance = isSubscriber
+            ? await getMembershipHourBalance(MonthlyHours, req.user.id, tierSettings, effectiveStartDate)
+            : null;
 
         const memberRate = resolveMemberRate(user, tierSettings);
 
         const { regularPrice, subscriberPrice, breakdown } = await calculateBookingPrice({
             vehicleType, quantity, addOns: safeAddOnIds, stops: safeStops,
             isSubscriber, memberRate,
-            usedHours: quarterlyUsedHours, bookingHours,
+            usedHours: hourBalance?.quarterlyUsed || 0,
+            freeHoursLeft: hourBalance?.freeHoursLeft,
+            bookingHours,
             bookingFee: tierSettings?.bookingFee,
             startDate:  effectiveStartDate,
             endDate:    effectiveEndDate,

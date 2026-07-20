@@ -23,10 +23,16 @@ export type SubscriptionStatus = {
   ratePerHour: number | null;
   monthlyCharge?: number | null;
   quarterlyCharge: number | null;
+  currentMonth?: {
+    totalHoursIncluded: number;
+    hoursUsed: number;
+    hoursRemaining: number;
+  } | null;
   currentQuarter: {
     totalHoursIncluded: number;
     hoursUsed: number;
     hoursRemaining: number;
+    hoursAvailableNow?: number;
     overageHours: number;
     overageCharge: number;
   };
