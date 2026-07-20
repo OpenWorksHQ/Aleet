@@ -7,7 +7,7 @@ const User = require('../models/User');
 const TierSettings = require('../models/TierSettings');
 
 const CURRENCY = 'usd';
-const APP_BASE_URL = process.env.APP_BASE_URL || 'http://localhost:5173';
+const { getAppBaseUrl } = require('../utils/getAppBaseUrl');
 
 // Convert to minor units (USD -> cents). If you switch to a zero-decimal currency, adjust.
 function toMinorUnits(amount) {
@@ -96,8 +96,8 @@ exports.createCheckoutSession = async (req, res) => {
           quantity: 1,
         }] : [])
       ],
-      success_url: `${APP_BASE_URL}/booking-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${APP_BASE_URL}/booking-cancelled?booking_id=${booking._id}`,
+      success_url: `${getAppBaseUrl()}/booking-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${getAppBaseUrl()}/booking-cancelled?booking_id=${booking._id}`,
     });
 
     // 5) Save session id to booking
