@@ -20,7 +20,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const User         = require('../models/User');
 const MonthlyHours = require('../models/MonthlyHours');
 const TierSettings = require('../models/TierSettings');
-const { getQuarterlyUsedHours } = require('../utils/membershipHours');
+const { getMembershipHourBalance } = require('../utils/membershipHours');
 const {
     sendSuccess,
     sendError,
@@ -312,17 +312,14 @@ const getSubscriptionStatus = asyncHandler(async (req, res) => {
 
         const isSubscriber    = user.subscriptionStatus === 'subscriber';
         const plan            = user.subscriptionDetails?.plan || null;
-        const monthlyHours    = Number(settings?.membershipMonthlyHours) || 5;
-        const quarterlyHours  = monthlyHours * 3;
         const isFounder       = plan === 'founder30';
         const ratePerHour     = isFounder
             ? (Number(settings?.founder30Rate)  || 69)
             : (Number(settings?.membershipRate) || 89);
 
-        // Sum used hours for the current 3-month quarter
-        const quarterlyUsed = isSubscriber
-            ? await getQuarterlyUsedHours(MonthlyHours, userId)
-            : 0;
+        const hourBalance = isSubscriber
+            ? await getMembershipHourBalance(MonthlyHours, userId, settings)
+            : null;
 
         // Get default saved card last4
         let savedCardLast4 = null;
@@ -338,8 +335,9 @@ const getSubscriptionStatus = asyncHandler(async (req, res) => {
             }
         } catch (_) { /* non-fatal */ }
 
-        const hoursRemaining  = isSubscriber ? Math.max(0, quarterlyHours - quarterlyUsed) : 0;
-        const overageHours    = isSubscriber ? Math.max(0, quarterlyUsed - quarterlyHours)  : 0;
+        const overageHours = hourBalance
+            ? Math.max(0, hourBalance.quarterlyUsed - hourBalance.quarterlyIncluded)
+            : 0;
 
         return sendSuccess(res, 200, 'Subscription status retrieved', {
             status:       user.subscriptionStatus,
@@ -347,12 +345,18 @@ const getSubscriptionStatus = asyncHandler(async (req, res) => {
             isFounder30:  isFounder,
             founder30Invited: !!user.founder30Invited,
             ratePerHour:  isSubscriber ? ratePerHour : null,
-            monthlyCharge: isSubscriber ? ratePerHour * monthlyHours : null,
-            quarterlyCharge: isSubscriber ? ratePerHour * quarterlyHours : null,
+            monthlyCharge: isSubscriber ? ratePerHour * (hourBalance?.monthlyIncluded || 5) : null,
+            quarterlyCharge: isSubscriber ? ratePerHour * (hourBalance?.quarterlyIncluded || 15) : null,
+            currentMonth: hourBalance ? {
+                totalHoursIncluded: hourBalance.monthlyIncluded,
+                hoursUsed:          hourBalance.monthlyUsed,
+                hoursRemaining:     hourBalance.monthlyRemaining,
+            } : null,
             currentQuarter: {
-                totalHoursIncluded: isSubscriber ? quarterlyHours : 0,
-                hoursUsed:          Number(quarterlyUsed.toFixed(4)),
-                hoursRemaining:     Number(hoursRemaining.toFixed(4)),
+                totalHoursIncluded: hourBalance ? hourBalance.quarterlyIncluded : 0,
+                hoursUsed:          hourBalance ? hourBalance.quarterlyUsed : 0,
+                hoursRemaining:     hourBalance ? hourBalance.quarterlyRemaining : 0,
+                hoursAvailableNow:  hourBalance ? hourBalance.freeHoursLeft : 0,
                 overageHours:       Number(overageHours.toFixed(4)),
                 overageCharge:      Number((overageHours * ratePerHour).toFixed(2))
             },

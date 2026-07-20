@@ -339,7 +339,8 @@ function resolveMemberRate(user, settings) {
  *   stops?: Array<{ addOnIds?: ObjectId[] }>,
  *   isSubscriber: boolean,
  *   memberRate: number|null,
- *   usedHours: number,
+ *   usedHours: number,          // legacy: quarterly hours used (fallback only)
+ *   freeHoursLeft?: number,     // preferred: included hours still available
  *   bookingHours: number,
  *   bookingFee?: number,        // from settings (default 34)
  *   startDate?: string|Date,    // for late-night calculation
@@ -356,6 +357,7 @@ async function calculateBookingPrice({
     isSubscriber,
     memberRate,
     usedHours,
+    freeHoursLeft: freeHoursLeftParam,
     bookingHours,
     bookingFee,
     startDate,
@@ -421,12 +423,14 @@ async function calculateBookingPrice({
     if (isSubscriber) {
         const lockedRate = Number(memberRate) > 0 ? Number(memberRate) : baseRate;
 
-        // Free hours come from the QUARTERLY pool (5 hrs/mo × 3 = 15 hrs/quarter),
-        // not a single month's 5-hour slice — hours carry across the billing cycle.
-        // `usedHours` here is expected to already be the quarterly-summed total
-        // (see utils/membershipHours.js + bookingController.js callers).
-        const quarterlyHoursIncluded = (Number(settings?.membershipMonthlyHours) || 5) * 3;
-        const freeHoursLeft   = Math.max(0, quarterlyHoursIncluded - (usedHours || 0));
+        // Included hours: monthly allotment (5) soft-caps each calendar month,
+        // with a quarterly ceiling (15). Callers should pass `freeHoursLeft` from
+        // getMembershipHourBalance(); `usedHours` remains a legacy quarterly fallback.
+        const monthlyHoursIncluded   = Number(settings?.membershipMonthlyHours) || 5;
+        const quarterlyHoursIncluded = monthlyHoursIncluded * 3;
+        const freeHoursLeft = typeof freeHoursLeftParam === 'number'
+            ? Math.max(0, freeHoursLeftParam)
+            : Math.max(0, quarterlyHoursIncluded - (usedHours || 0));
         const freeHoursUsed   = Math.min(regularHoursForMember, freeHoursLeft);
         const billableRegular = Math.max(0, regularHoursForMember - freeHoursLeft);
 
@@ -452,6 +456,10 @@ async function calculateBookingPrice({
                 freeAddOns,
                 freeHoursUsed:  Number(freeHoursUsed.toFixed(4)),
                 freeHoursLeft:  Number(Math.max(0, freeHoursLeft - regularHoursForMember).toFixed(4)),
+                billableHours:  Number(billableRegular.toFixed(4)),
+                overageHours:   Number(billableRegular.toFixed(4)),
+                monthlyHoursIncluded,
+                quarterlyHoursIncluded,
                 isLateNight,
                 lateNightHours: Number(lateNightHours.toFixed(4)),
                 regularMemberHours: Number(regularHoursForMember.toFixed(4)),

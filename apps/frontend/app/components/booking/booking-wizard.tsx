@@ -116,6 +116,7 @@ export function BookingWizard({ onStepChange, renderIndicator }: { onStepChange?
     const [addonsLoading, setAddonsLoading] = useState(true);
     const [isMember, setIsMember] = useState(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const priceRequestRef = useRef(0);
 
     // Live same-day availability for the chosen region + pickup. Drives the
     // styled SameDayNotice and gates Continue / Confirm before submission.
@@ -296,7 +297,8 @@ export function BookingWizard({ onStepChange, renderIndicator }: { onStepChange?
             .finally(() => setAddonsLoading(false));
     }, []);
 
-    // Recalculate price whenever data changes (debounced 600ms)
+    // Recalculate price whenever data changes (debounced 600ms).
+    // Ignore stale responses so rapid add-on toggles cannot flash wrong totals.
     useEffect(() => {
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(async () => {
@@ -306,15 +308,22 @@ export function BookingWizard({ onStepChange, renderIndicator }: { onStepChange?
             } else if (!data.dropoffDate || !data.dropoffTime) {
                 return;
             }
+            const requestId = ++priceRequestRef.current;
             setPriceLoading(true);
             try {
                 const token = getToken() ?? undefined;
+                if (!token) {
+                    if (requestId === priceRequestRef.current) setServerPrice(null);
+                    return;
+                }
                 const res = await calculateBookingPrice(data, token);
+                if (requestId !== priceRequestRef.current) return;
                 if (res.data) setServerPrice(res.data);
             } catch (err) {
+                if (requestId !== priceRequestRef.current) return;
                 toast.error(err instanceof ApiError ? err.message : "Failed to calculate price.");
             } finally {
-                setPriceLoading(false);
+                if (requestId === priceRequestRef.current) setPriceLoading(false);
             }
         }, 600);
         return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };

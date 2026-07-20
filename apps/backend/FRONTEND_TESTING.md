@@ -156,6 +156,8 @@ Log in as admin user.
 | Issue | Fix |
 |-------|-----|
 | Checkout returns to wrong host (e.g. `localhost:5173` on live) | Production: ensure `FRONTEND_URL=https://www.aleet.app` (or set `APP_BASE_URL` explicitly), redeploy/restart backend. Local: `APP_BASE_URL=http://localhost:3001` |
+| Member 6h trip shows only $34 | Fixed: monthly soft-cap is 5h. Fresh member booking 6h → 5 included + 1×$89 + $34 fee = **$123**. Redeploy backend. |
+| Totals jump ($34 vs $514) on add-on toggle | Guest rate was flashing from stale preview / missing auth. Frontend now ignores stale price responses and requires login for preview. |
 | `Invalid vehicle type` on preview | Pick vehicle from dropdown (uses real `vehicle_type_id`) |
 | Preview/start date errors | Use future ISO dates |
 | Payout fails | Customer must be Paid; driver needs Stripe Connect; trip completed |

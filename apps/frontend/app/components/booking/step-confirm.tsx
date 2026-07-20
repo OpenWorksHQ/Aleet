@@ -212,6 +212,13 @@ export function StepConfirm({ data, serverPrice, priceLoading, freeAddons, paidA
                                 <span className="text-aleet-text">${serverPrice.breakdown.memberRate}/hr</span>
                             </div>
                         )}
+                        {serverPrice.breakdown.membershipHours && (
+                            <div className="rounded-lg bg-aleet-cream/60 px-3 py-2 text-[12px] text-aleet-text-muted">
+                                Included this month: {serverPrice.breakdown.membershipHours.monthlyRemaining}h left
+                                {" · "}
+                                Quarter: {serverPrice.breakdown.membershipHours.quarterlyRemaining}h left
+                            </div>
+                        )}
                         {/* Add-ons */}
                         {(serverPrice.breakdown.addOns ?? []).map((addon) => (
                             <div key={addon._id} className="flex justify-between text-[13px]">
@@ -236,9 +243,19 @@ export function StepConfirm({ data, serverPrice, priceLoading, freeAddons, paidA
                         {serverPrice.breakdown.freeHoursUsed > 0 && (
                             <div className="flex justify-between text-[13px]">
                                 <span className="text-aleet-text-muted">
-                                  Free hours applied ({serverPrice.breakdown.freeHoursLeft}h left this quarter)
+                                  Included membership hours applied
                                 </span>
                                 <span className="text-[#4caf50]">−{serverPrice.breakdown.freeHoursUsed}h</span>
+                            </div>
+                        )}
+                        {(serverPrice.breakdown.overageHours ?? 0) > 0 && serverPrice.breakdown.memberRate != null && (
+                            <div className="flex justify-between text-[13px]">
+                                <span className="text-aleet-text-muted">
+                                  Overage ({serverPrice.breakdown.overageHours}h × ${serverPrice.breakdown.memberRate}/hr)
+                                </span>
+                                <span className="text-aleet-text">
+                                  +${(serverPrice.breakdown.overageHours! * serverPrice.breakdown.memberRate).toFixed(0)}
+                                </span>
                             </div>
                         )}
                         {serverPrice.subscriptionPrice != null && serverPrice.subscriptionPrice < serverPrice.regularPrice && (
@@ -248,7 +265,7 @@ export function StepConfirm({ data, serverPrice, priceLoading, freeAddons, paidA
                             </div>
                         )}
                         <div className="mt-3 flex justify-between border-t border-aleet-border pt-3">
-                            <span className="text-[15px] font-semibold text-aleet-text">Total</span>
+                            <span className="text-[15px] font-semibold text-aleet-text">Total due today</span>
                             <span className="text-[18px] font-bold text-aleet-gold">${serverPrice.total.toFixed(0)}</span>
                         </div>
                     </div>

@@ -25,6 +25,10 @@ export type BookingPreviewBreakdown = {
   addOns?: BookingPreviewAddon[];
   freeHoursUsed: number;
   freeHoursLeft: number;
+  billableHours?: number;
+  overageHours?: number;
+  monthlyHoursIncluded?: number;
+  quarterlyHoursIncluded?: number;
   distance: BookingPreviewDistance;
   bookingFee?: number;
   memberRate?: number;
@@ -37,6 +41,15 @@ export type BookingPreviewBreakdown = {
   regularMemberHours?: number;
   subscriptionPrice?: number;
   memberRateApplied?: boolean;
+  membershipHours?: {
+    monthlyIncluded: number;
+    monthlyUsed: number;
+    monthlyRemaining: number;
+    quarterlyIncluded: number;
+    quarterlyUsed: number;
+    quarterlyRemaining: number;
+    freeHoursAvailable: number;
+  };
 };
 
 export type BookingPriceResult = {

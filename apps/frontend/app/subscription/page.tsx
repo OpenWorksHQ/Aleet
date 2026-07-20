@@ -196,26 +196,61 @@ export default function SubscriptionPage() {
               </button>
             </div>
 
-            <div className="mt-6">
-              <div className="mb-2 flex justify-between text-sm">
-                <span className="text-aleet-text-muted">Quarterly hours used</span>
-                <span className="text-aleet-text">
-                  {status.currentQuarter.hoursUsed.toFixed(1)} /{" "}
-                  {status.currentQuarter.totalHoursIncluded}h
-                </span>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-aleet-cream">
-                <div
-                  className="h-full rounded-full bg-aleet-gold transition-all"
-                  style={{ width: `${usagePct}%` }}
-                />
-              </div>
-              {status.currentQuarter.overageHours > 0 ? (
-                <p className="mt-2 text-sm text-amber-400">
-                  Overage: {status.currentQuarter.overageHours.toFixed(1)}h (~$
-                  {status.currentQuarter.overageCharge.toFixed(2)})
-                </p>
+            <div className="mt-6 space-y-4">
+              {status.currentMonth ? (
+                <div>
+                  <div className="mb-2 flex justify-between text-sm">
+                    <span className="text-aleet-text-muted">This month (included hours)</span>
+                    <span className="text-aleet-text">
+                      {status.currentMonth.hoursUsed.toFixed(1)} /{" "}
+                      {status.currentMonth.totalHoursIncluded}h
+                      {" · "}
+                      {status.currentMonth.hoursRemaining.toFixed(1)}h left
+                    </span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-aleet-cream">
+                    <div
+                      className="h-full rounded-full bg-aleet-gold transition-all"
+                      style={{
+                        width: `${Math.min(
+                          (status.currentMonth.hoursUsed /
+                            Math.max(status.currentMonth.totalHoursIncluded, 1)) *
+                            100,
+                          100,
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                </div>
               ) : null}
+              <div>
+                <div className="mb-2 flex justify-between text-sm">
+                  <span className="text-aleet-text-muted">Quarterly hours used</span>
+                  <span className="text-aleet-text">
+                    {status.currentQuarter.hoursUsed.toFixed(1)} /{" "}
+                    {status.currentQuarter.totalHoursIncluded}h
+                  </span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-aleet-cream">
+                  <div
+                    className="h-full rounded-full bg-aleet-gold/70 transition-all"
+                    style={{ width: `${usagePct}%` }}
+                  />
+                </div>
+                {status.currentQuarter.hoursAvailableNow != null ? (
+                  <p className="mt-2 text-xs text-aleet-text-subtle">
+                    Available for your next booking now:{" "}
+                    {status.currentQuarter.hoursAvailableNow.toFixed(1)}h
+                    (5h monthly allotment, 15h quarterly ceiling)
+                  </p>
+                ) : null}
+                {status.currentQuarter.overageHours > 0 ? (
+                  <p className="mt-2 text-sm text-amber-400">
+                    Overage: {status.currentQuarter.overageHours.toFixed(1)}h (~$
+                    {status.currentQuarter.overageCharge.toFixed(2)})
+                  </p>
+                ) : null}
+              </div>
             </div>
           </div>
         ) : (
