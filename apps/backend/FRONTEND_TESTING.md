@@ -155,7 +155,7 @@ Log in as admin user.
 
 | Issue | Fix |
 |-------|-----|
-| Checkout returns to wrong host | Set `APP_BASE_URL=http://localhost:3001` in backend `.env` |
+| Checkout returns to wrong host (e.g. `localhost:5173` on live) | Production: ensure `FRONTEND_URL=https://www.aleet.app` (or set `APP_BASE_URL` explicitly), redeploy/restart backend. Local: `APP_BASE_URL=http://localhost:3001` |
 | `Invalid vehicle type` on preview | Pick vehicle from dropdown (uses real `vehicle_type_id`) |
 | Preview/start date errors | Use future ISO dates |
 | Payout fails | Customer must be Paid; driver needs Stripe Connect; trip completed |

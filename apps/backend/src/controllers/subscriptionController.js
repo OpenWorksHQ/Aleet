@@ -30,8 +30,8 @@ const {
 } = require('../utils/responseHelper');
 const { getOrCreateStripeCustomer } = require('./savedCardController');
 
-const CURRENCY    = 'usd';
-const APP_BASE_URL = process.env.APP_BASE_URL || 'http://localhost:5173';
+const CURRENCY = 'usd';
+const { getAppBaseUrl } = require('../utils/getAppBaseUrl');
 
 // ---------------------------------------------------------------------------
 // Internal: compute quarterly charge from settings
@@ -113,8 +113,8 @@ const createSubscriptionCheckout = asyncHandler(async (req, res) => {
                     quantity: 1
                 }
             ],
-            success_url: `${APP_BASE_URL}/subscription-success?session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url:  `${APP_BASE_URL}/subscription-cancelled`
+            success_url: `${getAppBaseUrl()}/subscription-success?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url:  `${getAppBaseUrl()}/subscription-cancelled`
         });
 
         return sendSuccess(res, 200, 'Checkout session created', {
@@ -457,7 +457,7 @@ const updatePaymentMethod = asyncHandler(async (req, res) => {
 
         const portalSession = await stripe.billingPortal.sessions.create({
             customer:   customerId,
-            return_url: `${APP_BASE_URL}/subscription-settings`
+            return_url: `${getAppBaseUrl()}/subscription-settings`
         });
 
         return sendSuccess(res, 200, 'Billing portal session created', {
