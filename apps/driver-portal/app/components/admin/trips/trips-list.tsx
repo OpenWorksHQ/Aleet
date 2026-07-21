@@ -14,13 +14,24 @@ import {
     assignDriverToBooking,
     redispatchBooking,
     unassignDriverFromBooking,
+    cancelBookingAsAdmin,
+    updateBookingAsAdmin,
 } from "@/lib/admin-api";
 import { PhoneLink } from "@/app/components/ui/phone-link";
+import { EditTripModal } from "./edit-trip-modal";
 
 const LIMIT = 10;
 
+type TimeWindow = "current" | "future" | "past";
+
+const TIME_TABS: { key: TimeWindow; label: string }[] = [
+    { key: "current", label: "Today's trips" },
+    { key: "future", label: "Future bookings" },
+    { key: "past", label: "Past trips" },
+];
+
 const FILTERS: { key: ApiBookingStatus | ""; label: string }[] = [
-    { key: "", label: "All" },
+    { key: "", label: "All statuses" },
     { key: "Pending", label: "Pending" },
     { key: "Confirmed", label: "Confirmed" },
     { key: "In Progress", label: "In Progress" },
@@ -206,6 +217,7 @@ function AssignDriverPanel({
 export function TripsList({ initialBookings, initialPagination }: Props) {
     const [bookings, setBookings] = useState<ApiBooking[]>(initialBookings);
     const [pagination, setPagination] = useState(initialPagination);
+    const [timeWindow, setTimeWindow] = useState<TimeWindow>("current");
     const [status, setStatus] = useState<ApiBookingStatus | "">("");
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
@@ -213,22 +225,29 @@ export function TripsList({ initialBookings, initialPagination }: Props) {
     const [assignOpen, setAssignOpen] = useState<string | null>(null);
     const [actionBookingId, setActionBookingId] = useState<string | null>(null);
     const [actionMessage, setActionMessage] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+    const [editBooking, setEditBooking] = useState<ApiBooking | null>(null);
     const [isPending, startTransition] = useTransition();
     const [error, setError] = useState<string | null>(null);
     const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isFirstMount = useRef(true);
 
-    const load = (opts: { status: ApiBookingStatus | ""; search: string; page: number }) => {
+    const load = (opts: {
+        timeWindow: TimeWindow;
+        status: ApiBookingStatus | "";
+        search: string;
+        page: number;
+    }) => {
         startTransition(async () => {
             setError(null);
             try {
                 const result = await fetchBookingsClient({
+                    timeWindow: opts.timeWindow,
                     ...(opts.status ? { status: opts.status } : {}),
                     ...(opts.search ? { search: opts.search } : {}),
                     page: opts.page,
                     limit: LIMIT,
-                    sortBy: "createdAt",
-                    order: "desc",
+                    sortBy: "dates.startDate",
+                    order: opts.timeWindow === "past" ? "desc" : "asc",
                 });
                 setBookings(result.bookings);
                 setPagination(result.pagination);
@@ -239,21 +258,25 @@ export function TripsList({ initialBookings, initialPagination }: Props) {
     };
 
     useEffect(() => {
-        if (isFirstMount.current) {
-            isFirstMount.current = false;
-            return;
-        }
-        setPage(1);
-        load({ status, search, page: 1 });
+        // Always load Today's trips on first mount (server may have sent unfiltered list)
+        load({ timeWindow: "current", status: "", search: "", page: 1 });
+        isFirstMount.current = false;
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [status]);
+    }, []);
+
+    useEffect(() => {
+        if (isFirstMount.current) return;
+        setPage(1);
+        load({ timeWindow, status, search, page: 1 });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [timeWindow, status]);
 
     useEffect(() => {
         if (isFirstMount.current) return;
         if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
         searchTimerRef.current = setTimeout(() => {
             setPage(1);
-            load({ status, search, page: 1 });
+            load({ timeWindow, status, search, page: 1 });
         }, 400);
         return () => {
             if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
@@ -263,13 +286,18 @@ export function TripsList({ initialBookings, initialPagination }: Props) {
 
     useEffect(() => {
         if (isFirstMount.current) return;
-        load({ status, search, page });
+        load({ timeWindow, status, search, page });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [page]);
 
     const handleStatusChange = (key: ApiBookingStatus | "") => {
         setExpanded(null);
         setStatus(key);
+    };
+
+    const handleTimeWindowChange = (key: TimeWindow) => {
+        setExpanded(null);
+        setTimeWindow(key);
     };
 
     const patchBooking = (id: string, patch: Partial<ApiBooking>) => {
@@ -317,9 +345,59 @@ export function TripsList({ initialBookings, initialPagination }: Props) {
         }
     }
 
+    async function handleCancel(bookingId: string) {
+        const reason =
+            typeof window !== "undefined"
+                ? window.prompt("Cancel reason (optional):", "Cancelled by admin") ?? ""
+                : "Cancelled by admin";
+        const ok =
+            typeof window !== "undefined"
+                ? window.confirm("Cancel this trip? This cannot be undone from here.")
+                : true;
+        if (!ok) return;
+        setActionBookingId(bookingId);
+        setActionMessage(null);
+        try {
+            const updated = await cancelBookingAsAdmin(bookingId, reason.trim() || undefined);
+            patchBooking(bookingId, {
+                status: "Cancelled",
+                assignedDriver: updated.assignedDriver ?? null,
+            });
+            setActionMessage({ kind: "ok", text: "Trip cancelled." });
+        } catch (e) {
+            setActionMessage({
+                kind: "err",
+                text: e instanceof Error ? e.message : "Failed to cancel trip",
+            });
+        } finally {
+            setActionBookingId(null);
+        }
+    }
+
     return (
         <div className="flex flex-col gap-4">
-            {/* Search + filter bar */}
+            {/* Time window tabs */}
+            <div className="rounded-2xl border border-border bg-card-bg px-4 py-3">
+                <div className="flex flex-wrap gap-2">
+                    {TIME_TABS.map((tab) => (
+                        <button
+                            key={tab.key}
+                            type="button"
+                            onClick={() => handleTimeWindowChange(tab.key)}
+                            className={cn(
+                                "rounded-xl border px-4 py-2 text-sm font-medium transition-colors",
+                                timeWindow === tab.key
+                                    ? "border-gold/40 bg-gold/15 text-gold"
+                                    : "border-border text-muted hover:text-text",
+                            )}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Search + status filter bar */}
             <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card-bg p-4 sm:flex-row sm:items-center">
                 <div className="relative flex-1">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted">
@@ -615,12 +693,51 @@ export function TripsList({ initialBookings, initialPagination }: Props) {
                                                     {actionBookingId === booking._id ? "Unassigning…" : "Unassign Driver"}
                                                 </button>
                                             )}
+
+                                        {/* Admin trip tools */}
+                                        {!["Cancelled", "Expired"].includes(booking.status) && (
+                                            <div className="mt-3 flex flex-wrap gap-2">
+                                                {booking.status !== "Completed" && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setEditBooking(booking)}
+                                                        className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:border-gold/40 hover:text-gold"
+                                                    >
+                                                        Update trip / price
+                                                    </button>
+                                                )}
+                                                {!["Cancelled", "Completed", "Expired"].includes(booking.status) && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleCancel(booking._id)}
+                                                        disabled={actionBookingId !== null}
+                                                        className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                                                    >
+                                                        {actionBookingId === booking._id ? "Cancelling…" : "Cancel trip"}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
                         );
                     })}
                 </div>
+
+                {editBooking ? (
+                    <EditTripModal
+                        booking={editBooking}
+                        onClose={() => setEditBooking(null)}
+                        onSaved={(updated) => {
+                            setBookings((prev) =>
+                                prev.map((b) => (b._id === updated._id ? { ...b, ...updated } : b)),
+                            );
+                            setEditBooking(null);
+                            setActionMessage({ kind: "ok", text: "Trip updated." });
+                        }}
+                    />
+                ) : null}
 
                 {/* Pagination */}
                 {pagination.totalPages > 1 && (

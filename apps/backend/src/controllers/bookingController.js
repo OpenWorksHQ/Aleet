@@ -854,6 +854,49 @@ const getAllBookings = asyncHandler(async (req, res) => {
         if (req.query.bookingMode)   search.bookingMode   = req.query.bookingMode;
         if (req.query.paymentStatus) search.paymentStatus = req.query.paymentStatus;
 
+        // timeWindow: current | future | past (by trip start date)
+        const timeWindow = typeof req.query.timeWindow === 'string'
+            ? req.query.timeWindow.trim().toLowerCase()
+            : '';
+        if (timeWindow === 'current' || timeWindow === 'today') {
+            const startOfToday = new Date();
+            startOfToday.setHours(0, 0, 0, 0);
+            const endOfToday = new Date();
+            endOfToday.setHours(23, 59, 59, 999);
+            search['dates.startDate'] = { $gte: startOfToday, $lte: endOfToday };
+            if (!req.query.status) {
+                search.status = { $nin: ['Completed', 'Cancelled', 'Expired'] };
+            }
+        } else if (timeWindow === 'future') {
+            const endOfToday = new Date();
+            endOfToday.setHours(23, 59, 59, 999);
+            search['dates.startDate'] = { $gt: endOfToday };
+            if (!req.query.status) {
+                search.status = { $nin: ['Completed', 'Cancelled', 'Expired'] };
+            }
+        } else if (timeWindow === 'past') {
+            const startOfToday = new Date();
+            startOfToday.setHours(0, 0, 0, 0);
+            const pastClause = {
+                $or: [
+                    { 'dates.endDate': { $lt: startOfToday } },
+                    { status: { $in: ['Completed', 'Cancelled', 'Expired'] } },
+                ],
+            };
+            if (search.$or) {
+                search.$and = [{ $or: search.$or }, pastClause];
+                delete search.$or;
+            } else {
+                Object.assign(search, pastClause);
+            }
+        }
+
+        const defaultSort = timeWindow === 'past'
+            ? { 'dates.startDate': -1 }
+            : timeWindow === 'future' || timeWindow === 'current' || timeWindow === 'today'
+                ? { 'dates.startDate': 1 }
+                : sort;
+
         const [bookings, total] = await Promise.all([
             Booking.find(search)
                 .populate('user', 'name email phone')
@@ -861,7 +904,7 @@ const getAllBookings = asyncHandler(async (req, res) => {
                 .populate('vehicleType', 'name hourlyPrice')
                 .populate('addOns', 'name price type')
                 .populate('assignedDriver', 'name phone')
-                .sort(sort).skip(skip).limit(limit),
+                .sort(defaultSort || sort).skip(skip).limit(limit),
             Booking.countDocuments(search)
         ]);
 

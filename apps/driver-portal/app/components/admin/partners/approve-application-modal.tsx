@@ -26,8 +26,8 @@ export function ApproveApplicationModal({ application, onClose, onApproved }: Pr
   const defaultPickup = `${application.address}, ${application.city}, ${application.state}`;
 
   const [partnerCode, setPartnerCode] = useState("");
-  const [partnerType, setPartnerType] = useState<"venue" | "affiliate" | "marketer">(
-    isVenue ? "venue" : "affiliate",
+  const [partnerType, setPartnerType] = useState<"venue" | "affiliate_marketer">(
+    isVenue ? "venue" : "affiliate_marketer",
   );
   const [venueSlug, setVenueSlug] = useState("");
   const [trackingSlug, setTrackingSlug] = useState("");
@@ -147,13 +147,12 @@ export function ApproveApplicationModal({ application, onClose, onApproved }: Pr
                 <select
                   value={partnerType}
                   onChange={(e) =>
-                    setPartnerType(e.target.value as "venue" | "affiliate" | "marketer")
+                    setPartnerType(e.target.value as "venue" | "affiliate_marketer")
                   }
                   className={inputClass}
                 >
-                  <option value="venue">Venue</option>
-                  <option value="affiliate">Affiliate</option>
-                  <option value="marketer">Marketer</option>
+                  <option value="venue">Venue Access</option>
+                  <option value="affiliate_marketer">Affiliate Marketer</option>
                 </select>
               </Field>
               <Field label="Partner code (optional)">
@@ -250,7 +249,7 @@ export function ApproveApplicationModal({ application, onClose, onApproved }: Pr
             <p className="text-[12px] text-muted">
               {isVenue
                 ? "Detected as a venue application based on business type."
-                : "Detected as a standard affiliate/marketer application."}
+                : "Detected as a standard affiliate marketer application."}
             </p>
 
             <div className="flex gap-3 pt-1">

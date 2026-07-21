@@ -480,8 +480,14 @@ async function createPartnerFromApplication(application, adminUserId, overrides 
   const rawVenueSlug = isVenue
     ? (overrides.venueSlug || await ensureUniqueVenueSlug(application.businessName))
     : undefined;
-  const partnerType = overrides.partnerType || (isVenue ? 'venue' : 'affiliate');
-  const isAffiliateType = partnerType === 'affiliate' || partnerType === 'marketer';
+  const partnerType = overrides.partnerType || (isVenue ? 'venue' : 'affiliate_marketer');
+  const isAffiliateType =
+    partnerType === 'affiliate'
+    || partnerType === 'marketer'
+    || partnerType === 'affiliate_marketer';
+  const normalizedType = isVenue
+    ? 'venue'
+    : (isAffiliateType ? 'affiliate_marketer' : partnerType);
   const rawTrackingSlug = !isVenue && isAffiliateType
     ? (overrides.trackingSlug || await ensureUniqueTrackingSlug(application.businessName))
     : (!isVenue && overrides.trackingSlug ? overrides.trackingSlug : undefined);
@@ -500,7 +506,7 @@ async function createPartnerFromApplication(application, adminUserId, overrides 
   const payload = {
     partnerCode,
     partnerName: application.businessName,
-    partnerType: overrides.partnerType || (isVenue ? 'venue' : 'affiliate'),
+    partnerType: normalizedType,
     bookingMode: isVenue ? 'venue_access' : 'standard',
     pickupLocation,
     pickupLocked: overrides.pickupLocked ?? isVenue,

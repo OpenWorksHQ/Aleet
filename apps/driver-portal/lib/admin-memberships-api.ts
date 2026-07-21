@@ -103,3 +103,46 @@ export async function updateMemberBalanceClient(
   });
   return handleResponse(res);
 }
+
+export type Founder30Link = {
+  id: string;
+  token: string;
+  label: string;
+  url: string;
+  regions: Array<{ _id: string; name: string | null; code: string | null }>;
+  active: boolean;
+  maxUses: number | null;
+  useCount: number;
+  expiresAt: string | null;
+  createdAt: string;
+};
+
+export async function createFounder30LinkClient(body: {
+  label?: string;
+  regionIds?: string[];
+  maxUses?: number | null;
+  expiresInDays?: number | null;
+}): Promise<Founder30Link> {
+  const res = await fetch(`${BASE_URL}/api/admin/memberships/founder30-links`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(body),
+  });
+  return handleResponse<Founder30Link>(res);
+}
+
+export async function listFounder30LinksClient(): Promise<Founder30Link[]> {
+  const res = await fetch(`${BASE_URL}/api/admin/memberships/founder30-links`, {
+    headers: getAuthHeaders(),
+    cache: "no-store",
+  });
+  return handleResponse<Founder30Link[]>(res);
+}
+
+export async function deactivateFounder30LinkClient(id: string): Promise<Founder30Link> {
+  const res = await fetch(
+    `${BASE_URL}/api/admin/memberships/founder30-links/${id}/deactivate`,
+    { method: "PATCH", headers: getAuthHeaders() },
+  );
+  return handleResponse<Founder30Link>(res);
+}

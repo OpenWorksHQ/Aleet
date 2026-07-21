@@ -141,7 +141,7 @@ const listPartners = asyncHandler(async (req, res) => {
 const createPartner = asyncHandler(async (req, res) => {
   const {
     partnerName,
-    partnerType = 'affiliate',
+    partnerType = 'affiliate_marketer',
     partnerCode,
     trackingSlug,
     venueSlug,
@@ -168,6 +168,14 @@ const createPartner = asyncHandler(async (req, res) => {
     return sendValidationError(res, 'partnerName is required');
   }
 
+  const rawType = String(partnerType || 'affiliate_marketer');
+  const normalizedType =
+    rawType === 'venue'
+      ? 'venue'
+      : (rawType === 'affiliate' || rawType === 'marketer' || rawType === 'affiliate_marketer'
+        ? 'affiliate_marketer'
+        : 'affiliate_marketer');
+
   const code = partnerCode
     ? String(partnerCode).trim().toUpperCase()
     : await ensureUniquePartnerCode(partnerName);
@@ -176,7 +184,7 @@ const createPartner = asyncHandler(async (req, res) => {
   try {
     slugs = await assertUniquePartnerSlugs({
       trackingSlug: trackingSlug || undefined,
-      venueSlug: venueSlug || (partnerType === 'venue' ? partnerName : undefined),
+      venueSlug: venueSlug || (normalizedType === 'venue' ? partnerName : undefined),
     });
   } catch (err) {
     if (err.code === 'SLUG_CONFLICT') {
@@ -188,12 +196,12 @@ const createPartner = asyncHandler(async (req, res) => {
   const payload = {
     partnerCode: code,
     partnerName: String(partnerName).trim(),
-    partnerType,
-    bookingMode: bookingMode || (partnerType === 'venue' ? 'venue_access' : 'standard'),
+    partnerType: normalizedType,
+    bookingMode: bookingMode || (normalizedType === 'venue' ? 'venue_access' : 'standard'),
     region: region || null,
     defaultVehicleType: defaultVehicleType || null,
     pickupLocation: pickupLocation || null,
-    pickupLocked: pickupLocked ?? partnerType === 'venue',
+    pickupLocked: pickupLocked ?? normalizedType === 'venue',
     discountPct: discountPct ?? 0,
     commissionPct: commissionPct ?? null,
     pricingNote: pricingNote || null,
@@ -269,6 +277,13 @@ const updatePartner = asyncHandler(async (req, res) => {
   }
 
   if (req.body.partnerType !== undefined) {
+    const rawType = String(req.body.partnerType);
+    partner.partnerType =
+      rawType === 'venue'
+        ? 'venue'
+        : (rawType === 'affiliate' || rawType === 'marketer' || rawType === 'affiliate_marketer'
+          ? 'affiliate_marketer'
+          : rawType);
     partner.bookingMode = req.body.bookingMode
       ?? (partner.partnerType === 'venue' ? 'venue_access' : 'standard');
   }

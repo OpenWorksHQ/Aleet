@@ -9,6 +9,7 @@ import {
   updateMemberBalanceClient,
   type AdminMember,
 } from "@/lib/admin-memberships-api";
+import { Founder30LinksPanel } from "./founder30-links-panel";
 
 export function MembershipsPanel() {
   const [members, setMembers] = useState<AdminMember[]>([]);
@@ -89,6 +90,8 @@ export function MembershipsPanel() {
         <h2 className="text-lg font-semibold text-text">Memberships</h2>
         <p className="mt-1 text-sm text-muted">Active subscribers, Founder 30 invites, and overage billing</p>
       </div>
+
+      <Founder30LinksPanel />
 
       <div className="flex flex-wrap gap-2">
         {(["all", "standard", "founder30"] as const).map((p) => (

@@ -89,6 +89,8 @@ export function BookingForm() {
                 const opts: RegionOption[] = (res.data ?? []).map(
                     (r: Region) => ({
                         label: r.name,
+                        value: r.name,
+                        code: r.code,
                         _id: r._id,
                     }),
                 );

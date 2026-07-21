@@ -162,7 +162,14 @@ export function VehicleTypesList({ initialVehicleTypes }: Props) {
                                                 <circle cx="16.5" cy="16.8" r="1.7" />
                                             </svg>
                                         </div>
+                                        <div className="flex items-center gap-2">
                                         <span className="text-sm font-medium text-text">{v.name}</span>
+                                        {v.isPrivate ? (
+                                            <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted">
+                                                Private
+                                            </span>
+                                        ) : null}
+                                        </div>
                                     </div>
                                     <p className="text-sm text-muted">{v.description}</p>
                                     <p className="text-right text-sm font-semibold text-gold">${v.hourlyPrice}/hr</p>

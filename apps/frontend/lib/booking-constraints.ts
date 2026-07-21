@@ -3,7 +3,7 @@
  * Rules
  * ─────
  * • Cannot book in the past
- * • Non-members: earliest pick-up is now + 3 h (notice rule)
+ * • Non-members: earliest pick-up is now + notice hours (3h guests / 0.5h venue)
  * • endDate − startDate ≥ 3 h
  * • endDate > startDate
  */
@@ -13,14 +13,30 @@ export const MIN_DURATION_HOURS = 3;
 
 /**
  * Notice a non-member must give before pick-up.
- * Mirrors backend `NON_MEMBER_NOTICE_MS` in src/utils/bookingHelpers.js.
+ * Mirrors backend `sameDayNoticeHours` default in bookingHelpers.js.
  * Members are exempt ("Members = no minimums").
  */
 export const NON_MEMBER_NOTICE_HOURS = 3;
 
+/** Venue-access: waive advance notice (immediate OK). ETA ~30m is post-book only. */
+export const VENUE_NOTICE_HOURS = 0;
+
 /** Same rule as homepage booking bar: guests 3h, members 1h. */
 export function minBookingHours(isMember: boolean): number {
   return isMember ? 1 : MIN_DURATION_HOURS;
+}
+
+/** Resolve notice hours for pickup constraints. */
+export function resolveNoticeHours(options?: {
+  isMember?: boolean;
+  skipNotice?: boolean;
+  noticeHours?: number;
+}): number {
+  if (options?.isMember) return 0;
+  if (typeof options?.noticeHours === "number") return options.noticeHours;
+  // Venue / partner location: waive normal 3h notice (immediate pickup allowed).
+  if (options?.skipNotice) return VENUE_NOTICE_HOURS;
+  return NON_MEMBER_NOTICE_HOURS;
 }
 
 // ── time helpers ────────────────────────────────────────────────────────────
@@ -132,7 +148,7 @@ function isSameCalendarDay(a: Date, b: Date): boolean {
  * Earliest selectable pickup time for a date.
  *
  * - Today (guest): first slot after now + notice window
- * - Today (member / venue): first slot after now
+ * - Today (member / zero notice): first slot after now
  * - Future dates: wall-clock "now" rounded up (not 01:00 AM)
  * - If `preferredTime` is still valid for that date, keep it
  */
@@ -141,16 +157,17 @@ export function getDefaultPickupTime(
   options?: {
     isMember?: boolean;
     skipNotice?: boolean;
+    noticeHours?: number;
     preferredTime?: string;
   },
 ): string {
   const isMember = Boolean(options?.isMember);
-  const skipNotice = Boolean(options?.skipNotice);
+  const noticeHours = resolveNoticeHours({ ...options, isMember });
   const preferred = options?.preferredTime?.trim();
 
   if (preferred) {
     const slot = slotFromTimeStr(preferred);
-    if (!isPickupTimeDisabled(date, slot, isMember, { skipNotice })) {
+    if (!isPickupTimeDisabled(date, slot, isMember, options)) {
       return `${slot.hour}:${slot.minute} ${slot.period}`;
     }
   }
@@ -159,9 +176,9 @@ export function getDefaultPickupTime(
   let startMinutes = ceilToQuarterHour(now);
 
   if (isSameCalendarDay(date, now)) {
-    if (!isMember && !skipNotice) {
+    if (!isMember && noticeHours > 0) {
       const withNotice =
-        now.getHours() * 60 + now.getMinutes() + NON_MEMBER_NOTICE_HOURS * 60;
+        now.getHours() * 60 + now.getMinutes() + noticeHours * 60;
       const rem = withNotice % 15;
       startMinutes = rem === 0 ? withNotice : withNotice + (15 - rem);
     }
@@ -180,7 +197,7 @@ export function getDefaultPickupTime(
       break;
     }
     const time = formatMinutesAsTime(mins);
-    if (!isPickupTimeDisabled(date, slotFromTimeStr(time), isMember, { skipNotice })) {
+    if (!isPickupTimeDisabled(date, slotFromTimeStr(time), isMember, options)) {
       return time;
     }
   }
@@ -195,7 +212,7 @@ export function getDefaultPickupTime(
 export function getTimeListAnchorMinutes(
   value: string | undefined,
   date?: Date,
-  options?: { isMember?: boolean; skipNotice?: boolean },
+  options?: { isMember?: boolean; skipNotice?: boolean; noticeHours?: number },
 ): number {
   if (value) {
     const parsed = parseTime(value);
@@ -214,15 +231,14 @@ export function getTimeListAnchorMinutes(
  * *pickup* field on a given date.
  *
  * Always disabled when the slot is in the past. For non-members it is also
- * disabled when it falls inside the `NON_MEMBER_NOTICE_HOURS` notice window
- * from now. Members and partner venue bookings (`skipNotice`) give no notice
- * and are only blocked from past slots.
+ * disabled inside the notice window (3h guests / 30m venue). Members only
+ * blocked from past slots.
  */
 export function isPickupTimeDisabled(
   date: Date | undefined,
   slot: TimeSlot,
   isMember = false,
-  options?: { skipNotice?: boolean },
+  options?: { skipNotice?: boolean; noticeHours?: number },
 ): boolean {
   if (!date) return false;
   const now = new Date();
@@ -238,9 +254,8 @@ export function isPickupTimeDisabled(
   const slotMinutes = slotToMinutes(slot);
   // Past slots are always disabled.
   if (slotMinutes <= nowMinutes) return true;
-  // Non-members must give NON_MEMBER_NOTICE_HOURS notice before pick-up.
-  const skipNotice = Boolean(options?.skipNotice);
-  if (!isMember && !skipNotice && slotMinutes < nowMinutes + NON_MEMBER_NOTICE_HOURS * 60) {
+  const noticeHours = resolveNoticeHours({ ...options, isMember });
+  if (!isMember && noticeHours > 0 && slotMinutes < nowMinutes + noticeHours * 60) {
     return true;
   }
   return false;
@@ -257,7 +272,7 @@ export function isDropoffTimeDisabled(
   slot: TimeSlot,
   isMember = false,
 ): boolean {
-  // If drop-off date is not yet chosen, block all slots so the user picks a date first
+  // If drop-off date is not yet chosen, enable all slots so the user picks a date first
   if (!pickupDate || !pickupTime || !dropoffDate) return false;
 
   const pickupParsed = parseTime(pickupTime);

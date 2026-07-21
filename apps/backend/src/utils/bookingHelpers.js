@@ -140,13 +140,16 @@ function validateBookingInput({
     const start = new Date(startDate);
     const end   = new Date(endDate);
 
-    // Allow a small clock-skew grace for "book now" partner venue pickups.
+    // Allow a small clock-skew grace for near-now partner venue pickups.
     const pastGraceMs = skipSameDayNotice ? 60_000 : 0;
     if (start.getTime() < now.getTime() - pastGraceMs) {
         throw new Error('Start date must be in future');
     }
 
-    // Dynamic thresholds — fall back to defaults when settings not passed
+    // Dynamic thresholds — fall back to defaults when settings not passed.
+    // Venue access (skipSameDayNotice): waive the normal advance-notice rule
+    // so pickup can be immediate (or any later time). expectedPickupBy (~30 min)
+    // is set separately at booking create for driver ETA messaging.
     const noticeHours = Number(settings?.sameDayNoticeHours) || 3;
     const minHours    = Number(settings?.minBookingHours)    || 3;
 

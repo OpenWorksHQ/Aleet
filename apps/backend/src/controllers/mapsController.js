@@ -9,18 +9,20 @@ const {
 
 /**
  * POST /api/maps/autocomplete
- * Body: { input: string, sessionToken?: string }
+ * Body: { input: string, sessionToken?: string, regionCode?: string }
  */
 const autocompletePlaces = async (req, res) => {
     try {
-        const { input, sessionToken } = req.body ?? {};
+        const { input, sessionToken, regionCode } = req.body ?? {};
         const trimmed = typeof input === 'string' ? input.trim() : '';
 
         if (trimmed.length < 2) {
             return sendValidationError(res, 'Enter at least 2 characters to search.');
         }
 
-        const suggestions = await fetchAutocompleteSuggestions(trimmed, sessionToken);
+        const suggestions = await fetchAutocompleteSuggestions(trimmed, sessionToken, {
+            regionCode: typeof regionCode === 'string' ? regionCode : undefined,
+        });
         return sendSuccess(res, 200, 'Suggestions retrieved', suggestions);
     } catch (error) {
         const status = error.response?.status;

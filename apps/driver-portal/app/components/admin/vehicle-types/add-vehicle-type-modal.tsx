@@ -15,6 +15,7 @@ export function AddVehicleTypeModal({ onClose, onSave, editing }: Props) {
     const [name, setName] = useState(editing?.name ?? "");
     const [description, setDescription] = useState(editing?.description ?? "");
     const [hourlyPrice, setHourlyPrice] = useState(editing ? String(editing.hourlyPrice) : "");
+    const [isPrivate, setIsPrivate] = useState(Boolean(editing?.isPrivate));
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isLoading, setIsLoading] = useState(false);
     const [apiError, setApiError] = useState<string | null>(null);
@@ -39,6 +40,7 @@ export function AddVehicleTypeModal({ onClose, onSave, editing }: Props) {
                 name: name.trim(),
                 description: description.trim(),
                 hourlyPrice: parseFloat(hourlyPrice),
+                isPrivate,
             };
             const saved = editing
                 ? await updateVehicleTypeClient(editing._id, body)
@@ -118,6 +120,21 @@ export function AddVehicleTypeModal({ onClose, onSave, editing }: Props) {
                         />
                         {errors.hourlyPrice && <p className="mt-1 text-xs text-red-400">{errors.hourlyPrice}</p>}
                     </div>
+
+                    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-page-bg px-4 py-3">
+                        <input
+                            type="checkbox"
+                            checked={isPrivate}
+                            onChange={(e) => setIsPrivate(e.target.checked)}
+                            className="mt-0.5 h-4 w-4 rounded border-border accent-[#c5a386]"
+                        />
+                        <span>
+                            <span className="block text-sm font-medium text-text">Private vehicle type</span>
+                            <span className="mt-0.5 block text-xs text-muted">
+                                Hidden from the homepage. Still usable for partner / admin bookings by ID.
+                            </span>
+                        </span>
+                    </label>
 
                     <div className="mt-1 flex gap-3">
                         <button

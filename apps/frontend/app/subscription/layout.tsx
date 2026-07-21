@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { createPageMetadata } from "@/lib/metadata";
 
 export const metadata: Metadata = createPageMetadata({
@@ -12,5 +13,5 @@ export default function SubscriptionLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return children;
+  return <Suspense fallback={null}>{children}</Suspense>;
 }
