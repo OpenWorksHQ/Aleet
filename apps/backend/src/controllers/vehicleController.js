@@ -4,7 +4,7 @@ const { sendSuccess, sendError, sendValidationError, sendNotFound, sendConflict 
 // Add a new vehicle type (for admin to add vehicle types)
 const addVehicleType = async (req, res) => {
   try {
-    const { name, description, hourlyPrice } = req.body;
+    const { name, description, hourlyPrice, isPrivate } = req.body;
 
     if (!name || !description || !hourlyPrice) {
       return sendValidationError(res, 'Name, description, and hourly price are required');
@@ -21,6 +21,7 @@ const addVehicleType = async (req, res) => {
       name,
       description,
       hourlyPrice,
+      isPrivate: Boolean(isPrivate),
       createdBy: req.user.id
     });
 
@@ -33,10 +34,14 @@ const addVehicleType = async (req, res) => {
 };
 
 
-// Get all vehicle types (for driver to choose during signup)
+// Get all vehicle types (public homepage hides private; admin can pass ?includePrivate=1)
 const getAllVehicleTypes = async (req, res) => {
   try {
-    const vehicleTypes = await VehicleType.find();
+    const includePrivate =
+      req.query.includePrivate === '1' ||
+      req.query.includePrivate === 'true';
+    const filter = includePrivate ? {} : { isPrivate: { $ne: true } };
+    const vehicleTypes = await VehicleType.find(filter);
     return sendSuccess(res, 200, 'Vehicle types retrieved successfully', vehicleTypes);
   } catch (error) {
     console.error('Get Vehicle Types Error:', error);
@@ -49,7 +54,7 @@ const getAllVehicleTypes = async (req, res) => {
 const updateVehicleType = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, hourlyPrice } = req.body;
+    const { name, description, hourlyPrice, isPrivate } = req.body;
 
     if (!id) {
       return sendValidationError(res, 'Vehicle type ID is required');
@@ -63,6 +68,7 @@ const updateVehicleType = async (req, res) => {
     if (name) vehicleType.name = name;
     if (description) vehicleType.description = description;
     if (hourlyPrice) vehicleType.hourlyPrice = hourlyPrice;
+    if (typeof isPrivate === 'boolean') vehicleType.isPrivate = isPrivate;
 
     await vehicleType.save();
 

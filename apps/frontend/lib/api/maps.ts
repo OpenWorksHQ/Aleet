@@ -31,10 +31,15 @@ export function createAutocompleteSessionToken(): string {
 export async function fetchAddressSuggestions(
   input: string,
   sessionToken: string,
+  options?: { regionCode?: string },
 ): Promise<AddressSuggestion[]> {
   const res = await apiFetch<AddressSuggestion[]>("/maps/autocomplete", {
     method: "POST",
-    body: { input, sessionToken },
+    body: {
+      input,
+      sessionToken,
+      ...(options?.regionCode ? { regionCode: options.regionCode } : {}),
+    },
   });
   return res.data ?? [];
 }
@@ -68,6 +73,7 @@ export type PlaceDetails = {
   street: string;
   city: string;
   state: string;
+  stateCode?: string;
   postalCode: string;
   country: string;
   lat: number | null;

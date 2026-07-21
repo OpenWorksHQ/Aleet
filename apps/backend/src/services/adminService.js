@@ -46,13 +46,16 @@ const formatAdmin = (admin) => ({
 const getAllAdmins = async ({ page = 1, limit = 20 } = {}) => {
     const skip = (page - 1) * limit;
 
+    // Only list active admins — deleted/inactive ones must not appear or block re-create.
+    const filter = { role: 'admin', active: true };
+
     const [admins, total] = await Promise.all([
-        User.find({ role: 'admin' })
+        User.find(filter)
             .select('-password')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit),
-        User.countDocuments({ role: 'admin' }),
+        User.countDocuments(filter),
     ]);
 
     return {
@@ -82,10 +85,31 @@ const createAdmin = async ({ name, email, phone, password, permissions }) => {
 
     validatePermissions(permissions);
 
-    const exists = await User.findOne({ $or: [{ email }, { phone }] });
-    if (exists) {
-        const field = exists.email === email ? 'email' : 'phone';
+    // Only active admins block re-create. Soft-deleted (inactive) admins can be reactivated.
+    const activeConflict = await User.findOne({
+        role: 'admin',
+        active: true,
+        $or: [{ email }, { phone }],
+    });
+    if (activeConflict) {
+        const field = activeConflict.email === email ? 'email' : 'phone';
         throw new AdminServiceError(`User with this ${field} already exists`, 409);
+    }
+
+    const inactiveAdmin = await User.findOne({
+        role: 'admin',
+        active: false,
+        $or: [{ email }, { phone }],
+    });
+    if (inactiveAdmin) {
+        inactiveAdmin.name = name;
+        inactiveAdmin.email = email;
+        inactiveAdmin.phone = phone;
+        inactiveAdmin.password = password;
+        inactiveAdmin.active = true;
+        inactiveAdmin.admin = { permissions };
+        await inactiveAdmin.save();
+        return formatAdmin(inactiveAdmin);
     }
 
     const admin = await User.create({
@@ -94,6 +118,7 @@ const createAdmin = async ({ name, email, phone, password, permissions }) => {
         phone,
         password,
         role: 'admin',
+        active: true,
         admin: { permissions },
     });
 
@@ -110,15 +135,25 @@ const updateAdmin = async (id, { name, email, phone, permissions, active, passwo
 
     if (permissions !== undefined) validatePermissions(permissions);
 
-    // Unique-email / unique-phone check (exclude self)
+    // Only conflict with other *active* admins (exclude self)
     if (email && email !== admin.email) {
-        const conflict = await User.findOne({ email, _id: { $ne: id } });
+        const conflict = await User.findOne({
+            role: 'admin',
+            active: true,
+            email,
+            _id: { $ne: id },
+        });
         if (conflict) throw new AdminServiceError('Email is already taken', 409);
         admin.email = email;
     }
 
     if (phone && phone !== admin.phone) {
-        const conflict = await User.findOne({ phone, _id: { $ne: id } });
+        const conflict = await User.findOne({
+            role: 'admin',
+            active: true,
+            phone,
+            _id: { $ne: id },
+        });
         if (conflict) throw new AdminServiceError('Phone is already taken', 409);
         admin.phone = phone;
     }
@@ -134,14 +169,19 @@ const updateAdmin = async (id, { name, email, phone, permissions, active, passwo
 
 /**
  * DELETE /api/admin/admins/:id
- * Hard-deletes an admin. Cannot delete yourself.
+ * Soft-deletes an admin (active: false) so the same email/phone can be re-added later.
+ * Cannot delete yourself.
  */
 const deleteAdmin = async (id, requesterId) => {
     if (id === requesterId) {
         throw new AdminServiceError('You cannot delete your own account', 400);
     }
 
-    const admin = await User.findOneAndDelete({ _id: id, role: 'admin' });
+    const admin = await User.findOneAndUpdate(
+        { _id: id, role: 'admin', active: true },
+        { $set: { active: false } },
+        { new: true },
+    );
     if (!admin) throw new AdminServiceError('Admin not found', 404);
 
     return { deletedId: id };

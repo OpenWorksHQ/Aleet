@@ -138,7 +138,7 @@ const bookingSchema = new mongoose.Schema({
     partner: { type: mongoose.Schema.Types.ObjectId, ref: 'Partner', default: null },
     partnerCode: { type: String, default: null },
     partnerName: { type: String, default: null },
-    partnerType: { type: String, enum: ['venue', 'affiliate', 'marketer'], default: null },
+    partnerType: { type: String, enum: ['venue', 'affiliate_marketer', 'affiliate', 'marketer'], default: null },
     venueId: { type: mongoose.Schema.Types.ObjectId, ref: 'Partner', default: null },
     discountPct: { type: Number, default: 0 },
     discountAmount: { type: Number, default: 0 },

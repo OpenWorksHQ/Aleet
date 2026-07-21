@@ -9,7 +9,8 @@ const {
     cancelSubscription,
     getSubscriptionBenefits,
     updatePaymentMethod,
-    createStripeCustomer
+    createStripeCustomer,
+    claimFounder30Invite,
 } = require('../controllers/subscriptionController');
 
 // ── Public ───────────────────────────────────────────────────────────────────
@@ -31,6 +32,9 @@ router.get('/status', authenticateJWT, getSubscriptionStatus);
 
 // Cancel subscription
 router.post('/cancel', authenticateJWT, cancelSubscription);
+
+// Claim shareable Founder 30 private-deal link
+router.post('/claim-founder30', authenticateJWT, claimFounder30Invite);
 
 // Open Stripe billing portal (update payment method)
 router.put('/payment-method', authenticateJWT, updatePaymentMethod);

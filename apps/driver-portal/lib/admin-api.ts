@@ -350,6 +350,7 @@ export interface ApiBooking {
   quantity: number;
   pickupLocation: string;
   dropoffLocation: string;
+  specialNotes?: string | null;
   assignedDriver: { _id: string; name: string; phone?: string } | null;
   addOns: ApiBookingAddon[];
   regularPrice: number;
@@ -376,6 +377,8 @@ export interface BookingsParams {
   status?: ApiBookingStatus;
   bookingMode?: ApiBookingMode;
   paymentStatus?: ApiPaymentStatus;
+  /** current | future | past */
+  timeWindow?: "current" | "future" | "past";
   search?: string;
   page?: number;
   limit?: number;
@@ -390,6 +393,7 @@ function buildBookingsQuery(params: BookingsParams): string {
   if (params.status) qs.set("status", params.status);
   if (params.bookingMode) qs.set("bookingMode", params.bookingMode);
   if (params.paymentStatus) qs.set("paymentStatus", params.paymentStatus);
+  if (params.timeWindow) qs.set("timeWindow", params.timeWindow);
   if (params.search) qs.set("search", params.search);
   if (params.page != null) qs.set("page", String(params.page));
   if (params.limit != null) qs.set("limit", String(params.limit));
@@ -551,6 +555,40 @@ export async function unassignDriverFromBooking(
     },
   );
   await handleResponse<void>(res);
+}
+
+/** PATCH /api/admin/bookings/:id/cancel — admin cancels a trip */
+export async function cancelBookingAsAdmin(
+  bookingId: string,
+  reason?: string,
+): Promise<ApiBooking> {
+  const res = await fetch(`${BASE_URL}/api/admin/bookings/${bookingId}/cancel`, {
+    method: "PATCH",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(reason ? { reason } : {}),
+  });
+  return handleResponse<ApiBooking>(res);
+}
+
+/** PATCH /api/admin/bookings/:id — adjust price / update trip info */
+export async function updateBookingAsAdmin(
+  bookingId: string,
+  body: {
+    pickupLocation?: string;
+    dropoffLocation?: string | null;
+    specialNotes?: string | null;
+    startDate?: string;
+    endDate?: string;
+    finalPrice?: number;
+    regularPrice?: number;
+  },
+): Promise<ApiBooking> {
+  const res = await fetch(`${BASE_URL}/api/admin/bookings/${bookingId}`, {
+    method: "PATCH",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(body),
+  });
+  return handleResponse<ApiBooking>(res);
 }
 
 // ─── Licensing Types ──────────────────────────────────────────────────────────
@@ -832,6 +870,7 @@ export interface ApiVehicleType {
   name: string;
   description: string;
   hourlyPrice: number;
+  isPrivate?: boolean;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -839,11 +878,11 @@ export interface ApiVehicleType {
 
 // ─── Vehicle Type API functions ───────────────────────────────────────────────
 
-/** GET /api/vehicle-types/ — server-safe */
+/** GET /api/vehicle-types/ — server-safe (admin includes private) */
 export async function fetchVehicleTypes(
   token: string,
 ): Promise<ApiVehicleType[]> {
-  const res = await fetch(`${BASE_URL}/api/vehicle-types/`, {
+  const res = await fetch(`${BASE_URL}/api/vehicle-types/?includePrivate=1`, {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
@@ -861,6 +900,7 @@ export async function createVehicleTypeClient(body: {
   name: string;
   description: string;
   hourlyPrice: number;
+  isPrivate?: boolean;
 }): Promise<ApiVehicleType> {
   const res = await fetch(`${BASE_URL}/api/vehicle-types/add`, {
     method: "POST",
@@ -873,7 +913,7 @@ export async function createVehicleTypeClient(body: {
 /** PUT /api/vehicle-types/update/:id — client-safe */
 export async function updateVehicleTypeClient(
   id: string,
-  body: Partial<{ name: string; description: string; hourlyPrice: number }>,
+  body: Partial<{ name: string; description: string; hourlyPrice: number; isPrivate: boolean }>,
 ): Promise<ApiVehicleType> {
   const res = await fetch(`${BASE_URL}/api/vehicle-types/update/${id}`, {
     method: "PUT",

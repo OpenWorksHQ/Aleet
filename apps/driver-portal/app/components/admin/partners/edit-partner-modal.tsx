@@ -12,7 +12,9 @@ type Props = {
 };
 
 export function EditPartnerModal({ partner, onClose, onUpdated }: Props) {
-  const [partnerType, setPartnerType] = useState<AdminPartner["partnerType"]>(partner.partnerType);
+  const [partnerType, setPartnerType] = useState<AdminPartner["partnerType"]>(
+    partner.partnerType === "venue" ? "venue" : "affiliate_marketer",
+  );
   const [discountPct, setDiscountPct] = useState(String(partner.discountPct ?? 0));
   const [commissionPct, setCommissionPct] = useState(
     partner.commissionPct != null ? String(partner.commissionPct) : "",
@@ -76,13 +78,12 @@ export function EditPartnerModal({ partner, onClose, onUpdated }: Props) {
             <select
               value={partnerType}
               onChange={(e) =>
-                setPartnerType(e.target.value as AdminPartner["partnerType"])
+                setPartnerType(e.target.value as "venue" | "affiliate_marketer")
               }
               className={inputClass}
             >
-              <option value="venue">Venue</option>
-              <option value="affiliate">Affiliate</option>
-              <option value="marketer">Marketer</option>
+              <option value="venue">Venue Access</option>
+              <option value="affiliate_marketer">Affiliate Marketer</option>
             </select>
           </Field>
 

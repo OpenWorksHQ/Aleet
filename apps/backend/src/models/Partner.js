@@ -16,7 +16,8 @@ const partnerSchema = new mongoose.Schema({
   partnerName: { type: String, required: true, trim: true },
   partnerType: {
     type: String,
-    enum: ['venue', 'affiliate', 'marketer'],
+    // affiliate_marketer is the canonical non-venue type; affiliate/marketer kept for legacy docs
+    enum: ['venue', 'affiliate_marketer', 'affiliate', 'marketer'],
     required: true,
   },
   bookingMode: {

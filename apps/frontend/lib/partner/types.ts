@@ -1,6 +1,6 @@
 import type { PlaceValue } from "@/app/components/booking/booking-types";
 
-export type PartnerType = "venue" | "affiliate" | "marketer";
+export type PartnerType = "venue" | "affiliate_marketer" | "affiliate" | "marketer";
 
 export type VenueAccessBookingType =
   | "venue_to_custom"

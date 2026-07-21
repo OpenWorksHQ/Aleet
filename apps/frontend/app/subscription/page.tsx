@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { DashboardShell } from "../components/dashboard-shell";
 import { cn } from "@/lib/utils";
@@ -14,6 +15,7 @@ import {
 import {
   cancelSubscription,
   chargeSubscriptionSavedCard,
+  claimFounder30Invite,
   createSubscriptionCheckout,
   getSubscriptionBenefits,
   getSubscriptionStatus,
@@ -24,6 +26,7 @@ import { listSavedCards, type SavedCard } from "@/lib/api/payments";
 import { AddCardForm } from "@/app/components/payments/add-card-form";
 
 export default function SubscriptionPage() {
+  const searchParams = useSearchParams();
   const [benefits, setBenefits] = useState<SubscriptionBenefits | null>(null);
   const [status, setStatus] = useState<SubscriptionStatus | null>(null);
   const [cards, setCards] = useState<SavedCard[]>([]);
@@ -31,6 +34,7 @@ export default function SubscriptionPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAddCard, setShowAddCard] = useState(false);
+  const [inviteMessage, setInviteMessage] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -57,6 +61,39 @@ export default function SubscriptionPage() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    const token = searchParams.get("f30")?.trim();
+    if (!token) return;
+    const auth = getToken();
+    if (!auth) {
+      setInviteMessage("Log in to unlock your Founder 30 private offer, then reopen this link.");
+      return;
+    }
+    let cancelled = false;
+    void claimFounder30Invite(token, auth)
+      .then(async () => {
+        if (cancelled) return;
+        setInviteMessage("Founder 30 unlocked for your account — choose the Founder plan below.");
+        await load();
+        // Clean query without reload
+        if (typeof window !== "undefined") {
+          const url = new URL(window.location.href);
+          url.searchParams.delete("f30");
+          window.history.replaceState({}, "", url.pathname + url.search);
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setInviteMessage(
+          err instanceof ApiError ? err.message : "Could not claim Founder 30 invite",
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const isSubscriber = status?.status === "subscriber";
   const standard = benefits?.standard;
@@ -160,6 +197,12 @@ export default function SubscriptionPage() {
         {error ? (
           <div className="rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
             {error}
+          </div>
+        ) : null}
+
+        {inviteMessage ? (
+          <div className="rounded-xl border border-aleet-gold/30 bg-aleet-gold/5 px-4 py-3 text-sm text-aleet-gold">
+            {inviteMessage}
           </div>
         ) : null}
 

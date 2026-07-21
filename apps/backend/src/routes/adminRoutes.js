@@ -1,7 +1,7 @@
 const express = require('express');
-const { toggleDriverStatus, assignDriverToBooking, getEligibleDriversForBooking, autoAssignDriverToBooking, redispatchBooking, unassignDriverFromBooking, getAllDrivers, approveDriver, requestRevision, uploadAleetLicense, updateDriverRegions, getDriverLicensing, getSidebarStats, getAdminDashboard } = require('../controllers/adminController');
+const { toggleDriverStatus, assignDriverToBooking, getEligibleDriversForBooking, autoAssignDriverToBooking, redispatchBooking, unassignDriverFromBooking, cancelBookingAsAdmin, updateBookingAsAdmin, getAllDrivers, approveDriver, requestRevision, uploadAleetLicense, updateDriverRegions, getDriverLicensing, getSidebarStats, getAdminDashboard } = require('../controllers/adminController');
 const { getDriverTierPerformance, getTierSettings, updateTierSettings } = require('../controllers/tierController');
-const { inviteFounder30, listMemberships, adminChargeOverage, updateMemberBalance } = require('../controllers/adminMembershipController');
+const { inviteFounder30, listMemberships, adminChargeOverage, updateMemberBalance, createFounder30Link, listFounder30Links, deactivateFounder30Link } = require('../controllers/adminMembershipController');
 const { getCompanyRevenueReport, getBookingPayoutBreakdown } = require('../controllers/financeController');
 const authenticateJWT = require('../middleware/authMiddleware');
 const requireAdmin = require('../middleware/requireAdmin');
@@ -16,6 +16,8 @@ router.get('/bookings/:id/eligible-drivers', requireAdmin, requirePermission('ma
 router.post('/bookings/:id/auto-assign', requireAdmin, requirePermission('manage-bookings'), autoAssignDriverToBooking);
 router.post('/bookings/:id/redispatch', requireAdmin, requirePermission('manage-bookings'), redispatchBooking);
 router.patch('/bookings/:id/unassign', requireAdmin, requirePermission('manage-bookings'), unassignDriverFromBooking);
+router.patch('/bookings/:id/cancel', requireAdmin, requirePermission('manage-bookings'), cancelBookingAsAdmin);
+router.patch('/bookings/:id', requireAdmin, requirePermission('manage-bookings'), updateBookingAsAdmin);
 
 // Driver listing & licensing
 router.get('/drivers', requireAdmin, requirePermission('manage-users'), getAllDrivers);
@@ -48,6 +50,11 @@ router.get('/memberships', requireAdmin, requirePermission('view-reports'), list
 
 // Grant or revoke Founder 30 invite for a customer
 router.patch('/memberships/invite-founder30/:userId', requireAdmin, requirePermission('manage-users'), inviteFounder30);
+
+// Shareable Founder 30 private-deal links (copyable for selected regions)
+router.post('/memberships/founder30-links', requireAdmin, requirePermission('manage-users'), createFounder30Link);
+router.get('/memberships/founder30-links', requireAdmin, requirePermission('view-reports'), listFounder30Links);
+router.patch('/memberships/founder30-links/:id/deactivate', requireAdmin, requirePermission('manage-users'), deactivateFounder30Link);
 
 // Manually charge overage hours to a member's saved card
 router.post('/memberships/:userId/charge-overage', requireAdmin, requirePermission('manage-bookings'), adminChargeOverage);

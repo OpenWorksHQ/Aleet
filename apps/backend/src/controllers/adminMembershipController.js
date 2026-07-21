@@ -16,6 +16,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const User         = require('../models/User');
 const MonthlyHours = require('../models/MonthlyHours');
 const TierSettings = require('../models/TierSettings');
+const FounderInvite = require('../models/FounderInvite');
+const Region = require('../models/Region');
 const { getQuarterlyUsedHours } = require('../utils/membershipHours');
 const {
     sendSuccess,
@@ -24,6 +26,31 @@ const {
     sendNotFound
 } = require('../utils/responseHelper');
 const { chargeOverage } = require('./savedCardController');
+
+function getCustomerAppBaseUrl() {
+    return (process.env.FRONTEND_URL || process.env.CUSTOMER_APP_URL || 'https://www.aleet.app')
+        .replace(/\/+$/, '');
+}
+
+function formatFounderLink(invite) {
+    const base = getCustomerAppBaseUrl();
+    return {
+        id: invite._id,
+        token: invite.token,
+        label: invite.label,
+        url: `${base}/subscription?f30=${invite.token}`,
+        regions: (invite.regions || []).map((r) => ({
+            _id: r._id || r,
+            name: r.name || null,
+            code: r.code || null,
+        })),
+        active: invite.active,
+        maxUses: invite.maxUses,
+        useCount: invite.useCount,
+        expiresAt: invite.expiresAt,
+        createdAt: invite.createdAt,
+    };
+}
 
 // ---------------------------------------------------------------------------
 // PATCH /api/admin/memberships/invite-founder30/:userId
@@ -249,9 +276,101 @@ const updateMemberBalance = asyncHandler(async (req, res) => {
     }
 });
 
+// ---------------------------------------------------------------------------
+// POST /api/admin/memberships/founder30-links
+// Body: { label?, regionIds?: string[], maxUses?: number|null, expiresInDays?: number|null }
+// ---------------------------------------------------------------------------
+const createFounder30Link = asyncHandler(async (req, res) => {
+    try {
+        const {
+            label = 'Founder 30 private deal',
+            regionIds = [],
+            maxUses = null,
+            expiresInDays = null,
+        } = req.body || {};
+
+        let regions = [];
+        if (Array.isArray(regionIds) && regionIds.length > 0) {
+            regions = await Region.find({ _id: { $in: regionIds }, isActive: true }).select('_id name code');
+            if (regions.length !== regionIds.length) {
+                return sendValidationError(res, 'One or more regionIds are invalid or inactive');
+            }
+        }
+
+        let expiresAt = null;
+        if (expiresInDays != null && expiresInDays !== '') {
+            const days = Number(expiresInDays);
+            if (!Number.isFinite(days) || days <= 0) {
+                return sendValidationError(res, 'expiresInDays must be a positive number');
+            }
+            expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+        }
+
+        let uses = null;
+        if (maxUses != null && maxUses !== '') {
+            uses = Number(maxUses);
+            if (!Number.isInteger(uses) || uses <= 0) {
+                return sendValidationError(res, 'maxUses must be a positive integer');
+            }
+        }
+
+        const invite = await FounderInvite.create({
+            token: FounderInvite.createToken(),
+            label: String(label || 'Founder 30 private deal').trim(),
+            regions: regions.map((r) => r._id),
+            createdBy: req.user.id,
+            maxUses: uses,
+            expiresAt,
+        });
+
+        invite.regions = regions;
+        return sendSuccess(res, 201, 'Founder 30 link created', formatFounderLink(invite));
+    } catch (error) {
+        console.error('createFounder30Link Error:', error);
+        return sendError(res, 500, error.message || 'Failed to create Founder 30 link');
+    }
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/admin/memberships/founder30-links
+// ---------------------------------------------------------------------------
+const listFounder30Links = asyncHandler(async (req, res) => {
+    try {
+        const links = await FounderInvite.find()
+            .populate('regions', 'name code')
+            .sort({ createdAt: -1 })
+            .limit(50);
+        return sendSuccess(res, 200, 'Founder 30 links loaded', links.map(formatFounderLink));
+    } catch (error) {
+        console.error('listFounder30Links Error:', error);
+        return sendError(res, 500, error.message || 'Failed to list Founder 30 links');
+    }
+});
+
+// ---------------------------------------------------------------------------
+// PATCH /api/admin/memberships/founder30-links/:id/deactivate
+// ---------------------------------------------------------------------------
+const deactivateFounder30Link = asyncHandler(async (req, res) => {
+    try {
+        const invite = await FounderInvite.findByIdAndUpdate(
+            req.params.id,
+            { $set: { active: false } },
+            { new: true },
+        ).populate('regions', 'name code');
+        if (!invite) return sendNotFound(res, 'Founder 30 link not found');
+        return sendSuccess(res, 200, 'Founder 30 link deactivated', formatFounderLink(invite));
+    } catch (error) {
+        console.error('deactivateFounder30Link Error:', error);
+        return sendError(res, 500, error.message || 'Failed to deactivate link');
+    }
+});
+
 module.exports = {
     inviteFounder30,
     listMemberships,
     adminChargeOverage,
-    updateMemberBalance
+    updateMemberBalance,
+    createFounder30Link,
+    listFounder30Links,
+    deactivateFounder30Link,
 };

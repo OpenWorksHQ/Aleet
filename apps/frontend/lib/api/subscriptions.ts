@@ -105,3 +105,12 @@ export function processSubscriptionPayment(sessionId: string, token?: string) {
     token,
   });
 }
+
+/** Claim a shareable Founder 30 private-deal link (?f30=token). */
+export function claimFounder30Invite(token: string, authToken?: string) {
+  return apiFetch<{ founder30Invited: boolean }>("/subscriptions/claim-founder30", {
+    method: "POST",
+    body: { token },
+    token: authToken,
+  });
+}

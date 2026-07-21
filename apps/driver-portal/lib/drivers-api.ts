@@ -269,7 +269,7 @@ export async function updateDriverAdmin(
 
 /** GET /api/vehicle-types — call from Server Components */
 export async function fetchVehicleTypes(token: string): Promise<VehicleType[]> {
-  const res = await fetch(`${BASE_URL}/api/vehicle-types`, {
+  const res = await fetch(`${BASE_URL}/api/vehicle-types?includePrivate=1`, {
     headers: withNgrokHeaders({
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",

@@ -12,6 +12,8 @@ const MIN_QUERY_LENGTH = 2;
 
 type UseDebouncedAddressSuggestionsOptions = {
   debounceMs?: number;
+  /** US state code (e.g. OH) — biases Places results to that state. */
+  regionCode?: string;
 };
 
 /**
@@ -19,7 +21,10 @@ type UseDebouncedAddressSuggestionsOptions = {
  */
 export function useDebouncedAddressSuggestions(
   query: string,
-  { debounceMs = DEFAULT_DEBOUNCE_MS }: UseDebouncedAddressSuggestionsOptions = {},
+  {
+    debounceMs = DEFAULT_DEBOUNCE_MS,
+    regionCode,
+  }: UseDebouncedAddressSuggestionsOptions = {},
 ) {
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -43,7 +48,9 @@ export function useDebouncedAddressSuggestions(
     const timer = setTimeout(() => {
       const requestId = ++requestIdRef.current;
 
-      void fetchAddressSuggestions(trimmed, sessionTokenRef.current)
+      void fetchAddressSuggestions(trimmed, sessionTokenRef.current, {
+        regionCode: regionCode?.trim() || undefined,
+      })
         .then((results) => {
           if (requestId !== requestIdRef.current) return;
           setSuggestions(results);
@@ -66,7 +73,7 @@ export function useDebouncedAddressSuggestions(
     return () => {
       clearTimeout(timer);
     };
-  }, [query, debounceMs]);
+  }, [query, debounceMs, regionCode]);
 
   function resetSessionToken() {
     sessionTokenRef.current = createAutocompleteSessionToken();

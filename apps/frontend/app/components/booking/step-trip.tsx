@@ -13,6 +13,7 @@ import {
     isPickupTimeDisabled,
     isDropoffTimeDisabled,
     slotFromTimeStr,
+    VENUE_NOTICE_HOURS,
 } from "@/lib/booking-constraints";
 import type { BookingData } from "./booking-types";
 import { SameDayNotice } from "./same-day-notice";
@@ -33,6 +34,7 @@ export function StepTrip({ data, onChange, onNext, priceBar, isMember = false, s
     const [vehicleTypes, setVehicleTypes] = useState<VehicleType[]>([]);
     const [regions, setRegions] = useState<Region[]>([]);
     const skipNotice = data.bookingMode === "venue_access";
+    const noticeHours = skipNotice ? VENUE_NOTICE_HOURS : undefined;
 
     useEffect(() => {
         getVehicleTypes()
@@ -82,6 +84,7 @@ export function StepTrip({ data, onChange, onNext, priceBar, isMember = false, s
             patch.pickupTime = getDefaultPickupTime(d, {
                 isMember,
                 skipNotice,
+                noticeHours,
                 preferredTime: data.pickupTime,
             });
         }
@@ -184,7 +187,10 @@ export function StepTrip({ data, onChange, onNext, priceBar, isMember = false, s
                                 : undefined
                         }
                         disableSlot={(slot) =>
-                            isPickupTimeDisabled(data.pickupDate, slot, isMember, { skipNotice })
+                            isPickupTimeDisabled(data.pickupDate, slot, isMember, {
+                                skipNotice,
+                                noticeHours,
+                            })
                         }
                         disabledMessage={
                             isMember || skipNotice

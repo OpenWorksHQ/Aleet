@@ -7,6 +7,7 @@ import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   type AddressSuggestion,
+  fetchPlaceDetails,
 } from "@/lib/api/maps";
 import { useDebouncedAddressSuggestions } from "@/lib/hooks/use-debounced-address-suggestions";
 import {
@@ -15,7 +16,9 @@ import {
   getTimeListAnchorMinutes,
   minBookingHours,
   parseTime,
+  VENUE_NOTICE_HOURS,
 } from "@/lib/booking-constraints";
+import { matchRegionByPlaceState } from "@/lib/match-region";
 import {
   loadPartnerContext,
   clearPartnerContext,
@@ -30,7 +33,7 @@ import type { PartnerContext } from "@/lib/partner/types";
 import type { SelectOption } from "../ui/select";
 
 type VehicleOption = SelectOption & { _id: string; hourlyPrice: number };
-type RegionOption = SelectOption & { _id: string };
+export type RegionOption = SelectOption & { _id: string; code?: string; value?: string };
 
 type BuyHoursPayload = {
   pickupDate: Date;
@@ -135,6 +138,7 @@ export function BuyHoursBookingForm({
   const [routeDurationHours, setRouteDurationHours] = useState<number | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
+  const [regionError, setRegionError] = useState<string | null>(null);
 
   const isVenueAccess = partnerContext?.bookingMode === "venue_access";
   const venuePickup = partnerContext?.pickupLocation;
@@ -153,6 +157,9 @@ export function BuyHoursBookingForm({
 
   const vehicle = vehicleValue || pickDefaultVehicle(filteredVehicleList);
   const state = stateValue || pickDefaultRegion(regionList);
+  const selectedRegionCode =
+    regionList.find((r) => r.label === state || r.value === state)?.code
+    ?? undefined;
 
   useEffect(() => {
     if (!stateValue && regionList.length > 0) {
@@ -312,24 +319,26 @@ export function BuyHoursBookingForm({
       !!dropoffPlaceId &&
       !!vehicle &&
       !!state &&
+      !regionError &&
       routeDurationHours != null &&
       !routeLoading
     : !!startDate &&
       !!dropoffText &&
       !!vehicle &&
       !!state &&
+      !regionError &&
       (isMultiDay ? !!dropoffTime : durationHours >= minHours);
 
   const handleContinue = useCallback(() => {
-    if (!isValid || !startDate) return;
+    if (!isValid || !startDate || regionError) return;
 
     const pickupDate = startDate;
     // Homepage does not show a pickup-time control — auto-set from account type
-    // (member / venue → from now; guest → next available after notice). User can
-    // change it on the routing page after Continue.
+    // (member / venue → notice window; guest → 3h). User can change it on the
+    // routing page after Continue.
     const resolvedPickupTime = getDefaultPickupTime(pickupDate, {
       isMember,
-      skipNotice: isVenueAccess,
+      noticeHours: isVenueAccess ? VENUE_NOTICE_HOURS : undefined,
     });
 
     let computedDropoffDate: Date;
@@ -391,6 +400,7 @@ export function BuyHoursBookingForm({
     routeDurationHours,
     routeMiles,
     routeDistanceText,
+    regionError,
     onContinue,
   ]);
 
@@ -453,13 +463,40 @@ export function BuyHoursBookingForm({
         <BarAddress
           label={isVenueAccess ? "Drop-off destination" : undefined}
           value={dropoffText}
+          regionCode={selectedRegionCode}
           onChange={(v) => {
             setDropoffText(v);
-            if (!v) setDropoffPlaceId("");
+            if (!v) {
+              setDropoffPlaceId("");
+              setRegionError(null);
+            }
           }}
-          onPlaceSelect={(text, placeId) => {
+          onPlaceSelect={async (text, placeId) => {
             setDropoffText(text);
             setDropoffPlaceId(placeId);
+            setRegionError(null);
+            try {
+              const details = await fetchPlaceDetails(placeId);
+              const matched = matchRegionByPlaceState(
+                regionList,
+                details?.state,
+                details?.stateCode,
+              );
+              if (matched) {
+                onStateChange(matched.label);
+                setRegionError(null);
+              } else {
+                onStateChange("");
+                const label = details?.state || details?.stateCode || "that state";
+                setRegionError(
+                  `${label} is not available for booking. Choose a drop-off in an active service state.`,
+                );
+              }
+            } catch {
+              setRegionError(
+                "Could not verify drop-off state. Try another address.",
+              );
+            }
           }}
         />
 
@@ -507,7 +544,10 @@ export function BuyHoursBookingForm({
           label="State"
           options={regionList}
           value={state}
-          onChange={onStateChange}
+          onChange={(v) => {
+            onStateChange(v);
+            setRegionError(null);
+          }}
           placeholder="Select state"
         />
 
@@ -536,6 +576,12 @@ export function BuyHoursBookingForm({
           </button>
         </div>
       </div>
+
+      {regionError ? (
+        <p className="px-5 pb-3 text-center text-[12px] text-red-400 sm:px-6 lg:px-7">
+          {regionError}
+        </p>
+      ) : null}
 
       {/* Security note */}
       <div className="flex items-center justify-center gap-1.5 border-t border-white/6 px-5 py-3">
@@ -570,16 +616,18 @@ function BarAddress({
   onChange,
   onPlaceSelect,
   label,
+  regionCode,
 }: {
   value: string;
   onChange: (v: string) => void;
   onPlaceSelect: (text: string, placeId: string) => void;
   label?: string;
+  regionCode?: string;
 }) {
   const [focused, setFocused] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const { suggestions, fetchError, isSearching, resetSessionToken } =
-    useDebouncedAddressSuggestions(value);
+    useDebouncedAddressSuggestions(value, { regionCode });
 
   const showDropdown = focused && suggestions.length > 0;
 
@@ -1187,4 +1235,4 @@ function BarSelect({
   );
 }
 
-export type { VehicleOption, RegionOption, BuyHoursPayload };
+export type { VehicleOption, BuyHoursPayload };

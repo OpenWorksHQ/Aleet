@@ -23,7 +23,7 @@ export type AdminPartner = {
   partnerId: string;
   partnerCode: string;
   partnerName: string;
-  partnerType: "venue" | "affiliate" | "marketer";
+  partnerType: "venue" | "affiliate_marketer" | "affiliate" | "marketer";
   bookingMode: "venue_access" | "standard";
   trackingSlug?: string;
   venueSlug?: string;
@@ -55,7 +55,7 @@ export type PartnerUpdateRequestRecord = {
 };
 
 export type UpdatePartnerBody = {
-  partnerType?: "venue" | "affiliate" | "marketer";
+  partnerType?: "venue" | "affiliate_marketer" | "affiliate" | "marketer";
   bookingMode?: "venue_access" | "standard";
   discountPct?: number;
   commissionPct?: number | null;
@@ -64,7 +64,7 @@ export type UpdatePartnerBody = {
 
 export type ApprovePartnerApplicationBody = {
   partnerCode?: string;
-  partnerType?: "venue" | "affiliate" | "marketer";
+  partnerType?: "venue" | "affiliate_marketer" | "affiliate" | "marketer";
   trackingSlug?: string;
   venueSlug?: string;
   discountPct?: number;
@@ -107,7 +107,7 @@ export function normalizeAdminPartner(raw: Record<string, unknown>): AdminPartne
     partnerId: String(raw.partnerId ?? raw._id ?? raw.id ?? ""),
     partnerCode: String(raw.partnerCode ?? ""),
     partnerName: String(raw.partnerName ?? ""),
-    partnerType: (raw.partnerType as AdminPartner["partnerType"]) ?? "affiliate",
+    partnerType: (raw.partnerType as AdminPartner["partnerType"]) ?? "affiliate_marketer",
     bookingMode:
       (raw.bookingMode as AdminPartner["bookingMode"]) ??
       (raw.partnerType === "venue" ? "venue_access" : "standard"),

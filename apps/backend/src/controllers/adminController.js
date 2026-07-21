@@ -226,6 +226,133 @@ const unassignDriverFromBooking = async (req, res) => {
   }
 };
 
+// ---------------------------------------------------------------------------
+// PATCH /api/admin/bookings/:id/cancel
+// Admin cancels a trip (sets status Cancelled).
+// ---------------------------------------------------------------------------
+const cancelBookingAsAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
+
+    const booking = await Booking.findById(id);
+    if (!booking) return sendNotFound(res, 'Booking not found');
+    if (['Cancelled', 'Completed', 'Expired'].includes(booking.status)) {
+      return sendValidationError(res, `Cannot cancel a ${booking.status.toLowerCase()} booking`);
+    }
+
+    booking.status = 'Cancelled';
+    booking.cancellation = {
+      cancelledBy: req.user.id,
+      cancelledAt: new Date(),
+      reason: reason || 'Cancelled by admin',
+    };
+    booking.offer = {
+      stage: 0,
+      offeredAt: null,
+      expiresAt: null,
+      tiers: [],
+      offeredTo: [],
+    };
+    await booking.save();
+
+    return sendSuccess(res, 200, 'Booking cancelled', booking);
+  } catch (error) {
+    console.error('cancelBookingAsAdmin Error:', error);
+    return sendError(res, 500, error.message || 'Failed to cancel booking');
+  }
+};
+
+// ---------------------------------------------------------------------------
+// PATCH /api/admin/bookings/:id
+// Admin updates trip info and/or adjusts price.
+// Body may include: pickupLocation, dropoffLocation, specialNotes,
+//   startDate, endDate, finalPrice, regularPrice
+// ---------------------------------------------------------------------------
+const updateBookingAsAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const booking = await Booking.findById(id);
+    if (!booking) return sendNotFound(res, 'Booking not found');
+    if (['Cancelled', 'Expired'].includes(booking.status)) {
+      return sendValidationError(res, `Cannot update a ${booking.status.toLowerCase()} booking`);
+    }
+
+    const {
+      pickupLocation,
+      dropoffLocation,
+      specialNotes,
+      startDate,
+      endDate,
+      finalPrice,
+      regularPrice,
+    } = req.body || {};
+
+    if (pickupLocation !== undefined) {
+      const text = String(pickupLocation).trim();
+      if (!text) return sendValidationError(res, 'pickupLocation cannot be empty');
+      booking.pickupLocation = text;
+    }
+    if (dropoffLocation !== undefined) {
+      booking.dropoffLocation = dropoffLocation === null || dropoffLocation === ''
+        ? null
+        : String(dropoffLocation).trim();
+    }
+    if (specialNotes !== undefined) {
+      booking.specialNotes = specialNotes === null || specialNotes === ''
+        ? null
+        : String(specialNotes).trim();
+    }
+
+    if (startDate !== undefined || endDate !== undefined) {
+      const nextStart = startDate ? new Date(startDate) : new Date(booking.dates.startDate);
+      const nextEnd = endDate ? new Date(endDate) : new Date(booking.dates.endDate);
+      if (Number.isNaN(nextStart.getTime()) || Number.isNaN(nextEnd.getTime())) {
+        return sendValidationError(res, 'Invalid startDate or endDate');
+      }
+      if (nextEnd <= nextStart) {
+        return sendValidationError(res, 'endDate must be after startDate');
+      }
+      booking.dates.startDate = nextStart;
+      booking.dates.endDate = nextEnd;
+    }
+
+    if (finalPrice !== undefined) {
+      const price = Number(finalPrice);
+      if (!Number.isFinite(price) || price < 0) {
+        return sendValidationError(res, 'finalPrice must be a non-negative number');
+      }
+      booking.finalPrice = price;
+      if (booking.regularPrice != null && booking.regularPrice >= price) {
+        booking.savings = Math.max(0, Number((booking.regularPrice - price).toFixed(2)));
+      }
+    }
+
+    if (regularPrice !== undefined) {
+      const price = Number(regularPrice);
+      if (!Number.isFinite(price) || price < 0) {
+        return sendValidationError(res, 'regularPrice must be a non-negative number');
+      }
+      booking.regularPrice = price;
+      booking.savings = Math.max(0, Number((price - (booking.finalPrice || 0)).toFixed(2)));
+    }
+
+    await booking.save();
+
+    const populated = await Booking.findById(booking._id)
+      .populate('user', 'name email phone')
+      .populate('region', 'name code')
+      .populate('vehicleType', 'name hourlyPrice')
+      .populate('addOns', 'name price type')
+      .populate('assignedDriver', 'name phone');
+
+    return sendSuccess(res, 200, 'Booking updated', populated);
+  } catch (error) {
+    console.error('updateBookingAsAdmin Error:', error);
+    return sendError(res, 500, error.message || 'Failed to update booking');
+  }
+};
+
 // Admin function to activate/deactivate a driver
 const toggleDriverStatus = async (req, res) => {
   try {
@@ -723,4 +850,21 @@ const getAdminDashboard = async (req, res) => {
   }
 };
 
-module.exports = { toggleDriverStatus, assignDriverToBooking, getEligibleDriversForBooking, autoAssignDriverToBooking, redispatchBooking, unassignDriverFromBooking, getAllDrivers, approveDriver, requestRevision, uploadAleetLicense, updateDriverRegions, getDriverLicensing, getSidebarStats, getAdminDashboard };
+module.exports = {
+  toggleDriverStatus,
+  assignDriverToBooking,
+  getEligibleDriversForBooking,
+  autoAssignDriverToBooking,
+  redispatchBooking,
+  unassignDriverFromBooking,
+  cancelBookingAsAdmin,
+  updateBookingAsAdmin,
+  getAllDrivers,
+  approveDriver,
+  requestRevision,
+  uploadAleetLicense,
+  updateDriverRegions,
+  getDriverLicensing,
+  getSidebarStats,
+  getAdminDashboard,
+};

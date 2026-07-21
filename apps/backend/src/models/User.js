@@ -38,6 +38,10 @@ const userSchema = new mongoose.Schema(
     // private Founder 30 plan ($69/hr). Non-invited users cannot self-select it.
     founder30Invited: { type: Boolean, default: false },
 
+    /** Regions attached when user claimed a Founder 30 private-deal link (optional). */
+    founder30Regions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Region' }],
+    founder30InviteId: { type: mongoose.Schema.Types.ObjectId, ref: 'FounderInvite', default: null },
+
     // Subscription details
     subscriptionDetails: {
       plan: { type: String, default: null }, // e.g. 'membership' | 'founder30'

@@ -116,7 +116,11 @@ function PartnerRow({
         <p className="text-[12px] text-muted lg:hidden">{partner.partnerCode}</p>
       </div>
       <p className="hidden font-mono text-sm text-gold lg:block">{partner.partnerCode}</p>
-      <p className="text-sm capitalize text-muted">{partner.partnerType.replace("_", " ")}</p>
+      <p className="text-sm capitalize text-muted">
+        {partner.partnerType === "venue"
+          ? "Venue Access"
+          : "Affiliate Marketer"}
+      </p>
       <div className="space-y-1 text-[12px]">
         {venueLink ? (
           <a href={venueLink} target="_blank" rel="noopener noreferrer" className="block truncate text-gold hover:underline">

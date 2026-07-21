@@ -20,6 +20,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const User         = require('../models/User');
 const MonthlyHours = require('../models/MonthlyHours');
 const TierSettings = require('../models/TierSettings');
+const FounderInvite = require('../models/FounderInvite');
 const { getMembershipHourBalance } = require('../utils/membershipHours');
 const {
     sendSuccess,
@@ -492,6 +493,53 @@ const createStripeCustomer = asyncHandler(async (req, res) => {
     }
 });
 
+// ---------------------------------------------------------------------------
+// POST /api/subscriptions/claim-founder30
+// Body: { token: string } — claim a shareable Founder 30 private-deal link
+// ---------------------------------------------------------------------------
+const claimFounder30Invite = asyncHandler(async (req, res) => {
+    try {
+        const token = typeof req.body?.token === 'string' ? req.body.token.trim() : '';
+        if (!token) return sendValidationError(res, 'token is required');
+
+        const user = await User.findById(req.user.id);
+        if (!user) return sendNotFound(res, 'User not found');
+        if (user.role !== 'customer') {
+            return sendValidationError(res, 'Only customer accounts can claim Founder 30');
+        }
+
+        const invite = await FounderInvite.findOne({ token });
+        if (!invite || !invite.isClaimable()) {
+            return sendError(res, 400, 'This Founder 30 link is invalid or no longer active');
+        }
+
+        const alreadyClaimed = (invite.claimedBy || []).some(
+            (id) => id.toString() === user._id.toString(),
+        );
+
+        user.founder30Invited = true;
+        user.founder30InviteId = invite._id;
+        if (Array.isArray(invite.regions) && invite.regions.length > 0) {
+            user.founder30Regions = invite.regions;
+        }
+        await user.save();
+
+        if (!alreadyClaimed) {
+            invite.claimedBy = [...(invite.claimedBy || []), user._id];
+            invite.useCount = (invite.useCount || 0) + 1;
+            await invite.save();
+        }
+
+        return sendSuccess(res, 200, 'Founder 30 unlocked for your account', {
+            founder30Invited: true,
+            regions: invite.regions,
+        });
+    } catch (error) {
+        console.error('claimFounder30Invite Error:', error);
+        return sendError(res, 500, error.message || 'Failed to claim Founder 30 invite');
+    }
+});
+
 module.exports = {
     createSubscriptionCheckout,
     chargeSubscriptionWithSavedCard,
@@ -500,5 +548,6 @@ module.exports = {
     cancelSubscription,
     getSubscriptionBenefits,
     updatePaymentMethod,
-    createStripeCustomer
+    createStripeCustomer,
+    claimFounder30Invite,
 };
