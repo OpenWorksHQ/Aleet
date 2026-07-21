@@ -43,8 +43,10 @@ function assertIsoUtc(label, value) {
 // Late-night hour split
 // ---------------------------------------------------------------------------
 
+const EASTERN_TIMEZONE = 'America/New_York';
+
 /**
- * Parse "HH:MM" string to total minutes since midnight (UTC).
+ * Parse "HH:MM" string to total minutes since midnight.
  * Returns 0 on invalid input.
  */
 function parseHHMM(str) {
@@ -53,17 +55,65 @@ function parseHHMM(str) {
     return (isNaN(h) ? 0 : h) * 60 + (isNaN(m) ? 0 : m);
 }
 
+function getZonedParts(date, timeZone = EASTERN_TIMEZONE) {
+    const dtf = new Intl.DateTimeFormat('en-US', {
+        timeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+    });
+
+    const parts = dtf.formatToParts(date);
+    const out = {};
+    for (const part of parts) {
+        if (part.type !== 'literal') out[part.type] = part.value;
+    }
+
+    return {
+        year: Number(out.year),
+        month: Number(out.month),
+        day: Number(out.day),
+        hour: Number(out.hour),
+        minute: Number(out.minute),
+        second: Number(out.second),
+    };
+}
+
+function getTimeZoneOffsetMinutes(date, timeZone = EASTERN_TIMEZONE) {
+    const zoned = getZonedParts(date, timeZone);
+    const utcMs = Date.UTC(
+        zoned.year,
+        zoned.month - 1,
+        zoned.day,
+        zoned.hour,
+        zoned.minute,
+        zoned.second,
+    );
+    return (utcMs - date.getTime()) / 60000;
+}
+
+function zonedDateTimeToUtcMs(year, month, day, hour, minute, second = 0, timeZone = EASTERN_TIMEZONE) {
+    const approxUtcMs = Date.UTC(year, month - 1, day, hour, minute, second);
+    const offsetMinutes = getTimeZoneOffsetMinutes(new Date(approxUtcMs), timeZone);
+    return approxUtcMs - (offsetMinutes * 60 * 1000);
+}
+
 /**
  * Compute how many hours of a trip [startDate, endDate] fall inside the
  * late-night window on each calendar day.
  *
- * Times are interpreted as UTC. The backend stores lateNightStart / lateNightEnd
- * in UTC HH:MM (default 00:00–09:00 UTC).
+ * Times are interpreted in US Eastern time. This matches the client-facing
+ * business rule that "12am-9am" means the local Aleet operating window, not
+ * raw UTC midnight.
  *
  * @param {Date|string} startDate  Trip start
  * @param {Date|string} endDate    Trip end
- * @param {string} lateNightStart  "HH:MM" UTC e.g. "00:00"
- * @param {string} lateNightEnd    "HH:MM" UTC e.g. "09:00"
+ * @param {string} lateNightStart  "HH:MM" local Eastern, e.g. "00:00"
+ * @param {string} lateNightEnd    "HH:MM" local Eastern, e.g. "09:00"
  * @returns {{ lateNightHours: number, regularHours: number, totalHours: number }}
  */
 function splitLateNightHours(startDate, endDate, lateNightStart = '00:00', lateNightEnd = '09:00') {
@@ -74,20 +124,44 @@ function splitLateNightHours(startDate, endDate, lateNightStart = '00:00', lateN
         return { lateNightHours: 0, regularHours: 0, totalHours: 0 };
     }
 
-    const oneDayMs  = 24 * 3600 * 1000;
-    const lnStartMs = parseHHMM(lateNightStart) * 60 * 1000;
-    const lnEndMs   = parseHHMM(lateNightEnd)   * 60 * 1000;
+    const oneDayMs = 24 * 3600 * 1000;
+    const lnStartMinutes = parseHHMM(lateNightStart);
+    const lnEndMinutes   = parseHHMM(lateNightEnd);
 
     let lateNightMs = 0;
 
-    // Walk through each calendar day (UTC) that the trip touches
-    const firstDayStart = new Date(start);
-    firstDayStart.setUTCHours(0, 0, 0, 0);
-    let dayStart = firstDayStart.getTime();
+    // Walk through each calendar day in Eastern time that the trip touches.
+    const firstDay = getZonedParts(new Date(start), EASTERN_TIMEZONE);
+    let currentDayUtcMs = zonedDateTimeToUtcMs(
+        firstDay.year,
+        firstDay.month,
+        firstDay.day,
+        0,
+        0,
+        0,
+        EASTERN_TIMEZONE,
+    );
 
-    while (dayStart < end) {
-        const lnWindowStart = dayStart + lnStartMs;
-        const lnWindowEnd   = dayStart + lnEndMs;
+    while (currentDayUtcMs < end) {
+        const currentDay = getZonedParts(new Date(currentDayUtcMs), EASTERN_TIMEZONE);
+        const lnWindowStart = zonedDateTimeToUtcMs(
+            currentDay.year,
+            currentDay.month,
+            currentDay.day,
+            Math.floor(lnStartMinutes / 60),
+            lnStartMinutes % 60,
+            0,
+            EASTERN_TIMEZONE,
+        );
+        const lnWindowEnd = zonedDateTimeToUtcMs(
+            currentDay.year,
+            currentDay.month,
+            currentDay.day,
+            Math.floor(lnEndMinutes / 60),
+            lnEndMinutes % 60,
+            0,
+            EASTERN_TIMEZONE,
+        );
 
         const overlapStart = Math.max(start, lnWindowStart);
         const overlapEnd   = Math.min(end,   lnWindowEnd);
@@ -95,7 +169,7 @@ function splitLateNightHours(startDate, endDate, lateNightStart = '00:00', lateN
         if (overlapEnd > overlapStart) {
             lateNightMs += overlapEnd - overlapStart;
         }
-        dayStart += oneDayMs;
+        currentDayUtcMs += oneDayMs;
     }
 
     const totalHours     = (end - start) / (3600 * 1000);
