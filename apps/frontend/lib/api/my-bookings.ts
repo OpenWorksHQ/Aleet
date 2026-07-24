@@ -50,3 +50,17 @@ export function fetchMyBookings(token?: string) {
 export function fetchBookingById(id: string, token?: string) {
   return apiFetch<MyBooking>(`/bookings/${id}`, { token });
 }
+
+export function cancelMyBooking(id: string, reason?: string, token?: string) {
+  return apiFetch<{
+    booking: MyBooking;
+    cancellationWindowHours: number;
+    membershipHoursRestored: number;
+    lateCancellation: boolean;
+    paymentRefunded: boolean;
+  }>(`/bookings/${id}/cancel`, {
+    method: "PATCH",
+    body: { reason },
+    token,
+  });
+}

@@ -8,7 +8,13 @@ import { StepRoute } from "./step-route";
 import { StepConfirm } from "./step-confirm";
 import { TripSummaryBar } from "./trip-summary-bar";
 import { buildTripWindow, calculateBookingPrice, startBooking, type BookingPriceResult } from "@/lib/api/bookings";
-import { BookingPaymentStep } from "@/app/components/payments/booking-payment-step";
+import { InlineBookingPaymentForm } from "@/app/components/payments/inline-booking-payment-form";
+import {
+    chargeSavedCard,
+    confirmBookingPayment,
+    listSavedCards,
+} from "@/lib/api/payments";
+import { getStripe } from "@/lib/stripe";
 import { fetchAddons, type ApiAddon } from "@/lib/api/addons";
 import { getVehicleTypes } from "@/lib/api/vehicle-types";
 import { getRegions } from "@/lib/api/regions";
@@ -24,7 +30,7 @@ import { SameDayNotice } from "./same-day-notice";
 import { PartnerContextBanner } from "@/app/components/partner/partner-context-banner";
 import { BookingConfirmationPanel } from "./booking-confirmation-panel";
 
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 2 | 3;
 
 const STEPS: { label: string; sub: string }[] = [
     { label: "Trip", sub: "Dates & vehicle" },
@@ -372,9 +378,33 @@ export function BookingWizard({ onStepChange, renderIndicator }: { onStepChange?
             }
             clearPendingBooking();
             setPendingBookingId(bookingId);
-            setStep(4);
+
+            // Existing/default card: Confirm Trip is a true one-tap payment.
+            const cardsResponse = await listSavedCards(token);
+            const cards = cardsResponse.data ?? [];
+            const selected = cards.find((card) => card.isDefault) ?? cards[0];
+            if (!selected) {
+                // First booking: keep the user on this confirmation page and
+                // reveal inline card fields that charge + save in one action.
+                return;
+            }
+
+            const payment = await chargeSavedCard(
+                { bookingId, paymentMethodId: selected.id },
+                token,
+            );
+            if (payment.status === "requires_action" && payment.clientSecret) {
+                const stripe = await getStripe();
+                if (!stripe) throw new Error("Stripe is not configured.");
+                const result = await stripe.handleCardAction(payment.clientSecret);
+                if (result.error) throw new Error(result.error.message ?? "Card verification failed");
+                if (result.paymentIntent?.status !== "succeeded")
+                    throw new Error("Payment was not completed.");
+                await confirmBookingPayment(result.paymentIntent.id, token);
+            }
+            setPaymentComplete(true);
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : "Failed to create booking.");
+            toast.error(err instanceof Error ? err.message : "Could not confirm and pay for this trip.");
         } finally {
             setIsSubmitting(false);
         }
@@ -490,26 +520,26 @@ export function BookingWizard({ onStepChange, renderIndicator }: { onStepChange?
                             <TripSummaryBar data={data} onChange={handleChange} quickBookingMode={quickBookingMode} isMember={isMember} />
                         )}
                         <SameDayNotice sameDay={sameDay} />
-                        <StepConfirm
-                            data={data}
-                            serverPrice={serverPrice}
-                            priceLoading={priceLoading}
-                            freeAddons={freeAddons}
-                            paidAddons={paidAddons}
-                            onBack={() => goTo(2)}
-                            onConfirm={handleConfirm}
-                            isLoading={isSubmitting}
-                            confirmDisabled={sameDay.blocked}
-                        />
+                        {!pendingBookingId ? (
+                            <StepConfirm
+                                data={data}
+                                serverPrice={serverPrice}
+                                priceLoading={priceLoading}
+                                freeAddons={freeAddons}
+                                paidAddons={paidAddons}
+                                onBack={() => goTo(2)}
+                                onConfirm={handleConfirm}
+                                isLoading={isSubmitting}
+                                confirmDisabled={sameDay.blocked}
+                            />
+                        ) : (
+                            <InlineBookingPaymentForm
+                                bookingId={pendingBookingId}
+                                amount={serverPrice?.total ?? 0}
+                                onPaid={() => setPaymentComplete(true)}
+                            />
+                        )}
                     </>
-                )}
-                {step === 4 && pendingBookingId && (
-                    <BookingPaymentStep
-                        bookingId={pendingBookingId}
-                        amount={serverPrice?.total ?? 0}
-                        onBack={() => setStep(3)}
-                        onPaid={() => setPaymentComplete(true)}
-                    />
                 )}
             </main>
         </div>

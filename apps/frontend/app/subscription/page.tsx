@@ -62,12 +62,32 @@ export default function SubscriptionPage() {
     load();
   }, []);
 
+  // Keep membership hours / usage bar current when returning to this tab
+  // (hours are deducted when a driver accepts — bar looked stale before).
+  useEffect(() => {
+    function onFocus() {
+      if (document.visibilityState === "visible") {
+        void load();
+      }
+    }
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, []);
+
   useEffect(() => {
     const token = searchParams.get("f30")?.trim();
     if (!token) return;
     const auth = getToken();
     if (!auth) {
       setInviteMessage("Log in to unlock your Founder 30 private offer, then reopen this link.");
+      if (typeof window !== "undefined") {
+        const next = encodeURIComponent(`/subscription?f30=${token}`);
+        window.location.href = `/login?next=${next}`;
+      }
       return;
     }
     let cancelled = false;

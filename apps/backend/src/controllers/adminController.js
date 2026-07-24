@@ -1,11 +1,23 @@
 const Booking = require('../models/Booking');
 const User = require('../models/User');
+const TierSettings = require('../models/TierSettings');
 const mongoose = require('mongoose');
 const { sendSuccess, sendError, sendValidationError, sendNotFound, sendForbidden, sendConflict } = require('../utils/responseHelper');
 const { fileUrl } = require('../utils/multer');
 const { resolveDriverTier } = require('../services/driverTierService');
 const { evaluateDriver, getRankedDriversForBooking, autoAssignDriver, autoDispatchBooking } = require('../services/dispatchService');
 const { sendTripAlert, formatTripTime } = require('../services/twilioService');
+const {
+  reserveMembershipHours,
+  restoreMembershipHours,
+} = require('../services/membershipReservationService');
+
+async function reserveHoursForMemberBooking(booking) {
+  const customer = await User.findById(booking.user).select('subscriptionStatus').lean();
+  if (customer?.subscriptionStatus !== 'subscriber') return;
+  const settings = await TierSettings.findOne();
+  await reserveMembershipHours(booking, settings);
+}
 
 
 const assignDriverToBooking = async (req, res) => {
@@ -22,6 +34,9 @@ const assignDriverToBooking = async (req, res) => {
 
     if (['Cancelled', 'Completed', 'Expired'].includes(booking.status)) {
       return sendValidationError(res, `Cannot assign a driver to a ${booking.status.toLowerCase()} booking`);
+    }
+    if (booking.paymentStatus !== 'Paid') {
+      return sendValidationError(res, 'Payment is required before driver assignment');
     }
 
     // Find the driver by ID
@@ -40,6 +55,7 @@ const assignDriverToBooking = async (req, res) => {
     booking.assignedDriver = driverId;
     booking.status = 'Confirmed';  // Confirm booking once assigned
     await booking.save();
+    await reserveHoursForMemberBooking(booking);
 
     return sendSuccess(res, 200, 'Driver assigned successfully', booking);
   } catch (error) {
@@ -56,6 +72,8 @@ const getEligibleDriversForBooking = async (req, res) => {
     const { id } = req.params;
     const booking = await Booking.findById(id);
     if (!booking) return sendNotFound(res, 'Booking not found');
+    if (booking.paymentStatus !== 'Paid')
+      return sendValidationError(res, 'Payment is required before viewing driver assignment');
 
     const result = await getRankedDriversForBooking(booking);
     return sendSuccess(res, 200, 'Eligible drivers retrieved', result);
@@ -79,6 +97,9 @@ const autoAssignDriverToBooking = async (req, res) => {
     if (booking.assignedDriver) {
       return sendValidationError(res, 'Booking already has an assigned driver');
     }
+    if (booking.paymentStatus !== 'Paid') {
+      return sendValidationError(res, 'Payment is required before driver assignment');
+    }
 
     const { driver, sameDay, membershipTrip, candidates } = await autoAssignDriver(booking);
     if (!driver) {
@@ -93,6 +114,7 @@ const autoAssignDriverToBooking = async (req, res) => {
     booking.assignedDriver = driver._id;
     booking.status = 'Confirmed';
     await booking.save();
+    await reserveHoursForMemberBooking(booking);
 
     // Trip-alert SMS — notify guest + driver (fire-and-forget, never throws)
     (async () => {
@@ -145,6 +167,9 @@ const redispatchBooking = async (req, res) => {
     }
     if (booking.assignedDriver) {
       return sendValidationError(res, 'Booking already has an assigned driver — unassign first');
+    }
+    if (booking.paymentStatus !== 'Paid') {
+      return sendValidationError(res, 'Payment is required before dispatch');
     }
 
     const { drivers, stage, tiers } = await autoDispatchBooking(booking);
@@ -254,9 +279,16 @@ const cancelBookingAsAdmin = async (req, res) => {
       tiers: [],
       offeredTo: [],
     };
+    const restoration = await restoreMembershipHours(
+      booking,
+      reason || 'Cancelled by admin',
+    );
     await booking.save();
 
-    return sendSuccess(res, 200, 'Booking cancelled', booking);
+    return sendSuccess(res, 200, 'Booking cancelled', {
+      booking,
+      membershipHoursRestored: restoration.hours,
+    });
   } catch (error) {
     console.error('cancelBookingAsAdmin Error:', error);
     return sendError(res, 500, error.message || 'Failed to cancel booking');
