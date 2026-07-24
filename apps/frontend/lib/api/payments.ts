@@ -18,6 +18,12 @@ export type SetupIntentData = {
   customerId: string;
 };
 
+export type BookingPaymentIntentData = {
+  clientSecret: string;
+  paymentIntentId: string;
+  amount: number;
+};
+
 export type ChargeSavedCardResult = {
   paymentIntentId: string;
   amountCharged?: number;
@@ -79,6 +85,29 @@ export function createSetupIntent(token?: string) {
 
 export function listSavedCards(token?: string) {
   return apiFetch<SavedCard[]>("/payments/saved-cards", { token });
+}
+
+export function createBookingPaymentIntent(
+  body: { bookingId: string; tip?: number },
+  token?: string,
+) {
+  return apiFetch<BookingPaymentIntentData>("/payments/booking-payment-intent", {
+    method: "POST",
+    body,
+    token,
+  });
+}
+
+export function confirmBookingPayment(paymentIntentId: string, token?: string) {
+  return apiFetch<{
+    paymentIntentId: string;
+    bookingId: string;
+    paymentStatus: string;
+  }>("/payments/confirm-booking-payment", {
+    method: "POST",
+    body: { paymentIntentId },
+    token,
+  });
 }
 
 export function setDefaultCard(paymentMethodId: string, token?: string) {

@@ -32,7 +32,7 @@ const { computePayoutCents } = require('../services/payoutUtils');
 const { getMilesFromBase } = require('../services/googleRoutesService');
 const { getRegionSameDayStatus } = require('../services/availabilityService');
 const { sendTripAlert, formatTripTime } = require('../services/twilioService');
-const { autoDispatchBooking, evaluateDriver } = require('../services/dispatchService');
+const { evaluateDriver } = require('../services/dispatchService');
 const {
     toId,
     validateBookingInput,
@@ -44,10 +44,13 @@ const {
 } = require('../utils/bookingHelpers');
 const { getMembershipHourBalance } = require('../utils/membershipHours');
 const {
+    reserveMembershipHours,
+    restoreMembershipHours,
+} = require('../services/membershipReservationService');
+const {
     resolveBookingPartner,
     computePartnerAdjustments,
     buildPartnerBookingSnapshot,
-    recordPartnerBookingStarted,
     recordPartnerBookingCompleted,
 } = require('../services/partnerService');
 
@@ -151,37 +154,6 @@ function handleBookingError(res, err, context) {
         return sendValidationError(res, 'One or more IDs are invalid. Please pass valid MongoDB ObjectIds.');
     }
     return sendError(res, 500, `Failed to ${context.toLowerCase()}`);
-}
-
-// ---------------------------------------------------------------------------
-// Helper: deduct member hours for a booking and return overage if any.
-// Used in confirmBooking. Returns { hoursDeducted, overageHours, newTotalUsed }
-//
-// Overage uses the monthly soft-cap (5 hrs/mo) and quarterly ceiling (15 hrs).
-// Per-month MonthlyHours records are kept for reporting + the monthly soft-cap.
-// ---------------------------------------------------------------------------
-async function deductMemberHours(userId, bookingHours, startDate, settings) {
-    const balance = await getMembershipHourBalance(MonthlyHours, userId, settings, startDate);
-    const freeLeft = balance.freeHoursLeft;
-    const overageHours = Math.max(0, bookingHours - freeLeft);
-    const currentMonth = `${new Date(startDate).getFullYear()}-${String(new Date(startDate).getMonth() + 1).padStart(2, '0')}`;
-
-    let record = await MonthlyHours.findOne({ user: userId, yearMonth: currentMonth });
-    if (!record) {
-        record = await MonthlyHours.create({ user: userId, yearMonth: currentMonth, totalHoursUsed: 0 });
-    }
-    record.totalHoursUsed = (record.totalHoursUsed || 0) + bookingHours;
-    await record.save();
-
-    return {
-        hoursDeducted: bookingHours,
-        overageHours: Number(overageHours.toFixed(4)),
-        newTotalUsed: record.totalHoursUsed,
-        monthlyUsed: Number((balance.monthlyUsed + bookingHours).toFixed(4)),
-        quarterlyUsed: Number((balance.quarterlyUsed + bookingHours).toFixed(4)),
-        monthlyIncluded: balance.monthlyIncluded,
-        quarterlyIncluded: balance.quarterlyIncluded,
-    };
 }
 
 // ---------------------------------------------------------------------------
@@ -497,27 +469,6 @@ const startBooking = asyncHandler(async (req, res) => {
             dispatchFlag:  _dispatchFlag
         });
 
-        if (partnerSnapshot?.partner) {
-            await recordPartnerBookingStarted(partnerSnapshot.partner);
-        }
-
-        sendTripAlert(user, 'guest_booking_received', {
-            when: formatTripTime(effectiveStartDate)
-        }).catch(e => console.error('SMS guest_booking_received failed:', e?.message));
-
-        (async () => {
-            try {
-                const { drivers } = await autoDispatchBooking(booking);
-                const when = formatTripTime(effectiveStartDate);
-                for (const driver of drivers) {
-                    sendTripAlert(driver, 'driver_trip_offer', { when, pickup: pickupLocation })
-                        .catch(e => console.error('SMS driver_trip_offer failed:', e?.message));
-                }
-            } catch (e) {
-                console.error('Auto-dispatch failed:', e?.message || e);
-            }
-        })();
-
         return sendSuccess(res, 201, 'Booking started successfully', {
             booking,
             comparison: !isSubscriber ? {
@@ -547,6 +498,7 @@ const confirmBooking = asyncHandler(async (req, res) => {
         const booking = await Booking.findById(bookingId).populate('vehicleType', 'name hourlyPrice');
         if (!booking)                          return sendNotFound(res, 'Booking not found');
         if (booking.status === 'Confirmed')    return sendValidationError(res, 'Booking already confirmed');
+        if (booking.paymentStatus !== 'Paid')  return sendForbidden(res, 'Payment is required before driver assignment');
 
         let assignedDriverDoc = null;
         if (req.user.role === 'admin' && driverId) {
@@ -580,30 +532,7 @@ const confirmBooking = asyncHandler(async (req, res) => {
         const bookingUser  = await User.findById(booking.user);
 
         if (bookingUser?.subscriptionStatus === 'subscriber') {
-            const bookingHours = booking.durationHours || 0;
-            const { overageHours } = await deductMemberHours(
-                booking.user,
-                bookingHours,
-                booking.dates?.startDate,
-                tierSettings
-            );
-
-            // If overage exists, attempt auto-charge via saved card
-            if (overageHours > 0) {
-                try {
-                    const { chargeOverage } = require('./savedCardController');
-                    await chargeOverage({
-                        userId:        booking.user.toString(),
-                        overageHours,
-                        user:          bookingUser,
-                        tierSettings
-                    });
-                } catch (overageErr) {
-                    console.error('Overage charge failed (booking still confirmed):', overageErr?.message);
-                    // Overage charge failure is non-blocking — booking still confirms.
-                    // Admin can manually handle via the admin panel.
-                }
-            }
+            await reserveMembershipHours(booking, tierSettings);
         }
 
         booking.status = 'Confirmed';
@@ -654,6 +583,8 @@ const acceptBooking = asyncHandler(async (req, res) => {
 
         const booking = await Booking.findById(bookingId);
         if (!booking) return sendNotFound(res, 'Booking not found');
+        if (booking.paymentStatus !== 'Paid')
+            return sendForbidden(res, 'Trip is not available until payment succeeds');
 
         if (action === 'decline') {
             return sendSuccess(res, 200, 'Trip declined — it will remain available to other drivers', {});
@@ -675,7 +606,7 @@ const acceptBooking = asyncHandler(async (req, res) => {
 
         // Atomic claim
         const claimed = await Booking.findOneAndUpdate(
-            { _id: bookingId, assignedDriver: null, status: 'Pending' },
+            { _id: bookingId, assignedDriver: null, status: 'Pending', paymentStatus: 'Paid' },
             {
                 $set: {
                     assignedDriver: driverId,
@@ -693,18 +624,7 @@ const acceptBooking = asyncHandler(async (req, res) => {
         const bookingUser  = await User.findById(claimed.user);
 
         if (bookingUser?.subscriptionStatus === 'subscriber') {
-            const bookingHours = claimed.durationHours || 0;
-            const { overageHours } = await deductMemberHours(
-                claimed.user, bookingHours, claimed.dates?.startDate, tierSettings
-            );
-            if (overageHours > 0) {
-                try {
-                    const { chargeOverage } = require('./savedCardController');
-                    await chargeOverage({ userId: claimed.user.toString(), overageHours, user: bookingUser, tierSettings });
-                } catch (overageErr) {
-                    console.error('Overage charge failed on accept:', overageErr?.message);
-                }
-            }
+            await reserveMembershipHours(claimed, tierSettings);
         }
 
         // Notify guest
@@ -768,6 +688,7 @@ const getOpenTrips = asyncHandler(async (req, res) => {
 
         const candidates = await Booking.find({
             status: 'Pending',
+            paymentStatus: 'Paid',
             assignedDriver: null,
             'offer.stage': { $gt: 0 },
             'offer.tiers': driver.driver.tier
@@ -1031,6 +952,66 @@ const getBookingById = asyncHandler(async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// PATCH /api/bookings/:id/cancel  (Customer)
+// On-time cancellation restores reserved membership hours. Late cancellation
+// keeps the reservation; payment refund policy remains an admin operation.
+// ---------------------------------------------------------------------------
+const cancelMyBooking = asyncHandler(async (req, res) => {
+    try {
+        const booking = await Booking.findById(req.params.id);
+        if (!booking) return sendNotFound(res, 'Booking not found');
+        if (booking.user.toString() !== req.user.id.toString())
+            return sendForbidden(res, 'Not your booking');
+        if (['Cancelled', 'Completed', 'Expired'].includes(booking.status))
+            return sendValidationError(res, `Cannot cancel a ${booking.status.toLowerCase()} booking`);
+
+        const settings = await TierSettings.findOne();
+        const windowHours = Number(settings?.cancellationWindowHours) || 3;
+        const hoursUntilPickup =
+            (new Date(booking.dates?.startDate).getTime() - Date.now()) / 3600000;
+        const eligibleForHourRestore = hoursUntilPickup >= windowHours;
+
+        let restoration = { restored: false, hours: 0 };
+        if (eligibleForHourRestore) {
+            restoration = await restoreMembershipHours(
+                booking,
+                `Customer cancelled at least ${windowHours}h before pickup`,
+            );
+        }
+
+        booking.status = 'Cancelled';
+        booking.cancellation = {
+            cancelledBy: req.user.id,
+            cancelledAt: new Date(),
+            reason: typeof req.body?.reason === 'string' && req.body.reason.trim()
+                ? req.body.reason.trim()
+                : eligibleForHourRestore
+                    ? 'Customer cancellation within allowed window'
+                    : 'Late customer cancellation',
+        };
+        booking.offer = {
+            stage: 0,
+            offeredAt: null,
+            expiresAt: null,
+            tiers: [],
+            offeredTo: [],
+        };
+        await booking.save();
+
+        return sendSuccess(res, 200, 'Booking cancelled', {
+            booking,
+            cancellationWindowHours: windowHours,
+            membershipHoursRestored: restoration.hours,
+            lateCancellation: !eligibleForHourRestore,
+            paymentRefunded: false,
+        });
+    } catch (error) {
+        console.error('Cancel My Booking Error:', error);
+        return sendError(res, 500, error.message || 'Failed to cancel booking');
+    }
+});
+
+// ---------------------------------------------------------------------------
 // GET /api/bookings/stats  (Admin)
 // ---------------------------------------------------------------------------
 const getAdminBookingStats = asyncHandler(async (req, res) => {
@@ -1072,5 +1053,6 @@ module.exports = {
     getAdminBookingStats,
     getMyBookings,
     getBookingById,
-    completeBooking
+    completeBooking,
+    cancelMyBooking,
 };

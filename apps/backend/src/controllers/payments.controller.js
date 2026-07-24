@@ -5,6 +5,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const Booking = require('../models/Booking');
 const User = require('../models/User');
 const TierSettings = require('../models/TierSettings');
+const { markBookingPaidAndDispatch } = require('../services/bookingPaymentService');
 
 const CURRENCY = 'usd';
 const { getAppBaseUrl } = require('../utils/getAppBaseUrl');
@@ -65,6 +66,8 @@ exports.createCheckoutSession = async (req, res) => {
       metadata: {
         bookingId: booking._id.toString(),
         userId: userId.toString(),
+        type: 'booking',
+        tip: tipAmount.toString(),
       },
       line_items: [
         {
@@ -146,11 +149,12 @@ exports.webhook = async (req, res) => {
         if (!booking) {
           console.error('Booking not found:', bookingId);
         } else {
-          booking.paymentStatus = 'Paid';
-          booking.paidAt = new Date();
-          booking.stripePaymentIntentId = fullSession.payment_intent?.id || null;
-          await booking.save();
-          console.log('💾 Booking marked Paid:', bookingId);
+          await markBookingPaidAndDispatch({
+            bookingId,
+            paymentIntentId: fullSession.payment_intent?.id || null,
+            tip: Number(fullSession.metadata?.tip || booking.tip || 0),
+          });
+          console.log('💾 Booking marked Paid and released:', bookingId);
         }
       }
 
@@ -208,6 +212,19 @@ exports.webhook = async (req, res) => {
       }
     }
 
+    // Inline Elements and saved-card PaymentIntents also use this event.
+    if (event.type === 'payment_intent.succeeded') {
+      const paymentIntent = event.data.object;
+      const bookingId = paymentIntent.metadata?.bookingId;
+      if (bookingId && paymentIntent.metadata?.type === 'booking') {
+        await markBookingPaidAndDispatch({
+          bookingId,
+          paymentIntentId: paymentIntent.id,
+          tip: Number(paymentIntent.metadata?.tip || 0),
+        });
+      }
+    }
+
     // ── Stripe Connect: driver bank account onboarding completed ─────────────
     if (event.type === 'account.updated') {
       const account = event.data.object;
@@ -242,10 +259,11 @@ exports.getSessionStatus = async (req, res) => {
 
     // 🔧 Reconcile if webhook didn't run yet
     if (session.payment_status === 'paid' && booking && booking.paymentStatus !== 'Paid') {
-      booking.paymentStatus = 'Paid';
-      booking.paidAt = new Date();
-      booking.stripePaymentIntentId = session.payment_intent?.id || null;
-      await booking.save();
+      await markBookingPaidAndDispatch({
+        bookingId,
+        paymentIntentId: session.payment_intent?.id || null,
+        tip: Number(session.metadata?.tip || booking.tip || 0),
+      });
     }
 
     return res.status(200).json({

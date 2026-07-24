@@ -26,11 +26,15 @@ const tierSettingsSchema = new mongoose.Schema({
     // Non-members must give this many hours of notice before pickup.
     // E.g. if current time is 8:00 PM and sameDayNoticeHours = 3, earliest pickup is 11:00 PM.
 
+    cancellationWindowHours: { type: Number, default: 3 },
+    // Customer cancellations at least this many hours before pickup restore
+    // reserved membership hours. Later cancellations / no-shows keep them.
+
     // ── Late-Night Window ─────────────────────────────────────────────────────
     // During this window, membership rates do NOT apply for members.
     // Only the hours inside the window switch to the standard vehicle rate.
-    lateNightStart: { type: String, default: '00:00' }, // HH:MM in UTC
-    lateNightEnd:   { type: String, default: '09:00' }, // HH:MM in UTC
+    lateNightStart: { type: String, default: '00:00' }, // HH:MM US Eastern
+    lateNightEnd:   { type: String, default: '09:00' }, // HH:MM US Eastern
 
     // ── Membership / Founder 30 Rates ─────────────────────────────────────────
     membershipRate: { type: Number, default: 89 },  // $/hr for Standard members (any vehicle)

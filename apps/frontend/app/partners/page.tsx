@@ -1,17 +1,17 @@
-import type { Metadata } from "next";
-import Link from "next/link";
 import { PartnerApplicationForm } from "@/app/components/partner/partner-application-form";
 import { PartnerPortalActions } from "@/app/components/partner/partner-portal-actions";
 import {
   MarketingPageShell,
   MarketingSection,
 } from "@/app/components/marketing-page-shell";
+import { createPageMetadata } from "@/lib/metadata";
 
-export const metadata: Metadata = {
+export const metadata = createPageMetadata({
+  path: "/partners",
   title: "Aleet Partner Portal — Become a Partner",
   description:
     "Apply to become an Aleet partner venue. Earn commissions on bookings made through your QR code and partner page.",
-};
+});
 
 export default function PartnersPage() {
   return (

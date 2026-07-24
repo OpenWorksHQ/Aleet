@@ -130,8 +130,20 @@ const bookingSchema = new mongoose.Schema({
   stripeSessionId: { type: String, default: null },
   stripePaymentIntentId: { type: String, default: null },
   paidAt: { type: Date, default: null },
+  // Trip offers are released only after successful payment.
+  dispatchedAt: { type: Date, default: null },
   refundId: { type: String, default: null },
   PaidToDriver: { type: Boolean, default: false },
+
+  // Idempotent membership-hour reservation made when a driver accepts.
+  // `hours` includes included + overage trip hours for usage reporting.
+  membershipHoursReservation: {
+    hours: { type: Number, default: 0 },
+    yearMonth: { type: String, default: null },
+    reservedAt: { type: Date, default: null },
+    restoredAt: { type: Date, default: null },
+    restorationReason: { type: String, default: null },
+  },
 
   // Partner / venue attribution
   partner: {

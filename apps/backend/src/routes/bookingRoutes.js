@@ -10,7 +10,8 @@ const {
     getMyBookings,
     getBookingById,
     previewBooking,
-    completeBooking
+    completeBooking,
+    cancelMyBooking
 } = require('../controllers/bookingController.js');
 const authenticateJWT = require('../middleware/authMiddleware');
 const requireAdmin = require('../middleware/requireAdmin');
@@ -25,6 +26,9 @@ router.post('/start', authenticateJWT, startBooking);
 
 // My bookings (authenticated user)
 router.get('/my', authenticateJWT, getMyBookings);
+
+// Customer cancellation (restores reserved member hours when on time)
+router.patch('/:id/cancel', authenticateJWT, cancelMyBooking);
 
 // Driver — open trip offers matching the driver's tier + eligibility
 router.get('/open-trips', authenticateJWT, getOpenTrips);

@@ -5,15 +5,27 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { DashboardShell } from "@/app/components/dashboard-shell";
-import { getPaymentSessionStatus } from "@/lib/api/payments";
+import { confirmBookingPayment, getPaymentSessionStatus } from "@/lib/api/payments";
+import { getToken } from "@/lib/auth";
 
 function BookingSuccessContent() {
   const params = useSearchParams();
   const sessionId = params.get("session_id");
+  const paymentIntentId = params.get("payment_intent");
+  const returnedBookingId = params.get("booking_id");
   const [status, setStatus] = useState<"loading" | "paid" | "pending" | "error">("loading");
   const [bookingId, setBookingId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (paymentIntentId) {
+      confirmBookingPayment(paymentIntentId, getToken() ?? undefined)
+        .then((res) => {
+          setBookingId(res.data?.bookingId ?? returnedBookingId);
+          setStatus("paid");
+        })
+        .catch(() => setStatus("error"));
+      return;
+    }
     if (!sessionId) {
       setStatus("error");
       return;
@@ -28,7 +40,7 @@ function BookingSuccessContent() {
         }
       })
       .catch(() => setStatus("error"));
-  }, [sessionId]);
+  }, [paymentIntentId, returnedBookingId, sessionId]);
 
   return (
     <div className="mx-auto flex min-h-[50vh] max-w-lg flex-col items-center justify-center text-center">

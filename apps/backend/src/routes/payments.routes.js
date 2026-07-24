@@ -27,4 +27,8 @@ router.delete('/saved-cards/:paymentMethodId', authenticateJWT, SavedCardControl
 // Charge an existing booking using a saved card (no redirect — one-tap payment)
 router.post('/charge-saved-card', authenticateJWT, SavedCardController.chargeSavedCard);
 
+// First-card inline checkout: charge + save on the booking confirmation page
+router.post('/booking-payment-intent', authenticateJWT, SavedCardController.createBookingPaymentIntent);
+router.post('/confirm-booking-payment', authenticateJWT, SavedCardController.confirmBookingPayment);
+
 module.exports = router;

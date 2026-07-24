@@ -116,6 +116,21 @@ setInterval(() => {
   });
 }, 60 * 60 * 1000);
 
+// Auto-cancel past Pending/Confirmed trips that never completed — keeps
+// customer trip history accurate (Active / Completed / Cancelled).
+const { runStaleBookingCancelSweep } = require('./cron/staleBookingCancelJob');
+setInterval(() => {
+  runStaleBookingCancelSweep().catch((e) => {
+    console.error('Stale booking cancel sweep error:', e?.message || e);
+  });
+}, 15 * 60 * 1000);
+// Run once shortly after boot so orphans clear without waiting for first interval.
+setTimeout(() => {
+  runStaleBookingCancelSweep().catch((e) => {
+    console.error('Stale booking cancel sweep (boot) error:', e?.message || e);
+  });
+}, 20 * 1000);
+
 httpServer.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   logEmailConfig();

@@ -140,7 +140,7 @@ const getTierSettings = asyncHandler(async (req, res) => {
 const updateTierSettings = asyncHandler(async (req, res) => {
     try {
         const {
-            bookingFee, minBookingHours, sameDayNoticeHours,
+            bookingFee, minBookingHours, sameDayNoticeHours, cancellationWindowHours,
             lateNightStart, lateNightEnd,
             membershipRate, founder30Rate,
             membershipMonthlyHours, membershipBillingCycle,
@@ -168,6 +168,12 @@ const updateTierSettings = asyncHandler(async (req, res) => {
             if (typeof sameDayNoticeHours !== 'number' || sameDayNoticeHours < 0)
                 return sendValidationError(res, 'sameDayNoticeHours must be a non-negative number');
             settings.sameDayNoticeHours = sameDayNoticeHours;
+        }
+
+        if (cancellationWindowHours !== undefined) {
+            if (typeof cancellationWindowHours !== 'number' || cancellationWindowHours < 0)
+                return sendValidationError(res, 'cancellationWindowHours must be a non-negative number');
+            settings.cancellationWindowHours = cancellationWindowHours;
         }
 
         // ── Late-Night Window ────────────────────────────────────────────────
