@@ -1,16 +1,23 @@
 import type { MetadataRoute } from "next";
 import { getSiteUrl } from "@/lib/site-url";
 
-const PUBLIC_ROUTES = ["/", "/login", "/login/forgot-password", "/booking", "/membership"];
+/** Public marketing URLs only — never include auth, checkout, or noindex pages. */
+const PUBLIC_ROUTES: Array<{ path: string; priority: number; changeFrequency: "weekly" | "monthly" }> = [
+  { path: "/", priority: 1, changeFrequency: "weekly" },
+  { path: "/membership", priority: 0.9, changeFrequency: "monthly" },
+  { path: "/booking", priority: 0.8, changeFrequency: "monthly" },
+  { path: "/partners", priority: 0.8, changeFrequency: "monthly" },
+  { path: "/login", priority: 0.4, changeFrequency: "monthly" },
+];
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const siteUrl = getSiteUrl();
   const lastModified = new Date();
 
-  return PUBLIC_ROUTES.map((route) => ({
-    url: `${siteUrl}${route}`,
+  return PUBLIC_ROUTES.map(({ path, priority, changeFrequency }) => ({
+    url: path === "/" ? siteUrl : `${siteUrl}${path}`,
     lastModified,
-    changeFrequency: route === "/" ? "weekly" : "monthly",
-    priority: route === "/" ? 1 : 0.6,
+    changeFrequency,
+    priority,
   }));
 }

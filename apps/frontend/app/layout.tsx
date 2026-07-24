@@ -32,6 +32,21 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
+  openGraph: {
+    type: "website",
+    url: siteUrl,
+    siteName: "ALEET",
+    title: "ALEET | Luxury Transportation & Concierge",
+    description:
+      "Professional drivers, event access, multi-day travel, and concierge services — available to members.",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ALEET | Luxury Transportation & Concierge",
+    description:
+      "Professional drivers, event access, multi-day travel, and concierge services — available to members.",
+  },
   ...(gscVerification
     ? { verification: { google: gscVerification } }
     : {}),

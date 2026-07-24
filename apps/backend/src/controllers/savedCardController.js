@@ -24,8 +24,22 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const User    = require('../models/User');
 const Booking = require('../models/Booking');
 const { sendSuccess, sendError, sendValidationError, sendNotFound } = require('../utils/responseHelper');
+const { markBookingPaidAndDispatch } = require('../services/bookingPaymentService');
 
 const CURRENCY = 'usd';
+
+async function loadPayableBooking(bookingId, userId) {
+    if (!bookingId) throw new Error('bookingId is required');
+    const booking = await Booking.findById(bookingId).populate('vehicleType', 'name');
+    if (!booking) throw new Error('Booking not found');
+    if (booking.user.toString() !== userId.toString()) {
+        const err = new Error('Not your booking');
+        err.statusCode = 403;
+        throw err;
+    }
+    if (booking.status === 'Cancelled') throw new Error('Booking is cancelled');
+    return booking;
+}
 
 // ---------------------------------------------------------------------------
 // Internal: get or create a Stripe Customer for the user.
@@ -237,31 +251,34 @@ const chargeSavedCard = asyncHandler(async (req, res) => {
             customer:             customerId,
             payment_method:       paymentMethodId,
             confirm:              true,
-            off_session:          true,
+            // User is present on the confirmation page, so 3DS can be handled.
+            off_session:          false,
             description:          `Booking: ${booking.vehicleType?.name || 'Vehicle'} — ${new Date(booking.dates.startDate).toLocaleDateString()}${feeNote}`,
             metadata: {
                 bookingId: booking._id.toString(),
                 userId:    userId.toString(),
-                type:      'booking'
+                type:      'booking',
+                tip:       tipAmount.toString()
             }
         });
 
         if (paymentIntent.status === 'succeeded') {
-            booking.paymentStatus          = 'Paid';
-            booking.paidAt                 = new Date();
-            booking.stripePaymentIntentId  = paymentIntent.id;
-            booking.tip                    = tipAmount;
-            await booking.save();
+            await attachCardAfterCheckout(customerId, paymentIntent.id);
+            const paidBooking = await markBookingPaidAndDispatch({
+                bookingId: booking._id,
+                paymentIntentId: paymentIntent.id,
+                tip: tipAmount,
+            });
 
             return sendSuccess(res, 200, 'Payment successful', {
                 paymentIntentId: paymentIntent.id,
                 amountCharged:   totalAmount,
                 status:          paymentIntent.status,
                 booking: {
-                    id:            booking._id,
-                    paymentStatus: booking.paymentStatus,
-                    finalPrice:    booking.finalPrice,
-                    tip:           booking.tip
+                    id:            paidBooking._id,
+                    paymentStatus: paidBooking.paymentStatus,
+                    finalPrice:    paidBooking.finalPrice,
+                    tip:           paidBooking.tip
                 }
             });
         }
@@ -279,6 +296,103 @@ const chargeSavedCard = asyncHandler(async (req, res) => {
             return sendError(res, 402, err.message || 'Card was declined');
         }
         return sendError(res, 500, err.message || 'Failed to charge card');
+    }
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/payments/booking-payment-intent
+// First-card flow: creates an inline PaymentIntent that charges the booking
+// and saves the card to the customer's Stripe account for future one-tap use.
+// ---------------------------------------------------------------------------
+const createBookingPaymentIntent = asyncHandler(async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { bookingId, tip = 0 } = req.body;
+        const booking = await loadPayableBooking(bookingId, userId);
+
+        if (booking.paymentStatus === 'Paid') {
+            return sendValidationError(res, 'Booking is already paid');
+        }
+
+        const user = await User.findById(userId);
+        if (!user) return sendNotFound(res, 'User not found');
+
+        const customerId = await getOrCreateStripeCustomer(user);
+        const tipAmount = Math.max(0, Number(tip || 0));
+        const totalAmount = Number(booking.finalPrice || 0) + tipAmount;
+        if (totalAmount <= 0) return sendValidationError(res, 'Invalid amount');
+
+        const paymentIntent = await stripe.paymentIntents.create({
+            amount: Math.round(totalAmount * 100),
+            currency: CURRENCY,
+            customer: customerId,
+            payment_method_types: ['card'],
+            setup_future_usage: 'off_session',
+            metadata: {
+                bookingId: booking._id.toString(),
+                userId: userId.toString(),
+                type: 'booking',
+                tip: tipAmount.toString(),
+            },
+            description: `Aleet booking ${booking._id}`,
+        });
+
+        booking.stripePaymentIntentId = paymentIntent.id;
+        booking.tip = tipAmount;
+        await booking.save();
+
+        return sendSuccess(res, 200, 'Booking payment intent created', {
+            clientSecret: paymentIntent.client_secret,
+            paymentIntentId: paymentIntent.id,
+            amount: totalAmount,
+        });
+    } catch (err) {
+        console.error('createBookingPaymentIntent error:', err);
+        return sendError(res, err.statusCode || 500, err.message || 'Failed to create payment');
+    }
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/payments/confirm-booking-payment
+// Reconciles inline / 3DS payment and releases the paid trip to drivers.
+// ---------------------------------------------------------------------------
+const confirmBookingPayment = asyncHandler(async (req, res) => {
+    try {
+        const { paymentIntentId } = req.body;
+        if (!paymentIntentId) return sendValidationError(res, 'paymentIntentId is required');
+
+        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+        const bookingId = paymentIntent.metadata?.bookingId;
+        const ownerId = paymentIntent.metadata?.userId;
+        if (!bookingId || ownerId !== req.user.id.toString()) {
+            return sendError(res, 403, 'Payment does not belong to this account');
+        }
+        if (paymentIntent.status !== 'succeeded') {
+            return sendValidationError(res, `Payment is ${paymentIntent.status}`);
+        }
+
+        const user = await User.findById(req.user.id);
+        if (user?.subscriptionDetails?.stripeCustomerId) {
+            await attachCardAfterCheckout(
+                user.subscriptionDetails.stripeCustomerId,
+                paymentIntent.id,
+            );
+        }
+
+        const booking = await markBookingPaidAndDispatch({
+            bookingId,
+            paymentIntentId: paymentIntent.id,
+            tip: Number(paymentIntent.metadata?.tip || 0),
+        });
+
+        return sendSuccess(res, 200, 'Payment confirmed and trip released', {
+            paymentIntentId,
+            bookingId: booking._id,
+            paymentStatus: booking.paymentStatus,
+        });
+    } catch (err) {
+        console.error('confirmBookingPayment error:', err);
+        return sendError(res, 500, err.message || 'Failed to confirm payment');
     }
 });
 
@@ -373,6 +487,8 @@ module.exports = {
     setDefaultCard,
     deleteCard,
     chargeSavedCard,
+    createBookingPaymentIntent,
+    confirmBookingPayment,
     attachCardAfterCheckout,
     chargeOverage,
     getOrCreateStripeCustomer

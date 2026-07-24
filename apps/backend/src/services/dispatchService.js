@@ -231,6 +231,9 @@ async function getEligibleDriversForStage(booking, stage) {
  * there don't roll back the offer state).
  */
 async function sendOfferForStage(booking, stage) {
+  if (booking.paymentStatus !== 'Paid') {
+    return { drivers: [], stage, tiers: [], sameDay: isSameDayBooking(booking) };
+  }
   const sameDay = isSameDayBooking(booking);
   const tiers = tiersForStage(sameDay, stage);
   if (tiers.length === 0) {
