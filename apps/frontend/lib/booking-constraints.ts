@@ -345,3 +345,36 @@ export function isDropoffTimeBeforePickup(
   // Block slots that are at or before pickup time
   return dropoffMs <= pickupMs;
 }
+
+/**
+ * Stop arrival must fall strictly between trip pickup and drop-off.
+ * Time-only stops: try pickup date, then drop-off date (multi-day trips).
+ */
+export function isStopTimeDisabled(
+  pickupDate: Date | undefined,
+  pickupTime: string,
+  dropoffDate: Date | undefined,
+  dropoffTime: string,
+  slot: TimeSlot,
+): boolean {
+  if (!pickupDate || !pickupTime || !dropoffDate || !dropoffTime) return false;
+
+  const pickupMs = combineDateAndTime(pickupDate, pickupTime)?.getTime();
+  const dropoffMs = combineDateAndTime(dropoffDate, dropoffTime)?.getTime();
+  if (pickupMs == null || dropoffMs == null || dropoffMs <= pickupMs) return false;
+
+  const candidates = [pickupDate];
+  if (
+    pickupDate.getFullYear() !== dropoffDate.getFullYear() ||
+    pickupDate.getMonth() !== dropoffDate.getMonth() ||
+    pickupDate.getDate() !== dropoffDate.getDate()
+  ) {
+    candidates.push(dropoffDate);
+  }
+
+  const slotStr = `${slot.hour}:${slot.minute} ${slot.period}`;
+  return !candidates.some((date) => {
+    const stopMs = combineDateAndTime(date, slotStr)?.getTime();
+    return stopMs != null && stopMs > pickupMs && stopMs < dropoffMs;
+  });
+}

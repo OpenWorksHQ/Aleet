@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { ConfirmModal } from "@/app/components/ui/confirm-modal";
 import {
     approveDriver,
+    deleteDriverClient,
     fetchAdminDriverById,
     rejectDriver,
     requestRevision,
@@ -26,6 +27,7 @@ type Props = {
     driver: Driver;
     onClose: () => void;
     onUpdate: (id: string, patch: Partial<Driver>) => void;
+    onDeleted?: (id: string) => void;
 };
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
@@ -342,14 +344,16 @@ function DriverRegionsSection({
     );
 }
 
-export function DriverDetailModal({ driver, onClose, onUpdate }: Props) {
+export function DriverDetailModal({ driver, onClose, onUpdate, onDeleted }: Props) {
     const [step, setStep] = useState<"view" | "revision">("view");
     const [revisionNotes, setRevisionNotes] = useState("");
     const [showApproveConfirm, setShowApproveConfirm] = useState(false);
     const [showRejectConfirm, setShowRejectConfirm] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [isApproving, setIsApproving] = useState(false);
     const [isRejecting, setIsRejecting] = useState(false);
     const [isRevising, setIsRevising] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [isSimulatingClear, setIsSimulatingClear] = useState(false);
     const [showUploadLicense, setShowUploadLicense] = useState(false);
 
@@ -684,6 +688,18 @@ export function DriverDetailModal({ driver, onClose, onUpdate }: Props) {
                         )}
                     </div>
                 )}
+
+                {step === "view" && (
+                    <div className={cn("shrink-0 px-6 py-4", canApprove ? "pt-0" : "border-t border-border")}>
+                        <button
+                            type="button"
+                            onClick={() => setShowDeleteConfirm(true)}
+                            className="inline-flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-4 text-sm font-semibold uppercase tracking-wide text-red-400 transition-colors hover:border-red-500/70 hover:bg-red-500/20"
+                        >
+                            Delete driver
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Approve confirm */}
@@ -733,6 +749,32 @@ export function DriverDetailModal({ driver, onClose, onUpdate }: Props) {
                             toast.error(e instanceof Error ? e.message : "Failed to reject driver");
                         } finally {
                             setIsRejecting(false);
+                        }
+                    }}
+                />
+            )}
+
+            {/* Delete confirm */}
+            {showDeleteConfirm && (
+                <ConfirmModal
+                    title={`Delete ${driver.name}?`}
+                    description="This removes the driver from management lists and blocks login. Soft-delete only — data is retained."
+                    confirmLabel="Delete"
+                    variant="danger"
+                    isLoading={isDeleting}
+                    onCancel={() => setShowDeleteConfirm(false)}
+                    onConfirm={async () => {
+                        setIsDeleting(true);
+                        try {
+                            await deleteDriverClient(driver.id);
+                            toast.success(`${driver.name} removed.`);
+                            setShowDeleteConfirm(false);
+                            onDeleted?.(driver.id);
+                            onClose();
+                        } catch (e) {
+                            toast.error(e instanceof Error ? e.message : "Failed to delete driver");
+                        } finally {
+                            setIsDeleting(false);
                         }
                     }}
                 />

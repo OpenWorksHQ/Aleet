@@ -54,6 +54,8 @@ export function TimePicker({
     disabledMessage = "This time is not available",
     /** When value is empty, open the spinner on this slot (e.g. next available). */
     anchorSlot,
+    /** Icon-only trigger (e.g. stop row next to trash). */
+    compact = false,
 }: {
     label: string;
     value: string;
@@ -63,6 +65,7 @@ export function TimePicker({
     disableSlot?: (slot: { hour: string; minute: string; period: string }) => boolean;
     disabledMessage?: string;
     anchorSlot?: TimeSlot;
+    compact?: boolean;
 }) {
     const initial = slotFromValue(value, anchorSlot);
     const [open, setOpen] = useState(false);
@@ -100,18 +103,39 @@ export function TimePicker({
     return (
         <Dropdown open={open} onClose={handleClose}>
             <div ref={triggerRef}>
-                <FieldTrigger
-                    label={label}
-                    value={value}
-                    placeholder={placeholder}
-                    icon={<Clock className="h-3.5 w-3.5" />}
-                    open={open}
-                    onClick={() => setOpen((v) => !v)}
-                />
+                {compact ? (
+                    <button
+                        type="button"
+                        aria-label={value ? `${label}: ${value}` : label}
+                        title={value || placeholder}
+                        onClick={() => setOpen((v) => !v)}
+                        className={`mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border transition-colors sm:h-12 sm:w-12 ${
+                            open
+                                ? "border-aleet-gold/60 bg-aleet-gold/10 text-aleet-gold"
+                                : value
+                                  ? "border-aleet-border-strong bg-aleet-cream text-aleet-gold"
+                                  : "border-aleet-border-strong bg-aleet-cream text-aleet-text-subtle hover:border-aleet-gold/30 hover:text-aleet-gold"
+                        }`}
+                    >
+                        <Clock className="h-4 w-4" />
+                    </button>
+                ) : (
+                    <FieldTrigger
+                        label={label}
+                        value={value}
+                        placeholder={placeholder}
+                        icon={<Clock className="h-3.5 w-3.5" />}
+                        open={open}
+                        onClick={() => setOpen((v) => !v)}
+                    />
+                )}
             </div>
             {open && (
-                <Popup anchorRef={triggerRef} placement={placement}>
-                    <div className="w-full px-4 pt-4 pb-3">
+                <Popup anchorRef={triggerRef} placement={placement} matchWidth={!compact}>
+                    <div className={`${compact ? "w-[260px]" : "w-full"} px-4 pt-4 pb-3`}>
+                        {compact && value ? (
+                            <p className="mb-2 text-center text-[12px] font-medium text-aleet-text">{value}</p>
+                        ) : null}
                         <div className="grid grid-cols-3 gap-2">
                             <SpinnerColumn
                                 value={hour}

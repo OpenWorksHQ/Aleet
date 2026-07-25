@@ -476,7 +476,8 @@ const getAllDrivers = async (req, res) => {
   try {
     const { status, page = 1, limit = 20 } = req.query;
 
-    const filter = { role: 'driver' };
+    // Soft-deleted drivers (active: false) are hidden from the management list.
+    const filter = { role: 'driver', active: { $ne: false } };
     const allowedStatuses = ['draft', 'submitted', 'background_pending', 'background_completed', 'approved', 'rejected', 'needs_revision', 'revision_complete'];
     if (status && allowedStatuses.includes(status)) {
       filter['driver.status'] = status;
@@ -850,6 +851,31 @@ const getAdminDashboard = async (req, res) => {
   }
 };
 
+/**
+ * DELETE /api/admin/drivers/:id
+ * Soft-delete a driver (active: false). Removed from management lists; login blocked.
+ */
+const deleteDriver = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) return sendValidationError(res, 'Driver ID is required');
+
+    const driver = await User.findOne({ _id: id, role: 'driver', active: { $ne: false } });
+    if (!driver) return sendNotFound(res, 'Driver not found');
+
+    driver.active = false;
+    if (driver.driver) {
+      driver.driver.isOnline = false;
+    }
+    await driver.save();
+
+    return sendSuccess(res, 200, 'Driver removed', { deletedId: id });
+  } catch (error) {
+    console.error('deleteDriver Error:', error);
+    return sendError(res, 500, error.message || 'Failed to delete driver');
+  }
+};
+
 module.exports = {
   toggleDriverStatus,
   assignDriverToBooking,
@@ -867,4 +893,5 @@ module.exports = {
   getDriverLicensing,
   getSidebarStats,
   getAdminDashboard,
+  deleteDriver,
 };

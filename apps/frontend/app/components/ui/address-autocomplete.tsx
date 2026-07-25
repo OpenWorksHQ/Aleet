@@ -18,6 +18,8 @@ interface AddressAutocompleteProps {
     placeholder?: string;
     disabled?: boolean;
     className?: string;
+    /** US state code (e.g. MD) — biases Places suggestions to that region. */
+    regionCode?: string;
 }
 
 export function AddressAutocomplete({
@@ -28,6 +30,7 @@ export function AddressAutocomplete({
     placeholder = "Enter address",
     disabled,
     className,
+    regionCode,
 }: AddressAutocompleteProps) {
     const id = useId();
     const inputRef = useRef<HTMLInputElement>(null);
@@ -35,7 +38,7 @@ export function AddressAutocomplete({
     const [focused, setFocused] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const { suggestions, fetchError, isSearching, resetSessionToken } =
-        useDebouncedAddressSuggestions(inputValue);
+        useDebouncedAddressSuggestions(inputValue, { regionCode });
 
     const showDropdown = focused && suggestions.length > 0;
 

@@ -1,7 +1,7 @@
 const express = require('express');
-const { toggleDriverStatus, assignDriverToBooking, getEligibleDriversForBooking, autoAssignDriverToBooking, redispatchBooking, unassignDriverFromBooking, cancelBookingAsAdmin, updateBookingAsAdmin, getAllDrivers, approveDriver, requestRevision, uploadAleetLicense, updateDriverRegions, getDriverLicensing, getSidebarStats, getAdminDashboard } = require('../controllers/adminController');
+const { toggleDriverStatus, assignDriverToBooking, getEligibleDriversForBooking, autoAssignDriverToBooking, redispatchBooking, unassignDriverFromBooking, cancelBookingAsAdmin, updateBookingAsAdmin, getAllDrivers, approveDriver, requestRevision, uploadAleetLicense, updateDriverRegions, getDriverLicensing, getSidebarStats, getAdminDashboard, deleteDriver } = require('../controllers/adminController');
 const { getDriverTierPerformance, getTierSettings, updateTierSettings } = require('../controllers/tierController');
-const { inviteFounder30, listMemberships, adminChargeOverage, updateMemberBalance, createFounder30Link, listFounder30Links, deactivateFounder30Link } = require('../controllers/adminMembershipController');
+const { inviteFounder30, listMemberships, adminChargeOverage, updateMemberBalance, createFounder30Link, listFounder30Links, deactivateFounder30Link, cancelMembership } = require('../controllers/adminMembershipController');
 const { getCompanyRevenueReport, getBookingPayoutBreakdown } = require('../controllers/financeController');
 const authenticateJWT = require('../middleware/authMiddleware');
 const requireAdmin = require('../middleware/requireAdmin');
@@ -22,6 +22,7 @@ router.patch('/bookings/:id', requireAdmin, requirePermission('manage-bookings')
 // Driver listing & licensing
 router.get('/drivers', requireAdmin, requirePermission('manage-users'), getAllDrivers);
 router.get('/drivers/licensing', requireAdmin, requirePermission('manage-users'), getDriverLicensing);
+router.delete('/drivers/:id', requireAdmin, requirePermission('manage-users'), deleteDriver);
 
 // Driver approval actions
 router.patch('/drivers/approve', requireAdmin, requirePermission('manage-users'), approveDriver);
@@ -61,6 +62,9 @@ router.post('/memberships/:userId/charge-overage', requireAdmin, requirePermissi
 
 // Admin override: adjust a member's monthly hour balance
 router.patch('/memberships/:userId/balance', requireAdmin, requirePermission('manage-users'), updateMemberBalance);
+
+// Cancel / remove an active membership
+router.patch('/memberships/:userId/cancel', requireAdmin, requirePermission('manage-users'), cancelMembership);
 
 // ── Financials: company revenue vs. driver payouts ──────────────────────────
 router.get('/finance/revenue', requireAdmin, requirePermission('view-reports'), getCompanyRevenueReport);

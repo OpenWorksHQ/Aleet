@@ -365,6 +365,35 @@ const deactivateFounder30Link = asyncHandler(async (req, res) => {
     }
 });
 
+// ---------------------------------------------------------------------------
+// PATCH /api/admin/memberships/:userId/cancel
+// Cancel / remove an active membership from the admin list.
+// ---------------------------------------------------------------------------
+const cancelMembership = asyncHandler(async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const user = await User.findById(userId);
+        if (!user) return sendNotFound(res, 'User not found');
+        if (user.subscriptionStatus !== 'subscriber') {
+            return sendValidationError(res, 'User does not have an active membership');
+        }
+
+        user.subscriptionStatus = 'cancelled';
+        if (user.subscriptionDetails) {
+            user.subscriptionDetails.isActive = false;
+        }
+        await user.save();
+
+        return sendSuccess(res, 200, 'Membership cancelled', {
+            userId,
+            subscriptionStatus: user.subscriptionStatus,
+        });
+    } catch (error) {
+        console.error('cancelMembership Error:', error);
+        return sendError(res, 500, error.message || 'Failed to cancel membership');
+    }
+});
+
 module.exports = {
     inviteFounder30,
     listMemberships,
@@ -373,4 +402,5 @@ module.exports = {
     createFounder30Link,
     listFounder30Links,
     deactivateFounder30Link,
+    cancelMembership,
 };

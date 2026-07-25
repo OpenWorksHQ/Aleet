@@ -10,6 +10,7 @@ const {
   createPartner,
   updatePartner,
   resendPortalInvite,
+  deletePartner,
 } = require('../controllers/adminPartnerController');
 const {
   listUpdateRequests,
@@ -32,6 +33,7 @@ router.patch('/update-requests/:id/reject', requirePermission('manage-users'), r
 router.get('/', requirePermission('view-reports'), listPartners);
 router.post('/', requirePermission('manage-users'), createPartner);
 router.patch('/:id', requirePermission('manage-users'), updatePartner);
+router.delete('/:id', requirePermission('manage-users'), deletePartner);
 router.post('/:id/resend-invite', requirePermission('manage-users'), resendPortalInvite);
 
 module.exports = router;
