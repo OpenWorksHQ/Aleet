@@ -117,23 +117,18 @@ function buildDateTime(date: Date, timeStr: string): string {
 }
 
 function serializeBookingData(data: BookingData) {
-  // Fall back to pickupTime if dropoffTime was never confirmed in the picker
-  const effectiveDropoffTime =
-    data.dropoffTime || data.pickupTime || "10:00 AM";
-
-  console.log("[bookings] serialize times:", {
-    pickupTime: data.pickupTime,
-    dropoffTime: data.dropoffTime,
-    effectiveDropoffTime,
-  });
+  // Prefer an explicit drop-off time; fall back to pickup for buy-hours
+  // flows where drop-off is derived from duration and may not be set yet.
+  const effectiveDropoffTime = data.dropoffTime || data.pickupTime;
 
   const startDate =
     data.pickupDate && data.pickupTime
       ? buildDateTime(data.pickupDate, data.pickupTime)
       : undefined;
-  const endDate = data.dropoffDate
-    ? buildDateTime(data.dropoffDate, effectiveDropoffTime)
-    : undefined;
+  const endDate =
+    data.dropoffDate && effectiveDropoffTime
+      ? buildDateTime(data.dropoffDate, effectiveDropoffTime)
+      : undefined;
   const bookingMode = data.bookingMode ?? "multi_day";
 
   let durationHours: number | undefined;
@@ -141,7 +136,8 @@ function serializeBookingData(data: BookingData) {
     (bookingMode === "buy_hours" || bookingMode === "venue_access") &&
     data.pickupDate &&
     data.pickupTime &&
-    data.dropoffDate
+    data.dropoffDate &&
+    effectiveDropoffTime
   ) {
     const start = moment(buildDateTime(data.pickupDate, data.pickupTime));
     const end = moment(buildDateTime(data.dropoffDate, effectiveDropoffTime));
@@ -206,16 +202,16 @@ export function buildTripWindow(data: BookingData): {
   startDate?: string;
   endDate?: string;
 } {
-  const effectiveDropoffTime =
-    data.dropoffTime || data.pickupTime || "10:00 AM";
+  const effectiveDropoffTime = data.dropoffTime || data.pickupTime;
   return {
     startDate:
       data.pickupDate && data.pickupTime
         ? buildDateTime(data.pickupDate, data.pickupTime)
         : undefined,
-    endDate: data.dropoffDate
-      ? buildDateTime(data.dropoffDate, effectiveDropoffTime)
-      : undefined,
+    endDate:
+      data.dropoffDate && effectiveDropoffTime
+        ? buildDateTime(data.dropoffDate, effectiveDropoffTime)
+        : undefined,
   };
 }
 

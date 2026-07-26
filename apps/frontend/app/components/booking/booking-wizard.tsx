@@ -23,7 +23,12 @@ import { getToken } from "@/lib/auth";
 import { getProfile } from "@/lib/api/users";
 import { ApiError } from "@/lib/api";
 import { toast } from "@/app/components/ui";
-import { loadPendingBooking, clearPendingBooking } from "@/lib/pending-booking";
+import {
+    loadPendingBooking,
+    clearPendingBooking,
+    savePendingBookingFromData,
+    fromCalendarDateString,
+} from "@/lib/pending-booking";
 import { loadPartnerContext } from "@/lib/partner/attribution";
 import { useSameDayAvailability } from "@/lib/use-same-day-availability";
 import { SameDayNotice } from "./same-day-notice";
@@ -123,6 +128,7 @@ export function BookingWizard({ onStepChange, renderIndicator }: { onStepChange?
     const [isMember, setIsMember] = useState(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const priceRequestRef = useRef(0);
+    const [draftHydrated, setDraftHydrated] = useState(false);
 
     // Live same-day availability for the chosen region + pickup. Drives the
     // styled SameDayNotice and gates Continue / Confirm before submission.
@@ -182,6 +188,7 @@ export function BookingWizard({ onStepChange, renderIndicator }: { onStepChange?
             } else {
                 onStepChange?.(1);
             }
+            setDraftHydrated(true);
             return;
         }
 
@@ -194,8 +201,8 @@ export function BookingWizard({ onStepChange, renderIndicator }: { onStepChange?
 
         const loaded: BookingData = {
             ...EMPTY_BOOKING,
-            pickupDate: pending.pickupDate ? new Date(pending.pickupDate) : undefined,
-            dropoffDate: pending.dropoffDate ? new Date(pending.dropoffDate) : undefined,
+            pickupDate: fromCalendarDateString(pending.pickupDate),
+            dropoffDate: fromCalendarDateString(pending.dropoffDate),
             pickupTime: pending.pickupTime,
             dropoffTime: pending.dropoffTime,
             vehicleType: pending.vehicleType,
@@ -252,8 +259,16 @@ export function BookingWizard({ onStepChange, renderIndicator }: { onStepChange?
             }));
             onStepChange?.(1);
         }
+        setDraftHydrated(true);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // Persist edits on /booking so reload keeps the times the user just set
+    // (homepage only writes the auto-default once into localStorage).
+    useEffect(() => {
+        if (!draftHydrated) return;
+        savePendingBookingFromData(data);
+    }, [data, draftHydrated]);
 
     // Resolve region/vehicle IDs for venue access when only names were provided
     useEffect(() => {

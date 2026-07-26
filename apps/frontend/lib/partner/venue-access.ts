@@ -3,7 +3,10 @@ import {
   getDefaultPickupTime,
   today,
 } from "@/lib/booking-constraints";
-import type { PendingBooking } from "@/lib/pending-booking";
+import {
+  toCalendarDateString,
+  type PendingBooking,
+} from "@/lib/pending-booking";
 import type { PartnerContext } from "./types";
 import { applyRouteDurationToBookingTimes } from "./route-estimate";
 
@@ -19,8 +22,8 @@ export function buildVenueAccessPendingBooking(
   });
 
   return {
-    pickupDate: pickupDate.toISOString(),
-    dropoffDate: pickupDate.toISOString(),
+    pickupDate: toCalendarDateString(pickupDate),
+    dropoffDate: toCalendarDateString(pickupDate),
     pickupTime,
     dropoffTime: pickupTime,
     vehicleType: partner.vehicleName ?? "Luxury Sedan",

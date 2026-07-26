@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { getVehicleTypes, type VehicleType } from "@/lib/api/vehicle-types";
 import { getRegions, type Region } from "@/lib/api/regions";
-import { savePendingBooking } from "@/lib/pending-booking";
+import { savePendingBooking, toCalendarDateString } from "@/lib/pending-booking";
 import { getToken } from "@/lib/auth";
 import { getProfile } from "@/lib/api/users";
 import { loadPartnerContext, savePartnerContext, PARTNER_CHANGED_EVENT } from "@/lib/partner/attribution";
@@ -129,8 +129,8 @@ export function BookingForm() {
             if (partner?.bookingMode === "venue_access") {
                 savePendingBooking(
                     buildVenueAccessPendingBooking(partner, {
-                        pickupDate: payload.pickupDate.toISOString(),
-                        dropoffDate: payload.dropoffDate.toISOString(),
+                        pickupDate: toCalendarDateString(payload.pickupDate),
+                        dropoffDate: toCalendarDateString(payload.dropoffDate),
                         pickupTime: payload.pickupTime,
                         dropoffTime: payload.dropoffTime,
                         vehicleType:
@@ -153,8 +153,8 @@ export function BookingForm() {
             }
 
             savePendingBooking({
-                pickupDate: payload.pickupDate.toISOString(),
-                dropoffDate: payload.dropoffDate.toISOString(),
+                pickupDate: toCalendarDateString(payload.pickupDate),
+                dropoffDate: toCalendarDateString(payload.dropoffDate),
                 pickupTime: payload.pickupTime,
                 dropoffTime: payload.dropoffTime,
                 vehicleType:
