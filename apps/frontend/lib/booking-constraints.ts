@@ -2,11 +2,16 @@
  *
  * Rules
  * ─────
- * • Cannot book in the past
+ * • Cannot book in the past (US Eastern / Aleet operating time)
  * • Non-members: earliest pick-up is now + notice hours (3h guests / 0.5h venue)
  * • endDate − startDate ≥ 3 h
  * • endDate > startDate
  */
+
+import {
+  getEasternNowParts,
+  isSameEasternCalendarDay,
+} from "@/lib/booking-timezone";
 
 /** Minimum booking duration in hours for non-members. */
 export const MIN_DURATION_HOURS = 3;
@@ -136,14 +141,6 @@ export function ceilToQuarterHour(date = new Date()): number {
   return rem === 0 ? total : total + (15 - rem);
 }
 
-function isSameCalendarDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
-}
-
 /**
  * Earliest selectable pickup time for a date.
  *
@@ -173,12 +170,21 @@ export function getDefaultPickupTime(
   }
 
   const now = new Date();
-  let startMinutes = ceilToQuarterHour(now);
+  const easternNow = getEasternNowParts(now);
+  const easternNowDate = new Date(
+    easternNow.year,
+    easternNow.month - 1,
+    easternNow.day,
+    easternNow.hour,
+    easternNow.minute,
+  );
+  let startMinutes = ceilToQuarterHour(easternNowDate);
+  const isTodayEastern = isSameEasternCalendarDay(date, now);
 
-  if (isSameCalendarDay(date, now)) {
+  if (isTodayEastern) {
     if (!isMember && noticeHours > 0) {
       const withNotice =
-        now.getHours() * 60 + now.getMinutes() + noticeHours * 60;
+        easternNow.hour * 60 + easternNow.minute + noticeHours * 60;
       const rem = withNotice % 15;
       startMinutes = rem === 0 ? withNotice : withNotice + (15 - rem);
     }
@@ -193,7 +199,7 @@ export function getDefaultPickupTime(
   for (let offset = 0; offset < 24 * 60; offset += 15) {
     const mins = (startMinutes + offset) % (24 * 60);
     // On today, do not wrap into earlier (past) slots
-    if (isSameCalendarDay(date, now) && mins < startMinutes && offset > 0) {
+    if (isTodayEastern && mins < startMinutes && offset > 0) {
       break;
     }
     const time = formatMinutesAsTime(mins);
@@ -242,15 +248,12 @@ export function isPickupTimeDisabled(
 ): boolean {
   if (!date) return false;
   const now = new Date();
-  // Only filter times on today's date
-  if (
-    date.getFullYear() !== now.getFullYear() ||
-    date.getMonth() !== now.getMonth() ||
-    date.getDate() !== now.getDate()
-  ) {
+  // Only filter times on today's Eastern calendar date (operating TZ).
+  if (!isSameEasternCalendarDay(date, now)) {
     return false;
   }
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const easternNow = getEasternNowParts(now);
+  const nowMinutes = easternNow.hour * 60 + easternNow.minute;
   const slotMinutes = slotToMinutes(slot);
   // Past slots are always disabled.
   if (slotMinutes <= nowMinutes) return true;

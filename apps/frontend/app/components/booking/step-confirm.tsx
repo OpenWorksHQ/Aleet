@@ -195,8 +195,16 @@ export function StepConfirm({ data, serverPrice, priceLoading, freeAddons, paidA
                             </p>
                         )}
                         {serverPrice.breakdown.isLateNight && serverPrice.breakdown.lateNightNote && (
-                            <p className="rounded-lg border border-aleet-border bg-aleet-cream/40 px-3 py-2 text-[12px] text-aleet-text-muted">
+                            <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[12px] text-amber-200">
                                 {serverPrice.breakdown.lateNightNote}
+                            </p>
+                        )}
+                        {serverPrice.breakdown.memberRate != null &&
+                          (serverPrice.breakdown.lateNightHours ?? 0) > 0 &&
+                          (serverPrice.breakdown.freeHoursUsed ?? 0) === 0 &&
+                          (serverPrice.breakdown.regularMemberHours ?? 0) === 0 && (
+                            <p className="rounded-lg border border-aleet-border bg-aleet-cream/40 px-3 py-2 text-[12px] text-aleet-text-muted">
+                              Membership is active, but this trip is entirely inside the late-night window, so prepaid hours cannot be applied.
                             </p>
                         )}
                         {/* Base */}
