@@ -267,6 +267,21 @@ export async function updateDriverAdmin(
   return json.data as ApiDriver;
 }
 
+/** DELETE /api/admin/drivers/:id — soft-delete (active: false) */
+export async function deleteDriverClient(driverId: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/admin/drivers/${driverId}`, {
+    method: "DELETE",
+    headers: withNgrokHeaders({
+      Authorization: `Bearer ${getClientToken()}`,
+      "Content-Type": "application/json",
+    }),
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    throw new Error(json.message ?? "Failed to delete driver");
+  }
+}
+
 /** GET /api/vehicle-types — call from Server Components */
 export async function fetchVehicleTypes(token: string): Promise<VehicleType[]> {
   const res = await fetch(`${BASE_URL}/api/vehicle-types?includePrivate=1`, {

@@ -2,7 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { getCustomerSiteUrl } from "@/lib/site-url";
-import { resendPartnerPortalInviteClient, type AdminPartnersPage } from "@/lib/admin-api";
+import {
+  deletePartnerClient,
+  resendPartnerPortalInviteClient,
+  type AdminPartnersPage,
+} from "@/lib/admin-api";
 import type { AdminPartner } from "./partner-types";
 import { EditPartnerModal } from "./edit-partner-modal";
 
@@ -45,6 +49,21 @@ export function ActivePartnersList({ initialData }: Props) {
     });
   }
 
+  function handleDelete(partner: AdminPartner) {
+    if (!window.confirm(`Remove partner "${partner.partnerName}"? They will be marked inactive.`)) {
+      return;
+    }
+    startTransition(async () => {
+      try {
+        await deletePartnerClient(partner.partnerId);
+        setPartners((prev) => prev.filter((p) => p.partnerId !== partner.partnerId));
+        setInviteMessage(`Removed ${partner.partnerName}`);
+      } catch (err) {
+        setInviteMessage(err instanceof Error ? err.message : "Failed to delete partner");
+      }
+    });
+  }
+
   return (
     <>
       {inviteMessage ? (
@@ -54,7 +73,7 @@ export function ActivePartnersList({ initialData }: Props) {
       ) : null}
 
       <div className="overflow-hidden rounded-2xl border border-border bg-card-bg">
-        <div className="hidden grid-cols-[minmax(0,1fr)_90px_100px_minmax(0,1fr)_70px_70px_minmax(180px,1fr)] gap-3 border-b border-border px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted lg:grid">
+        <div className="hidden grid-cols-[minmax(0,1fr)_90px_100px_minmax(0,1fr)_70px_70px_minmax(220px,1fr)] gap-3 border-b border-border px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted lg:grid">
           <span>Partner</span>
           <span>Code</span>
           <span>Type</span>
@@ -72,6 +91,7 @@ export function ActivePartnersList({ initialData }: Props) {
               disabled={isPending}
               onEdit={() => setEditingPartner(partner)}
               onResendInvite={() => handleResendInvite(partner.partnerId)}
+              onDelete={() => handleDelete(partner)}
             />
           ))}
         </div>
@@ -98,19 +118,21 @@ function PartnerRow({
   disabled,
   onEdit,
   onResendInvite,
+  onDelete,
 }: {
   partner: AdminPartner;
   siteUrl: string;
   disabled: boolean;
   onEdit: () => void;
   onResendInvite: () => void;
+  onDelete: () => void;
 }) {
   const venueLink = partner.venueSlug ? `${siteUrl}/access/${partner.venueSlug}` : null;
   const trackingLink = partner.trackingSlug ? `${siteUrl}/${partner.trackingSlug}` : null;
   const portalStatus = partner.portalAccountStatus ?? "none";
 
   return (
-    <div className="grid gap-3 px-5 py-4 lg:grid-cols-[minmax(0,1fr)_90px_100px_minmax(0,1fr)_70px_70px_minmax(180px,1fr)] lg:items-center lg:gap-3">
+    <div className="grid gap-3 px-5 py-4 lg:grid-cols-[minmax(0,1fr)_90px_100px_minmax(0,1fr)_70px_70px_minmax(220px,1fr)] lg:items-center lg:gap-3">
       <div>
         <p className="font-medium text-text">{partner.partnerName}</p>
         <p className="text-[12px] text-muted lg:hidden">{partner.partnerCode}</p>
@@ -138,7 +160,7 @@ function PartnerRow({
       <p className="text-[12px] capitalize text-muted">
         {portalStatus === "active" ? "Active" : portalStatus === "pending" ? "Invite pending" : "—"}
       </p>
-      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+      <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
         <button
           type="button"
           onClick={onEdit}
@@ -163,6 +185,14 @@ function PartnerRow({
             {partner.portalEmail ?? ""}
           </span>
         )}
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={onDelete}
+          className="shrink-0 rounded-lg border border-red-500/40 px-3 py-1.5 text-[12px] font-medium text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+        >
+          Delete
+        </button>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus, Trash2, Navigation, Check } from "lucide-react";
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useMemo } from "react";
 import { Button, Toggle, AddressAutocomplete, TimePicker, toast } from "@/app/components/ui";
 import type { BookingData } from "./booking-types";
 import type { ApiAddon } from "@/lib/api/addons";
@@ -10,6 +10,8 @@ import { VenueAccessSummary } from "@/app/components/partner/venue-access-summar
 import { estimateRoute } from "@/lib/partner/route-estimate";
 import { fetchReverseGeocode } from "@/lib/api/maps";
 import { applyRouteEstimateToBooking } from "@/lib/partner/venue-access";
+import { getRegions } from "@/lib/api/regions";
+import { isStopTimeDisabled, slotFromTimeStr } from "@/lib/booking-constraints";
 
 type Props = {
     data: BookingData;
@@ -32,11 +34,49 @@ function nanoid() {
 export function StepRoute({ data, quickBookingMode, serverPrice, priceLoading, onChange, onNext, onBack, priceBar, freeAddons, paidAddons, addonsLoading }: Props) {
     const [isLocating, setIsLocating] = useState(false);
     const [isEstimatingRoute, setIsEstimatingRoute] = useState(false);
+    const [regionCode, setRegionCode] = useState<string | undefined>();
     const routeRequestRef = useRef(0);
 
     const isVenueAccess = data.bookingMode === "venue_access" || quickBookingMode === "venue_access";
     const pickupLocked = isVenueAccess && data.pickupLocked !== false;
     const dropoffLocked = isVenueAccess && data.dropoffLocked === true;
+
+    useEffect(() => {
+        let cancelled = false;
+        getRegions()
+            .then((regions) => {
+                if (cancelled) return;
+                const found = regions.find((r) => r._id === data.regionId);
+                setRegionCode(found?.code?.trim() || undefined);
+            })
+            .catch(() => {
+                if (!cancelled) setRegionCode(undefined);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [data.regionId]);
+
+    // Clear stop times that fall outside the trip window when pickup/dropoff change.
+    useEffect(() => {
+        if (!data.stops.length) return;
+        let changed = false;
+        const next = data.stops.map((stop) => {
+            if (!stop.time) return stop;
+            const invalid = isStopTimeDisabled(
+                data.pickupDate,
+                data.pickupTime,
+                data.dropoffDate,
+                data.dropoffTime,
+                slotFromTimeStr(stop.time),
+            );
+            if (!invalid) return stop;
+            changed = true;
+            return { ...stop, time: "" };
+        });
+        if (changed) onChange({ stops: next });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [data.pickupDate, data.pickupTime, data.dropoffDate, data.dropoffTime]);
 
     useEffect(() => {
         if (!isVenueAccess || !data.dropoffAddress.placeId || !data.pickupAddress.text) return;
@@ -85,13 +125,16 @@ export function StepRoute({ data, quickBookingMode, serverPrice, priceLoading, o
         onChange({ stops: data.stops.map((s) => (s.id === id ? { ...s, time } : s)) });
     }
 
-    function updateStopNotes(id: string, notes: string) {
-        onChange({ stops: data.stops.map((s) => (s.id === id ? { ...s, notes } : s)) });
-    }
-
     function removeStop(id: string) {
         onChange({ stops: data.stops.filter((s) => s.id !== id) });
     }
+
+    const stopTimeDisabledMessage = useMemo(() => {
+        if (!data.pickupTime || !data.dropoffTime) {
+            return "Set pickup and drop-off times first";
+        }
+        return "Must be between pickup and drop-off";
+    }, [data.pickupTime, data.dropoffTime]);
 
     function toggleAddon(id: string) {
         const current = data.selectedAddons;
@@ -283,6 +326,7 @@ export function StepRoute({ data, quickBookingMode, serverPrice, priceLoading, o
                         onPlaceChange={(place) => onChange({ pickupAddress: place })}
                         placeholder="123 Main St, New York, NY"
                         disabled={pickupLocked}
+                        regionCode={regionCode}
                     />
                     {!pickupLocked && !isVenueAccess ? (
                     <button
@@ -295,40 +339,43 @@ export function StepRoute({ data, quickBookingMode, serverPrice, priceLoading, o
                     </button>
                     ) : null}
 
-                    {/* Stops */}
+                    {/* Stops — address + compact time + delete (no large boxes) */}
                     {!data.freeRouting && !isVenueAccess && data.stops.map((stop, i) => (
-                        <div key={stop.id} className="flex flex-col gap-2">
-                            <div className="flex items-end gap-2">
-                                <div className="flex-1">
-                                    <AddressAutocomplete
-                                        label={`Stop ${i + 1}`}
-                                        value={stop.address.text}
-                                        onChange={(v) => updateStop(stop.id, { ...stop.address, text: v })}
-                                        onPlaceChange={(place) => updateStop(stop.id, place)}
-                                        placeholder="Enter stop address"
-                                    />
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => removeStop(stop.id)}
-                                    className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-aleet-border-strong bg-aleet-cream text-aleet-text-subtle transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600 sm:h-12 sm:w-12"
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </button>
+                        <div key={stop.id} className="flex items-end gap-2">
+                            <div className="min-w-0 flex-1">
+                                <AddressAutocomplete
+                                    label={`Stop ${i + 1}`}
+                                    value={stop.address.text}
+                                    onChange={(v) => updateStop(stop.id, { ...stop.address, text: v })}
+                                    onPlaceChange={(place) => updateStop(stop.id, place)}
+                                    placeholder="Enter stop address"
+                                    regionCode={regionCode}
+                                />
                             </div>
                             <TimePicker
-                                label={`Stop ${i + 1} Arrival Time`}
+                                compact
+                                label={`Stop ${i + 1} arrival`}
                                 value={stop.time}
                                 onChange={(t) => updateStopTime(stop.id, t)}
-                                placeholder="Select arrival time"
+                                placeholder="Arrival time"
+                                disabledMessage={stopTimeDisabledMessage}
+                                disableSlot={(slot) =>
+                                    isStopTimeDisabled(
+                                        data.pickupDate,
+                                        data.pickupTime,
+                                        data.dropoffDate,
+                                        data.dropoffTime,
+                                        slot,
+                                    )
+                                }
                             />
-                            <textarea
-                                rows={2}
-                                value={stop.notes}
-                                onChange={(e) => updateStopNotes(stop.id, e.target.value)}
-                                placeholder={`Notes for stop ${i + 1} (optional) — gate code, contact, instructions…`}
-                                className="w-full resize-none rounded-lg border border-aleet-border-strong bg-aleet-cream px-3 py-2.5 text-[13px] text-aleet-text placeholder:text-aleet-text-subtle outline-none transition-colors focus:border-aleet-gold/40 focus:bg-aleet-gold/5 sm:text-[14px]"
-                            />
+                            <button
+                                type="button"
+                                onClick={() => removeStop(stop.id)}
+                                className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-aleet-border-strong bg-aleet-cream text-aleet-text-subtle transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600 sm:h-12 sm:w-12"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </button>
                         </div>
                     ))}
 
@@ -339,6 +386,7 @@ export function StepRoute({ data, quickBookingMode, serverPrice, priceLoading, o
                         onPlaceChange={isVenueAccess ? handleDropoffPlaceChange : (place) => onChange({ dropoffAddress: place })}
                         placeholder={isVenueAccess ? "Enter your destination" : "456 Park Ave, New York, NY"}
                         disabled={dropoffLocked}
+                        regionCode={regionCode}
                     />
                     {isVenueAccess && isEstimatingRoute ? (
                         <p className="text-[12px] text-aleet-text-subtle">Calculating route and price…</p>
