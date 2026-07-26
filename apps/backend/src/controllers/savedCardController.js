@@ -52,8 +52,12 @@ async function getOrCreateStripeCustomer(user) {
         try {
             const customer = await stripe.customers.retrieve(existing);
             if (!customer.deleted) return customer.id;
-        } catch (_) {
-            // Customer not found — fall through to create a new one
+        } catch (err) {
+            const missing = err?.code === 'resource_missing' || err?.statusCode === 404;
+            if (!missing) throw err;
+            console.warn(
+                `Stripe customer ${existing} is unavailable for user ${user._id}; replacing stale reference`,
+            );
         }
     }
 
@@ -110,10 +114,15 @@ const listSavedCards = asyncHandler(async (req, res) => {
         const user = await User.findById(req.user.id);
         if (!user) return sendNotFound(res, 'User not found');
 
-        const customerId = user.subscriptionDetails?.stripeCustomerId;
-        if (!customerId) {
+        const storedCustomerId = user.subscriptionDetails?.stripeCustomerId;
+        if (!storedCustomerId) {
             return sendSuccess(res, 200, 'No saved cards', []);
         }
+
+        // Recover accounts whose stored customer was deleted or belongs to a
+        // different Stripe account/mode. The replacement starts with no cards;
+        // membership entitlement remains in MongoDB and continues to display.
+        const customerId = await getOrCreateStripeCustomer(user);
 
         // Retrieve customer to get default payment method
         const customer = await stripe.customers.retrieve(customerId);

@@ -541,7 +541,7 @@ async function calculateBookingPrice({
                 lateNightHours: Number(lateNightHours.toFixed(4)),
                 regularMemberHours: Number(regularHoursForMember.toFixed(4)),
                 lateNightNote: isLateNight
-                    ? `${Number(lateNightHours.toFixed(2))}h billed at vehicle rate ($${baseRate}/hr); ${Number(regularHoursForMember.toFixed(2))}h at member rate ($${lockedRate}/hr)`
+                    ? `${Number(lateNightHours.toFixed(2))}h falls in the late-night window (12:00 AM–9:00 AM US Eastern) and is billed at the vehicle rate ($${baseRate}/hr). Prepaid membership hours only cover daytime hours — ${Number(regularHoursForMember.toFixed(2))}h at member rate ($${lockedRate}/hr).`
                     : null
             }
         };

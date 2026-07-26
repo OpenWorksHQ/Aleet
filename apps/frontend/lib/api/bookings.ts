@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/api";
 import type { BookingData } from "@/app/components/booking/booking-types";
+import { easternWallClockToIso } from "@/lib/booking-timezone";
 import moment from "moment";
 
 // ─── Response types ────────────────────────────────────────────────────────
@@ -102,24 +103,17 @@ function buildDateTime(date: Date, timeStr: string): string {
   const h = parsed.isValid() ? parsed.hours() : 0;
   const min = parsed.isValid() ? parsed.minutes() : 0;
 
-  // Combine the picked date + time in the BROWSER'S LOCAL TZ, then convert
-  // to UTC via toISOString(). Standard pattern: user picks wall-clock time
-  // in their TZ → stored as the correct UTC instant → each viewer renders
-  // it in their own local TZ via toLocaleString().
-  //
-  // The previous moment.utc({...}) construction treated the typed numbers
-  // as already-UTC, which dropped the user's TZ offset entirely — caused
-  // "Start date must be in future" errors for users west of UTC and
-  // silent time drift for everyone not in UTC.
-  return new Date(
+  // Booking wall-clock times are America/New_York (Aleet operating TZ).
+  // Late-night (12am–9am ET) and prepaid membership hours are evaluated in
+  // Eastern on the backend — encoding in the browser TZ made the same
+  // "7:00 AM" trip price differently for members in different locations.
+  return easternWallClockToIso(
     date.getFullYear(),
     date.getMonth(),
     date.getDate(),
     h,
     min,
-    0,
-    0,
-  ).toISOString();
+  );
 }
 
 function serializeBookingData(data: BookingData) {

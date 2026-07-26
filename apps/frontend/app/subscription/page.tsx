@@ -44,11 +44,13 @@ export default function SubscriptionPage() {
       const [benefitsRes, statusRes, cardsRes] = await Promise.all([
         getSubscriptionBenefits(),
         getSubscriptionStatus(token),
-        listSavedCards(token),
+        // Card storage is auxiliary. A stale/deleted Stripe customer must not
+        // hide an otherwise active membership and its hour balance.
+        listSavedCards(token).catch(() => null),
       ]);
       setBenefits(benefitsRes.data ?? null);
       setStatus(statusRes.data ?? null);
-      setCards(cardsRes.data ?? []);
+      setCards(cardsRes?.data ?? []);
     } catch (err) {
       setError(
         err instanceof ApiError ? err.message : "Failed to load subscription",
