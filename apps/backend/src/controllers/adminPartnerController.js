@@ -113,7 +113,9 @@ const rejectApplication = asyncHandler(async (req, res) => {
 const listPartners = asyncHandler(async (req, res) => {
   const { page, limit, skip } = getPagination(req.query);
   const filter = {};
+  // Default: only active partners (soft-deleted = inactive are hidden unless status queried)
   if (req.query.status) filter.status = req.query.status;
+  else filter.status = 'active';
   if (req.query.partnerType) filter.partnerType = req.query.partnerType;
 
   const [items, total] = await Promise.all([
@@ -327,6 +329,21 @@ const resendPortalInvite = asyncHandler(async (req, res) => {
   }
 });
 
+/**
+ * DELETE /api/admin/partners/:id
+ * Soft-delete partner (status → inactive).
+ */
+const deletePartner = asyncHandler(async (req, res) => {
+  const partner = await Partner.findById(req.params.id);
+  if (!partner) return sendNotFound(res, 'Partner not found');
+  if (partner.status === 'inactive') {
+    return sendValidationError(res, 'Partner is already inactive');
+  }
+  partner.status = 'inactive';
+  await partner.save();
+  return sendSuccess(res, 200, 'Partner removed', { deletedId: partner._id });
+});
+
 module.exports = {
   listApplications,
   approveApplication,
@@ -335,4 +352,5 @@ module.exports = {
   createPartner,
   updatePartner,
   resendPortalInvite,
+  deletePartner,
 };

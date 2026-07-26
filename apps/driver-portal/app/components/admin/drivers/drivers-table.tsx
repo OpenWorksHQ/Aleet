@@ -8,6 +8,7 @@ import type { Driver, DriverStatus } from "./driver-types";
 import { StatusBadge, TierBadge, OnlineBadge, AvailabilityBadge } from "./driver-badges";
 import { DriverDetailModal } from "./driver-detail-modal";
 import { onDriverPresence } from "@/lib/admin-socket";
+import { deleteDriverClient } from "@/lib/drivers-api";
 
 type TabKey = "all" | "approved" | "pending" | "rejected";
 
@@ -44,6 +45,7 @@ export function DriversTable({ initialDrivers }: Props) {
     const [search, setSearch] = useState("");
     const [activeTab, setActiveTab] = useState<TabKey>("all");
     const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
 
     // Real-time presence — subscribe to `driver:presence` events broadcast
     // by the backend whenever any driver socket connects or disconnects.
@@ -78,6 +80,22 @@ export function DriversTable({ initialDrivers }: Props) {
         setDrivers((prev) =>
             prev.map((d) => (d.id === id ? { ...d, ...patch } : d)),
         );
+    }
+
+    async function handleDelete(driver: Driver) {
+        if (!window.confirm(`Remove driver "${driver.name}"? They will disappear from this list and cannot log in.`)) {
+            return;
+        }
+        setDeletingId(driver.id);
+        try {
+            await deleteDriverClient(driver.id);
+            setDrivers((prev) => prev.filter((d) => d.id !== driver.id));
+            if (selectedDriver?.id === driver.id) setSelectedDriver(null);
+        } catch (err) {
+            window.alert(err instanceof Error ? err.message : "Failed to delete driver");
+        } finally {
+            setDeletingId(null);
+        }
     }
 
     const counts = useMemo(() => ({
@@ -227,6 +245,14 @@ export function DriversTable({ initialDrivers }: Props) {
                                             >
                                                 View
                                             </button>
+                                            <button
+                                                type="button"
+                                                disabled={deletingId === driver.id}
+                                                onClick={() => void handleDelete(driver)}
+                                                className="rounded-lg border border-red-500/40 px-2.5 py-1 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50"
+                                            >
+                                                {deletingId === driver.id ? "…" : "Delete"}
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -246,6 +272,10 @@ export function DriversTable({ initialDrivers }: Props) {
                         setSelectedDriver((prev) =>
                             prev?.id === id ? { ...prev, ...patch } : prev,
                         );
+                    }}
+                    onDeleted={(id) => {
+                        setDrivers((prev) => prev.filter((d) => d.id !== id));
+                        setSelectedDriver(null);
                     }}
                 />
             )}

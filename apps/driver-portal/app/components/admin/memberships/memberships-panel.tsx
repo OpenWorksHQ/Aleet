@@ -7,6 +7,7 @@ import {
   inviteFounder30Client,
   chargeMemberOverageClient,
   updateMemberBalanceClient,
+  cancelMembershipClient,
   type AdminMember,
 } from "@/lib/admin-memberships-api";
 import { Founder30LinksPanel } from "./founder30-links-panel";
@@ -79,6 +80,21 @@ export function MembershipsPanel() {
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Balance update failed");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleCancel(userId: string, name: string) {
+    if (!window.confirm(`Cancel membership for ${name || "this member"}? They will leave the active list.`)) {
+      return;
+    }
+    setBusyId(userId);
+    try {
+      await cancelMembershipClient(userId);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Cancel membership failed");
     } finally {
       setBusyId(null);
     }
@@ -197,6 +213,14 @@ export function MembershipsPanel() {
                           className="rounded-lg border border-border px-2 py-1 text-xs hover:border-gold/40 disabled:opacity-50"
                         >
                           Adjust hours
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busyId === m.userId}
+                          onClick={() => handleCancel(m.userId, m.name)}
+                          className="rounded-lg border border-red-500/40 px-2 py-1 text-xs text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+                        >
+                          Delete
                         </button>
                       </div>
                     </td>

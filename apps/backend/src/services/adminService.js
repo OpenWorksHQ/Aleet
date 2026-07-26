@@ -1,5 +1,5 @@
-const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+const { normalizePhone } = require('./userService');
 
 const VALID_PERMISSIONS = ['super-admin', 'manage-users', 'view-reports', 'manage-bookings'];
 
@@ -85,26 +85,33 @@ const createAdmin = async ({ name, email, phone, password, permissions }) => {
 
     validatePermissions(permissions);
 
+    // Must match loginUser: lowercased email + normalizePhone, or login fails with "Invalid credentials".
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone) {
+        throw new AdminServiceError('Invalid phone number', 400);
+    }
+
     // Only active admins block re-create. Soft-deleted (inactive) admins can be reactivated.
     const activeConflict = await User.findOne({
         role: 'admin',
         active: true,
-        $or: [{ email }, { phone }],
+        $or: [{ email: normalizedEmail }, { phone: normalizedPhone }],
     });
     if (activeConflict) {
-        const field = activeConflict.email === email ? 'email' : 'phone';
+        const field = activeConflict.email === normalizedEmail ? 'email' : 'phone';
         throw new AdminServiceError(`User with this ${field} already exists`, 409);
     }
 
     const inactiveAdmin = await User.findOne({
         role: 'admin',
         active: false,
-        $or: [{ email }, { phone }],
+        $or: [{ email: normalizedEmail }, { phone: normalizedPhone }],
     });
     if (inactiveAdmin) {
         inactiveAdmin.name = name;
-        inactiveAdmin.email = email;
-        inactiveAdmin.phone = phone;
+        inactiveAdmin.email = normalizedEmail;
+        inactiveAdmin.phone = normalizedPhone;
         inactiveAdmin.password = password;
         inactiveAdmin.active = true;
         inactiveAdmin.admin = { permissions };
@@ -114,8 +121,8 @@ const createAdmin = async ({ name, email, phone, password, permissions }) => {
 
     const admin = await User.create({
         name,
-        email,
-        phone,
+        email: normalizedEmail,
+        phone: normalizedPhone,
         password,
         role: 'admin',
         active: true,
@@ -137,25 +144,28 @@ const updateAdmin = async (id, { name, email, phone, permissions, active, passwo
 
     // Only conflict with other *active* admins (exclude self)
     if (email && email !== admin.email) {
+        const normalizedEmail = String(email).trim().toLowerCase();
         const conflict = await User.findOne({
             role: 'admin',
             active: true,
-            email,
+            email: normalizedEmail,
             _id: { $ne: id },
         });
         if (conflict) throw new AdminServiceError('Email is already taken', 409);
-        admin.email = email;
+        admin.email = normalizedEmail;
     }
 
     if (phone && phone !== admin.phone) {
+        const normalizedPhone = normalizePhone(phone);
+        if (!normalizedPhone) throw new AdminServiceError('Invalid phone number', 400);
         const conflict = await User.findOne({
             role: 'admin',
             active: true,
-            phone,
+            phone: normalizedPhone,
             _id: { $ne: id },
         });
         if (conflict) throw new AdminServiceError('Phone is already taken', 409);
-        admin.phone = phone;
+        admin.phone = normalizedPhone;
     }
 
     if (name !== undefined) admin.name = name;

@@ -1342,6 +1342,18 @@ export async function updatePartnerClient(
   return normalizeAdminPartner((json.data ?? {}) as Record<string, unknown>);
 }
 
+/** DELETE /api/admin/partners/:id — soft-delete (status → inactive) */
+export async function deletePartnerClient(id: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/admin/partners/${id}`, {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    throw new Error(json.message ?? "Failed to delete partner");
+  }
+}
+
 /** POST /api/admin/partners/:id/resend-invite — client-safe */
 export async function resendPartnerPortalInviteClient(partnerId: string) {
   const res = await fetch(`${BASE_URL}/api/admin/partners/${partnerId}/resend-invite`, {

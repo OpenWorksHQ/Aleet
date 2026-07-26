@@ -184,6 +184,10 @@ const loginUser = asyncHandler(async (req, res) => {
       return sendUnauthorized(res, 'Invalid credentials');
     }
 
+    if (user.active === false) {
+      return sendUnauthorized(res, 'Invalid credentials');
+    }
+
     // allowedRoles kept for safety, but lookup is already role-scoped
     const allowedRoles = expectedRole === 'driver' ? ['driver', 'admin'] : ['customer'];
     if (!allowedRoles.includes(user.role)) {

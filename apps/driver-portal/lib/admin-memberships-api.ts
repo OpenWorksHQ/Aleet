@@ -104,6 +104,15 @@ export async function updateMemberBalanceClient(
   return handleResponse(res);
 }
 
+/** PATCH /api/admin/memberships/:userId/cancel — remove membership from admin list */
+export async function cancelMembershipClient(userId: string) {
+  const res = await fetch(`${BASE_URL}/api/admin/memberships/${userId}/cancel`, {
+    method: "PATCH",
+    headers: getAuthHeaders(),
+  });
+  return handleResponse<{ userId: string; subscriptionStatus: string }>(res);
+}
+
 export type Founder30Link = {
   id: string;
   token: string;
