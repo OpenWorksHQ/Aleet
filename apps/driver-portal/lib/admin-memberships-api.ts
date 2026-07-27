@@ -50,11 +50,13 @@ export type MembershipsPage = {
 
 export async function fetchMembershipsClient(params?: {
   plan?: "all" | "standard" | "founder30";
+  status?: "active" | "rejected";
   page?: number;
   limit?: number;
 }): Promise<MembershipsPage> {
   const qs = new URLSearchParams();
   if (params?.plan) qs.set("plan", params.plan);
+  if (params?.status) qs.set("status", params.status);
   if (params?.page != null) qs.set("page", String(params.page));
   if (params?.limit != null) qs.set("limit", String(params.limit));
   const url = `${BASE_URL}/api/admin/memberships${qs.toString() ? `?${qs}` : ""}`;
@@ -104,9 +106,18 @@ export async function updateMemberBalanceClient(
   return handleResponse(res);
 }
 
-/** PATCH /api/admin/memberships/:userId/cancel — remove membership from admin list */
+/** PATCH /api/admin/memberships/:userId/cancel — move to Rejected (paused) */
 export async function cancelMembershipClient(userId: string) {
   const res = await fetch(`${BASE_URL}/api/admin/memberships/${userId}/cancel`, {
+    method: "PATCH",
+    headers: getAuthHeaders(),
+  });
+  return handleResponse<{ userId: string; subscriptionStatus: string }>(res);
+}
+
+/** PATCH /api/admin/memberships/:userId/restore — Rejected → Active */
+export async function restoreMembershipClient(userId: string) {
+  const res = await fetch(`${BASE_URL}/api/admin/memberships/${userId}/restore`, {
     method: "PATCH",
     headers: getAuthHeaders(),
   });

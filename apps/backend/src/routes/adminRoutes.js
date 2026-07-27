@@ -1,7 +1,7 @@
 const express = require('express');
 const { toggleDriverStatus, assignDriverToBooking, getEligibleDriversForBooking, autoAssignDriverToBooking, redispatchBooking, unassignDriverFromBooking, cancelBookingAsAdmin, updateBookingAsAdmin, getAllDrivers, approveDriver, requestRevision, uploadAleetLicense, updateDriverRegions, getDriverLicensing, getSidebarStats, getAdminDashboard, deleteDriver } = require('../controllers/adminController');
 const { getDriverTierPerformance, getTierSettings, updateTierSettings } = require('../controllers/tierController');
-const { inviteFounder30, listMemberships, adminChargeOverage, updateMemberBalance, createFounder30Link, listFounder30Links, deactivateFounder30Link, cancelMembership } = require('../controllers/adminMembershipController');
+const { inviteFounder30, listMemberships, adminChargeOverage, updateMemberBalance, createFounder30Link, listFounder30Links, deactivateFounder30Link, cancelMembership, restoreMembership } = require('../controllers/adminMembershipController');
 const { getCompanyRevenueReport, getBookingPayoutBreakdown } = require('../controllers/financeController');
 const authenticateJWT = require('../middleware/authMiddleware');
 const requireAdmin = require('../middleware/requireAdmin');
@@ -63,8 +63,11 @@ router.post('/memberships/:userId/charge-overage', requireAdmin, requirePermissi
 // Admin override: adjust a member's monthly hour balance
 router.patch('/memberships/:userId/balance', requireAdmin, requirePermission('manage-users'), updateMemberBalance);
 
-// Cancel / remove an active membership
+// Cancel / remove an active membership (moves to Rejected tab)
 router.patch('/memberships/:userId/cancel', requireAdmin, requirePermission('manage-users'), cancelMembership);
+
+// Restore a cancelled membership (Rejected → Active)
+router.patch('/memberships/:userId/restore', requireAdmin, requirePermission('manage-users'), restoreMembership);
 
 // ── Financials: company revenue vs. driver payouts ──────────────────────────
 router.get('/finance/revenue', requireAdmin, requirePermission('view-reports'), getCompanyRevenueReport);

@@ -102,13 +102,16 @@ const inviteFounder30 = asyncHandler(async (req, res) => {
 // ---------------------------------------------------------------------------
 const listMemberships = asyncHandler(async (req, res) => {
     try {
-        const { plan = 'all', page = 1, limit = 20 } = req.query;
+        const { plan = 'all', page = 1, limit = 20, status = 'active' } = req.query;
 
         const pageNum  = Math.max(1, parseInt(page));
         const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
         const skip     = (pageNum - 1) * limitNum;
 
-        const filter = { subscriptionStatus: 'subscriber' };
+        // status=active → live subscribers; status=rejected → cancelled / paused
+        const filter = {
+            subscriptionStatus: status === 'rejected' ? 'cancelled' : 'subscriber',
+        };
         if (plan !== 'all' && ['standard', 'founder30'].includes(plan)) {
             filter['subscriptionDetails.plan'] = plan;
         }
@@ -394,6 +397,35 @@ const cancelMembership = asyncHandler(async (req, res) => {
     }
 });
 
+// ---------------------------------------------------------------------------
+// PATCH /api/admin/memberships/:userId/restore
+// Move a cancelled membership back to active (Rejected → Active).
+// ---------------------------------------------------------------------------
+const restoreMembership = asyncHandler(async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const user = await User.findById(userId);
+        if (!user) return sendNotFound(res, 'User not found');
+        if (user.subscriptionStatus !== 'cancelled') {
+            return sendValidationError(res, 'Membership is not in rejected/cancelled state');
+        }
+
+        user.subscriptionStatus = 'subscriber';
+        if (user.subscriptionDetails) {
+            user.subscriptionDetails.isActive = true;
+        }
+        await user.save();
+
+        return sendSuccess(res, 200, 'Membership restored', {
+            userId,
+            subscriptionStatus: user.subscriptionStatus,
+        });
+    } catch (error) {
+        console.error('restoreMembership Error:', error);
+        return sendError(res, 500, error.message || 'Failed to restore membership');
+    }
+});
+
 module.exports = {
     inviteFounder30,
     listMemberships,
@@ -403,4 +435,5 @@ module.exports = {
     listFounder30Links,
     deactivateFounder30Link,
     cancelMembership,
+    restoreMembership,
 };

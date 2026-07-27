@@ -8,12 +8,16 @@ import {
   chargeMemberOverageClient,
   updateMemberBalanceClient,
   cancelMembershipClient,
+  restoreMembershipClient,
   type AdminMember,
 } from "@/lib/admin-memberships-api";
 import { Founder30LinksPanel } from "./founder30-links-panel";
 
+type StatusTab = "active" | "rejected";
+
 export function MembershipsPanel() {
   const [members, setMembers] = useState<AdminMember[]>([]);
+  const [statusTab, setStatusTab] = useState<StatusTab>("active");
   const [plan, setPlan] = useState<"all" | "standard" | "founder30">("all");
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
@@ -25,7 +29,12 @@ export function MembershipsPanel() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchMembershipsClient({ plan, page, limit: 20 });
+      const res = await fetchMembershipsClient({
+        plan,
+        status: statusTab,
+        page,
+        limit: 20,
+      });
       setMembers(res.members);
       setPages(res.pagination.pages);
     } catch (e) {
@@ -37,7 +46,7 @@ export function MembershipsPanel() {
 
   useEffect(() => {
     load();
-  }, [plan, page]);
+  }, [plan, page, statusTab]);
 
   async function handleInvite(userId: string, invited = true) {
     setBusyId(userId);
@@ -86,7 +95,7 @@ export function MembershipsPanel() {
   }
 
   async function handleCancel(userId: string, name: string) {
-    if (!window.confirm(`Cancel membership for ${name || "this member"}? They will leave the active list.`)) {
+    if (!window.confirm(`Pause membership for ${name || "this member"}? They move to the Rejected tab.`)) {
       return;
     }
     setBusyId(userId);
@@ -100,6 +109,21 @@ export function MembershipsPanel() {
     }
   }
 
+  async function handleRestore(userId: string, name: string) {
+    if (!window.confirm(`Restore membership for ${name || "this member"}?`)) return;
+    setBusyId(userId);
+    try {
+      await restoreMembershipClient(userId);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Restore membership failed");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  const isRejected = statusTab === "rejected";
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -108,6 +132,24 @@ export function MembershipsPanel() {
       </div>
 
       <Founder30LinksPanel />
+
+      <div className="flex flex-wrap gap-2">
+        {([
+          { id: "active", label: "Active" },
+          { id: "rejected", label: "Rejected" },
+        ] as const).map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => { setStatusTab(tab.id); setPage(1); }}
+            className={`rounded-xl border px-4 py-2 text-sm transition-colors ${
+              statusTab === tab.id ? "border-gold/50 bg-gold/10 text-gold" : "border-border text-muted hover:text-text"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
       <div className="flex flex-wrap gap-2">
         {(["all", "standard", "founder30"] as const).map((p) => (
@@ -147,7 +189,9 @@ export function MembershipsPanel() {
             <tbody>
               {members.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-muted">No members found</td>
+                  <td colSpan={6} className="px-4 py-12 text-center text-muted">
+                    {isRejected ? "No rejected/paused memberships" : "No members found"}
+                  </td>
                 </tr>
               ) : (
                 members.map((m) => (
@@ -176,52 +220,65 @@ export function MembershipsPanel() {
                     <td className="px-4 py-3">{m.savedCardLast4 ? `•••• ${m.savedCardLast4}` : "—"}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
-                        {!m.isFounder30 && (
+                        {isRejected ? (
                           <button
                             type="button"
                             disabled={busyId === m.userId}
-                            onClick={() => handleInvite(m.userId, true)}
-                            className="rounded-lg border border-border px-2 py-1 text-xs hover:border-gold/40 disabled:opacity-50"
+                            onClick={() => handleRestore(m.userId, m.name)}
+                            className="rounded-lg border border-gold/40 bg-gold/10 px-2 py-1 text-xs text-gold disabled:opacity-50"
                           >
-                            Invite F30
+                            Restore
                           </button>
+                        ) : (
+                          <>
+                            {!m.isFounder30 && (
+                              <button
+                                type="button"
+                                disabled={busyId === m.userId}
+                                onClick={() => handleInvite(m.userId, true)}
+                                className="rounded-lg border border-border px-2 py-1 text-xs hover:border-gold/40 disabled:opacity-50"
+                              >
+                                Invite F30
+                              </button>
+                            )}
+                            {m.isFounder30 && (
+                              <button
+                                type="button"
+                                disabled={busyId === m.userId}
+                                onClick={() => handleInvite(m.userId, false)}
+                                className="rounded-lg border border-border px-2 py-1 text-xs hover:border-red-500/40 disabled:opacity-50"
+                              >
+                                Revoke F30
+                              </button>
+                            )}
+                            {m.overageHours > 0 && (
+                              <button
+                                type="button"
+                                disabled={busyId === m.userId}
+                                onClick={() => handleOverage(m.userId, m.overageHours)}
+                                className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs text-amber-300 disabled:opacity-50"
+                              >
+                                Charge overage
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              disabled={busyId === m.userId}
+                              onClick={() => handleAdjustBalance(m.userId)}
+                              className="rounded-lg border border-border px-2 py-1 text-xs hover:border-gold/40 disabled:opacity-50"
+                            >
+                              Adjust hours
+                            </button>
+                            <button
+                              type="button"
+                              disabled={busyId === m.userId}
+                              onClick={() => handleCancel(m.userId, m.name)}
+                              className="rounded-lg border border-red-500/40 px-2 py-1 text-xs text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+                            >
+                              Delete
+                            </button>
+                          </>
                         )}
-                        {m.isFounder30 && (
-                          <button
-                            type="button"
-                            disabled={busyId === m.userId}
-                            onClick={() => handleInvite(m.userId, false)}
-                            className="rounded-lg border border-border px-2 py-1 text-xs hover:border-red-500/40 disabled:opacity-50"
-                          >
-                            Revoke F30
-                          </button>
-                        )}
-                        {m.overageHours > 0 && (
-                          <button
-                            type="button"
-                            disabled={busyId === m.userId}
-                            onClick={() => handleOverage(m.userId, m.overageHours)}
-                            className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs text-amber-300 disabled:opacity-50"
-                          >
-                            Charge overage
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          disabled={busyId === m.userId}
-                          onClick={() => handleAdjustBalance(m.userId)}
-                          className="rounded-lg border border-border px-2 py-1 text-xs hover:border-gold/40 disabled:opacity-50"
-                        >
-                          Adjust hours
-                        </button>
-                        <button
-                          type="button"
-                          disabled={busyId === m.userId}
-                          onClick={() => handleCancel(m.userId, m.name)}
-                          className="rounded-lg border border-red-500/40 px-2 py-1 text-xs text-red-400 hover:bg-red-500/10 disabled:opacity-50"
-                        >
-                          Delete
-                        </button>
                       </div>
                     </td>
                   </tr>
