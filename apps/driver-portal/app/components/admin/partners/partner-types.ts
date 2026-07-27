@@ -60,6 +60,7 @@ export type UpdatePartnerBody = {
   discountPct?: number;
   commissionPct?: number | null;
   pricingNote?: string;
+  status?: "active" | "inactive";
 };
 
 export type ApprovePartnerApplicationBody = {

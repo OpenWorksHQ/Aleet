@@ -162,49 +162,49 @@ const loginUser = asyncHandler(async (req, res) => {
     const isEmail = raw.includes('@');
     const lookupRole = expectedRole === 'driver' ? 'driver' : 'customer';
 
-    let user;
+    // Portal login is shared by drivers + admins. Same email/phone can exist on
+    // both roles ({email,role} unique). Collect candidates and pick the account
+    // whose password matches — never stop at a driver hit with the wrong password.
+    const candidates = [];
     if (isEmail) {
-      user = await UserService.findByEmail(raw.toLowerCase(), lookupRole);
-      // driver login page is shared with admin — fallback to admin lookup
-      if (!user && expectedRole === 'driver') {
-        user = await UserService.findByEmail(raw.toLowerCase(), 'admin');
+      const normalizedEmail = raw.toLowerCase();
+      const primary = await UserService.findByEmail(normalizedEmail, lookupRole);
+      if (primary) candidates.push(primary);
+      if (expectedRole === 'driver') {
+        const admin = await UserService.findByEmail(normalizedEmail, 'admin');
+        if (admin && (!primary || String(admin._id) !== String(primary._id))) {
+          candidates.push(admin);
+        }
       }
     } else {
       const normalizedPhone = normalizePhone(raw);
       if (!normalizedPhone) {
         return sendValidationError(res, 'Invalid phone number format');
       }
-      user = await UserService.findByPhone(normalizedPhone, lookupRole);
-      if (!user && expectedRole === 'driver') {
-        user = await UserService.findByPhone(normalizedPhone, 'admin');
+      const primary = await UserService.findByPhone(normalizedPhone, lookupRole);
+      if (primary) candidates.push(primary);
+      if (expectedRole === 'driver') {
+        const admin = await UserService.findByPhone(normalizedPhone, 'admin');
+        if (admin && (!primary || String(admin._id) !== String(primary._id))) {
+          candidates.push(admin);
+        }
+      }
+    }
+
+    const allowedRoles = expectedRole === 'driver' ? ['driver', 'admin'] : ['customer'];
+    let user = null;
+    for (const candidate of candidates) {
+      if (candidate.active === false) continue;
+      if (!allowedRoles.includes(candidate.role)) continue;
+      if (!candidate.password) continue;
+      const isMatch = await bcrypt.compare(password, candidate.password);
+      if (isMatch) {
+        user = candidate;
+        break;
       }
     }
 
     if (!user) {
-      return sendUnauthorized(res, 'Invalid credentials');
-    }
-
-    if (user.active === false) {
-      return sendUnauthorized(res, 'Invalid credentials');
-    }
-
-    // allowedRoles kept for safety, but lookup is already role-scoped
-    const allowedRoles = expectedRole === 'driver' ? ['driver', 'admin'] : ['customer'];
-    if (!allowedRoles.includes(user.role)) {
-      const message = user.role === 'driver'
-        ? 'This account is registered as a driver. Please use the driver app to sign in.'
-        : expectedRole === 'driver'
-          ? 'This account is not registered as a driver'
-          : 'Invalid credentials';
-      return sendUnauthorized(res, message);
-    }
-
-    if (!user.password) {
-      return sendUnauthorized(res, 'Password login is not configured for this account');
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
       return sendUnauthorized(res, 'Invalid credentials');
     }
 
