@@ -44,8 +44,9 @@ export function StepRoute({ data, quickBookingMode, serverPrice, priceLoading, o
     useEffect(() => {
         let cancelled = false;
         getRegions()
-            .then((regions) => {
+            .then((res) => {
                 if (cancelled) return;
+                const regions = res.data ?? [];
                 const found = regions.find((r) => r._id === data.regionId);
                 setRegionCode(found?.code?.trim() || undefined);
             })
