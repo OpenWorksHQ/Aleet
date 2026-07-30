@@ -134,6 +134,11 @@ const bookingSchema = new mongoose.Schema({
   dispatchedAt: { type: Date, default: null },
   refundId: { type: String, default: null },
   PaidToDriver: { type: Boolean, default: false },
+  // Stripe Connect transfer audit trail for the driver payout. Without these
+  // declared, strict mode silently dropped the transfer id on update.
+  payoutTransferId: { type: String, default: null },
+  payoutAmountCents: { type: Number, default: null },
+  paidToDriverAt: { type: Date, default: null },
 
   // Idempotent membership-hour reservation made when a driver accepts.
   // `hours` includes included + overage trip hours for usage reporting.
@@ -143,6 +148,22 @@ const bookingSchema = new mongoose.Schema({
     reservedAt: { type: Date, default: null },
     restoredAt: { type: Date, default: null },
     restorationReason: { type: String, default: null },
+  },
+
+  // Membership revenue was collected before the trip. This snapshot carries
+  // the value of prepaid hours consumed by this booking into driver payout
+  // accounting without charging the customer again.
+  membershipPayout: {
+    prepaidHours: { type: Number, default: 0 },
+    lockedHourlyRate: { type: Number, default: 0 },
+    prepaidValue: { type: Number, default: 0 },
+    driverTier: { type: String, default: null },
+    payoutRate: { type: Number, default: null },
+    driverAmount: { type: Number, default: 0 },
+    accountedAt: { type: Date, default: null },
+    reversedAt: { type: Date, default: null },
+    reversalReason: { type: String, default: null },
+    releasedAt: { type: Date, default: null },
   },
 
   // Partner / venue attribution

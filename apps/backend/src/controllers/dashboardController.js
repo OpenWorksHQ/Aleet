@@ -602,7 +602,9 @@ const getDriverTrips = asyncHandler(async (req, res) => {
       Booking.countDocuments(availableFilter),
       Booking.countDocuments(myTripsFilter),
       Booking.countDocuments(completedFilter),
-      Booking.find(completedFilter).select('finalPrice subscriptionPrice').lean(),
+      Booking.find(completedFilter)
+        .select('finalPrice subscriptionPrice bookingFee membershipPayout')
+        .lean(),
     ]);
 
     const totalEarnings =
@@ -647,7 +649,11 @@ const getDriverTrips = asyncHandler(async (req, res) => {
       // regularPrice shown as crossed-out when there's a discounted finalPrice
       const originalEarnings =
         booking.regularPrice && booking.regularPrice !== booking.finalPrice
-          ? computePayoutCents({ ...booking, finalPrice: booking.regularPrice }, driver, settings) / 100
+          ? computePayoutCents(
+              { ...booking, finalPrice: booking.regularPrice, membershipPayout: null },
+              driver,
+              settings,
+            ) / 100
           : null;
 
       const passenger =

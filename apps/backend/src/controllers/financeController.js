@@ -34,7 +34,7 @@ const getCompanyRevenueReport = asyncHandler(async (req, res) => {
 
         const [bookings, settings] = await Promise.all([
             Booking.find(filter)
-                .select('finalPrice bookingFee assignedDriver tip status dates.startDate')
+                .select('finalPrice bookingFee assignedDriver tip status dates.startDate membershipPayout')
                 .lean(),
             TierSettings.findOne().lean()
         ]);
@@ -48,7 +48,9 @@ const getCompanyRevenueReport = asyncHandler(async (req, res) => {
             : [];
         const driverMap = new Map(drivers.map(d => [d._id.toString(), d]));
 
-        let totalRevenue        = 0; // gross: sum of finalPrice
+        let totalRevenue        = 0; // recognized: trip charge + consumed prepaid value
+        let totalTripCharges    = 0; // amount charged during booking
+        let totalPrepaidValue   = 0; // membership revenue recognized as hours are used
         let totalDriverPayouts  = 0;
         let totalCompanyCost    = 0; // companyCostAbsorption across trips
         let totalTips           = 0; // pass-through to driver, not company revenue
@@ -66,7 +68,9 @@ const getCompanyRevenueReport = asyncHandler(async (req, res) => {
 
             const line = computePayoutBreakdown(booking, driver, settings);
 
-            totalRevenue       += line.finalPrice;
+            totalRevenue       += line.recognizedRevenue;
+            totalTripCharges   += line.customerTripCharge;
+            totalPrepaidValue  += line.prepaidMembershipValue;
             totalDriverPayouts += line.driverPayout;
             totalCompanyCost   += line.companyCostAbsorption;
             totalTips          += Number(booking.tip) || 0;
@@ -74,7 +78,7 @@ const getCompanyRevenueReport = asyncHandler(async (req, res) => {
 
             const bucket = tierBreakdown[tierKey] || tierBreakdown['Unassigned'];
             bucket.trips++;
-            bucket.revenue        += line.finalPrice;
+            bucket.revenue        += line.recognizedRevenue;
             bucket.driverPayouts  += line.driverPayout;
             bucket.companyRevenue += line.companyRevenue;
         }
@@ -93,6 +97,8 @@ const getCompanyRevenueReport = asyncHandler(async (req, res) => {
             range: { startDate: startDate || null, endDate: endDate || null, status },
             totalTrips: bookings.length,
             totalRevenue:       Number(totalRevenue.toFixed(2)),
+            totalTripCharges:   Number(totalTripCharges.toFixed(2)),
+            totalPrepaidMembershipValue: Number(totalPrepaidValue.toFixed(2)),
             totalBookingFees:   Number(totalBookingFees.toFixed(2)),
             totalDriverPayouts: Number(totalDriverPayouts.toFixed(2)),
             totalCompanyCostAbsorption: Number(totalCompanyCost.toFixed(2)),
