@@ -44,6 +44,7 @@ const {
 } = require('../utils/bookingHelpers');
 const { getMembershipHourBalance } = require('../utils/membershipHours');
 const {
+    buildMembershipPayoutSnapshot,
     reserveMembershipHours,
     restoreMembershipHours,
 } = require('../services/membershipReservationService');
@@ -459,6 +460,9 @@ const startBooking = asyncHandler(async (req, res) => {
             savings,
             bookingFee: breakdown?.bookingFee ?? tierSettings?.bookingFee ?? 34,
             minimumHoursApplied: !!breakdown?.minimumHoursApplied,
+            membershipPayout: isSubscriber
+              ? buildMembershipPayoutSnapshot(breakdown)
+              : undefined,
             partner: partnerSnapshot || undefined,
             expectedPickupBy: partnerDoc?.bookingMode === 'venue_access'
               ? new Date(Date.now() + 30 * 60 * 1000)
@@ -532,7 +536,7 @@ const confirmBooking = asyncHandler(async (req, res) => {
         const bookingUser  = await User.findById(booking.user);
 
         if (bookingUser?.subscriptionStatus === 'subscriber') {
-            await reserveMembershipHours(booking, tierSettings);
+            await reserveMembershipHours(booking, tierSettings, resolvedDriver);
         }
 
         booking.status = 'Confirmed';
@@ -624,7 +628,7 @@ const acceptBooking = asyncHandler(async (req, res) => {
         const bookingUser  = await User.findById(claimed.user);
 
         if (bookingUser?.subscriptionStatus === 'subscriber') {
-            await reserveMembershipHours(claimed, tierSettings);
+            await reserveMembershipHours(claimed, tierSettings, driver);
         }
 
         // Notify guest
@@ -640,32 +644,9 @@ const acceptBooking = asyncHandler(async (req, res) => {
             console.error('Guest accept-notification lookup failed:', e?.message || e);
         }
 
-        // Diamond instant payout
-        try {
-            if (driver.driver?.tier === 'Diamond') {
-                const BankAccount = require('../models/BankAccount');
-                const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-                const bank = await BankAccount.findOne({ driverId }).lean();
-                if (bank?.stripeAccountId && claimed.paymentStatus === 'Paid' && !claimed.PaidToDriver) {
-                    const amountCents = computePayoutCents(claimed);
-                    if (amountCents > 0) {
-                        const transfer = await stripe.transfers.create({
-                            amount: amountCents,
-                            currency: 'usd',
-                            destination: bank.stripeAccountId,
-                            transfer_group: `booking:${claimed._id}`
-                        });
-                        await Booking.updateOne(
-                            { _id: claimed._id },
-                            { $set: { PaidToDriver: true, payoutTransferId: transfer.id } }
-                        );
-                        console.log(`💸 Instant payout $${(amountCents / 100).toFixed(2)} → Diamond driver ${driver._id}`);
-                    }
-                }
-            }
-        } catch (e) {
-            console.error('⚠️ Instant payout failed:', e?.message || e);
-        }
+        // Driver payout is now only released after trip completion. Membership
+        // prepaid value is accounted above when the driver commits, but no
+        // Stripe transfer occurs at acceptance (including Diamond drivers).
 
         return sendSuccess(res, 200, 'Booking accepted successfully', toDriverBooking(claimed, driver, tierSettings));
     } catch (error) {

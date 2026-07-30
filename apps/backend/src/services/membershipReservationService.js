@@ -1,14 +1,77 @@
 const MonthlyHours = require('../models/MonthlyHours');
 const { getMembershipHourBalance, yearMonthKey } = require('../utils/membershipHours');
+const { TIER_PAYOUT_RATES } = require('./payoutUtils');
+
+function roundMoney(value) {
+  return Number((Number(value) || 0).toFixed(2));
+}
+
+/**
+ * Freeze the prepaid value used by a membership booking at checkout time.
+ * The customer already paid this value through their membership purchase.
+ */
+function buildMembershipPayoutSnapshot(breakdown = {}) {
+  const prepaidHours = Math.max(0, Number(breakdown.freeHoursUsed) || 0);
+  const lockedHourlyRate = Math.max(0, Number(breakdown.memberRate) || 0);
+
+  return {
+    prepaidHours,
+    lockedHourlyRate,
+    prepaidValue: roundMoney(prepaidHours * lockedHourlyRate),
+    driverAmount: 0,
+  };
+}
+
+/**
+ * Record the driver liability when a driver commits and prepaid hours are
+ * actually reserved. This is accounting only; Stripe transfer occurs later.
+ */
+function accountMembershipDriverObligation(booking, settings, driver) {
+  const membershipPayout = booking?.membershipPayout;
+  const prepaidValue = Math.max(0, Number(membershipPayout?.prepaidValue) || 0);
+  if (prepaidValue <= 0 || !driver) return false;
+
+  const tier = driver?.driver?.tier || 'S-Level';
+  const tierCfg = settings?.tiers?.[tier];
+  const payoutRate = Number(
+    tierCfg?.payoutRate ?? TIER_PAYOUT_RATES[tier] ?? 0.30,
+  );
+  const driverAmount = roundMoney(prepaidValue * payoutRate);
+
+  if (
+    membershipPayout.accountedAt &&
+    !membershipPayout.reversedAt &&
+    membershipPayout.driverTier === tier &&
+    Number(membershipPayout.payoutRate) === payoutRate &&
+    Number(membershipPayout.driverAmount) === driverAmount
+  ) {
+    return false;
+  }
+
+  membershipPayout.driverTier = tier;
+  membershipPayout.payoutRate = payoutRate;
+  membershipPayout.driverAmount = driverAmount;
+  membershipPayout.accountedAt = new Date();
+  membershipPayout.reversedAt = null;
+  membershipPayout.reversalReason = null;
+  return true;
+}
 
 /**
  * Reserve membership usage exactly once when a driver commits to a trip.
  * Overage is already included in booking.finalPrice and paid before dispatch,
  * so this service never charges the card again.
  */
-async function reserveMembershipHours(booking, settings) {
+async function reserveMembershipHours(booking, settings, driver = null) {
   const existing = booking.membershipHoursReservation;
+  const obligationAccounted = accountMembershipDriverObligation(
+    booking,
+    settings,
+    driver,
+  );
+
   if (existing?.reservedAt && !existing?.restoredAt) {
+    if (obligationAccounted) await booking.save();
     return {
       reserved: false,
       hours: Number(existing.hours || 0),
@@ -16,8 +79,16 @@ async function reserveMembershipHours(booking, settings) {
     };
   }
 
-  const hours = Number(booking.durationHours || 0);
-  if (hours <= 0) return { reserved: false, hours: 0, overageHours: 0 };
+  // New bookings carry the exact daytime prepaid hours used. Legacy bookings
+  // have no snapshot, so preserve their previous duration-based behavior.
+  const hasMembershipSnapshot = Number(booking.membershipPayout?.lockedHourlyRate) > 0;
+  const hours = hasMembershipSnapshot
+    ? Math.max(0, Number(booking.membershipPayout?.prepaidHours) || 0)
+    : Math.max(0, Number(booking.durationHours) || 0);
+  if (hours <= 0) {
+    if (obligationAccounted) await booking.save();
+    return { reserved: false, hours: 0, overageHours: 0 };
+  }
 
   const startDate = booking.dates?.startDate || new Date();
   const balance = await getMembershipHourBalance(
@@ -77,12 +148,18 @@ async function restoreMembershipHours(booking, reason = 'Eligible cancellation')
 
   booking.membershipHoursReservation.restoredAt = new Date();
   booking.membershipHoursReservation.restorationReason = reason;
+  if (Number(booking.membershipPayout?.prepaidValue) > 0) {
+    booking.membershipPayout.reversedAt = new Date();
+    booking.membershipPayout.reversalReason = reason;
+  }
   await booking.save();
 
   return { restored: true, hours };
 }
 
 module.exports = {
+  buildMembershipPayoutSnapshot,
+  accountMembershipDriverObligation,
   reserveMembershipHours,
   restoreMembershipHours,
 };

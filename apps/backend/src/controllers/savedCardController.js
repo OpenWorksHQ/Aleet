@@ -25,6 +25,7 @@ const User    = require('../models/User');
 const Booking = require('../models/Booking');
 const { sendSuccess, sendError, sendValidationError, sendNotFound } = require('../utils/responseHelper');
 const { markBookingPaidAndDispatch } = require('../services/bookingPaymentService');
+const { getAppBaseUrl } = require('../utils/getAppBaseUrl');
 
 const CURRENCY = 'usd';
 
@@ -253,7 +254,9 @@ const chargeSavedCard = asyncHandler(async (req, res) => {
         const bookingFeeAmount = Number(booking.bookingFee || 0);
         const feeNote = bookingFeeAmount > 0 ? ` (incl. $${bookingFeeAmount.toFixed(2)} booking fee)` : '';
 
-        // Create a PaymentIntent and confirm it immediately (off-session)
+        // Create a PaymentIntent and confirm it immediately.
+        // return_url is required by Stripe at confirmation when the card may
+        // need 3DS / redirect authentication (even with redirect: if_required).
         const paymentIntent = await stripe.paymentIntents.create({
             amount:               Math.round(totalAmount * 100),
             currency:             CURRENCY,
@@ -262,6 +265,7 @@ const chargeSavedCard = asyncHandler(async (req, res) => {
             confirm:              true,
             // User is present on the confirmation page, so 3DS can be handled.
             off_session:          false,
+            return_url:           `${getAppBaseUrl()}/booking-success?booking_id=${booking._id.toString()}`,
             description:          `Booking: ${booking.vehicleType?.name || 'Vehicle'} — ${new Date(booking.dates.startDate).toLocaleDateString()}${feeNote}`,
             metadata: {
                 bookingId: booking._id.toString(),

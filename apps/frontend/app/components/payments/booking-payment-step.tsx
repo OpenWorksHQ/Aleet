@@ -74,7 +74,9 @@ export function BookingPaymentStep({ bookingId, amount, onPaid, onBack }: Props)
           setError("Stripe is not configured. Add NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY.");
           return;
         }
-        const { error, paymentIntent } = await stripe.handleCardAction(result.clientSecret);
+        const { error, paymentIntent } = await stripe.confirmCardPayment(result.clientSecret, {
+          return_url: `${window.location.origin}/booking-success?booking_id=${encodeURIComponent(bookingId)}`,
+        });
         if (error) {
           setError(error.message ?? "Card verification failed");
           return;

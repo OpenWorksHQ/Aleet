@@ -411,7 +411,9 @@ export function BookingWizard({ onStepChange, renderIndicator }: { onStepChange?
             if (payment.status === "requires_action" && payment.clientSecret) {
                 const stripe = await getStripe();
                 if (!stripe) throw new Error("Stripe is not configured.");
-                const result = await stripe.handleCardAction(payment.clientSecret);
+                const result = await stripe.confirmCardPayment(payment.clientSecret, {
+                    return_url: `${window.location.origin}/booking-success?booking_id=${encodeURIComponent(bookingId)}`,
+                });
                 if (result.error) throw new Error(result.error.message ?? "Card verification failed");
                 if (result.paymentIntent?.status !== "succeeded")
                     throw new Error("Payment was not completed.");

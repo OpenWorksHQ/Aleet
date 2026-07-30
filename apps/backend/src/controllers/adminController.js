@@ -12,11 +12,11 @@ const {
   restoreMembershipHours,
 } = require('../services/membershipReservationService');
 
-async function reserveHoursForMemberBooking(booking) {
+async function reserveHoursForMemberBooking(booking, driver) {
   const customer = await User.findById(booking.user).select('subscriptionStatus').lean();
   if (customer?.subscriptionStatus !== 'subscriber') return;
   const settings = await TierSettings.findOne();
-  await reserveMembershipHours(booking, settings);
+  await reserveMembershipHours(booking, settings, driver);
 }
 
 
@@ -55,7 +55,7 @@ const assignDriverToBooking = async (req, res) => {
     booking.assignedDriver = driverId;
     booking.status = 'Confirmed';  // Confirm booking once assigned
     await booking.save();
-    await reserveHoursForMemberBooking(booking);
+    await reserveHoursForMemberBooking(booking, driver);
 
     return sendSuccess(res, 200, 'Driver assigned successfully', booking);
   } catch (error) {
@@ -114,7 +114,7 @@ const autoAssignDriverToBooking = async (req, res) => {
     booking.assignedDriver = driver._id;
     booking.status = 'Confirmed';
     await booking.save();
-    await reserveHoursForMemberBooking(booking);
+    await reserveHoursForMemberBooking(booking, driver);
 
     // Trip-alert SMS — notify guest + driver (fire-and-forget, never throws)
     (async () => {
