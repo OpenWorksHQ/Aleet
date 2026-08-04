@@ -56,6 +56,39 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Fail fast, before install/test/PM2, if a secret the app cannot start
+      # without is missing. Without this the deploy proceeds happily, PM2 swaps
+      # in the new process, the boot guard in src/server.js exits(1), and the
+      # API is down until someone reads the PM2 logs. Values are only tested
+      # for emptiness — never echoed.
+      - name: Preflight — required secrets
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          SSN_ENCRYPTION_KEY: ${{ secrets.SSN_ENCRYPTION_KEY }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+        run: |
+          set -euo pipefail
+          missing=""
+          for name in MONGODB_URI JWT_SECRET SSN_ENCRYPTION_KEY STRIPE_SECRET_KEY; do
+            if [ -z "${!name:-}" ]; then
+              missing="$missing $name"
+            fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing required repository secret(s):$missing"
+            echo "Set them under Settings → Secrets and variables → Actions → Secrets."
+            echo "SSN_ENCRYPTION_KEY must be 64 hex chars; generate with:"
+            echo '  node -e "console.log(require('"'"'crypto'"'"').randomBytes(32).toString('"'"'hex'"'"'))"'
+            exit 1
+          fi
+          # Shape check: a malformed key throws at first use in every env.
+          if ! printf '%s' "$SSN_ENCRYPTION_KEY" | grep -Eq '^[0-9a-fA-F]{64}$'; then
+            echo "::error::SSN_ENCRYPTION_KEY must be exactly 64 hexadecimal characters (32 bytes)."
+            exit 1
+          fi
+          echo "All required secrets present."
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -167,6 +200,15 @@ jobs:
 
           # ─── JWT ──────────────────────────────────────────────────────
           JWT_SECRET=${{ secrets.JWT_SECRET }}
+
+          # ─── SSN encryption ───────────────────────────────────────────
+          # REQUIRED. Driver SSNs are encrypted at rest (AES-256-GCM), and
+          # src/server.js refuses to start in production when this is unset —
+          # a silent plaintext write is worse than a failed boot.
+          # Generate once, then store as a repo secret and NEVER rotate it
+          # casually: losing it makes every stored SSN unrecoverable.
+          #   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+          SSN_ENCRYPTION_KEY=${{ secrets.SSN_ENCRYPTION_KEY }}
 
           # ─── Stripe ───────────────────────────────────────────────────
           STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
