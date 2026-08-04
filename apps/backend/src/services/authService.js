@@ -15,8 +15,8 @@ const {
 const { fileUrl } = require("../utils/multer");
 const { resolveDriverTier } = require("./driverTierService");
 const { validateSSN } = require("../utils/ssnValidator");
+const { encryptSSN } = require("../utils/ssnCrypto");
 
-const PhoneOTP = require("../models/PhoneOTP");
 // const { generateOTP, sendOTP } = require('./twilioService');
 
 class AuthServiceError extends Error {
@@ -627,7 +627,13 @@ const driverSignupDocuments = async ({
       email: decoded.email,
       name: decoded.name,
       hashedPassword: decoded.hashedPassword,
-      ssn: forHireLicense ? null : ssn,
+      // Encrypted, not just signed. This token is handed to the BROWSER and
+      // sent back on the next step; a JWT payload is base64, not secret, so a
+      // raw SSN here is readable by anyone holding the token (or anything that
+      // logs it). validateSSN() already ran above on the plaintext, and
+      // encryptSSN is idempotent — the User setter re-applying it is a no-op,
+      // and the schema getter decrypts on read.
+      ssn: forHireLicense ? null : encryptSSN(ssn),
       vehicleTypes: parsedVehicleTypes,
       hasOwnVehicle: ownVehicle,
       hasForHireLicense: forHireLicense,

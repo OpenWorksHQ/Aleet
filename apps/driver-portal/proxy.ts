@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  fetchAdminPermissions,
   getAdminFallbackPath,
   getRequiredAdminPermission,
   hasAdminPermission,
 } from "@/lib/admin-access";
+import {
+  AUTH_TOKEN_COOKIE,
+  LEGACY_DRIVER_STATUS_COOKIE,
+  LEGACY_ROLE_COOKIE,
+} from "@/lib/auth";
+import { getSession } from "@/lib/session";
 
 // Statuses that may access the driver dashboard
 const DASHBOARD_STATUSES = new Set([
@@ -20,87 +25,107 @@ const RESTRICTED_ALLOWED_PATHS = ["/driver/onboarding", "/driver/profile"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const token = request.cookies.get("auth_token")?.value ?? null;
-  const role = request.cookies.get("auth_role")?.value ?? null;
+  const token = request.cookies.get(AUTH_TOKEN_COOKIE)?.value ?? null;
 
-  const isAuthenticated = Boolean(token && role);
-  const driverStatus = request.cookies.get("driver_status")?.value ?? "";
+  // Role and driver status are resolved from the backend using the token —
+  // never from cookies, which client JS can forge.
+  const result = await getSession(token);
+  const session = result.status === "authenticated" ? result.session : null;
+
+  const isAuthenticated = session !== null;
+  const role = session?.role ?? null;
+  const driverStatus = session?.driverStatus ?? "";
   const canAccessDashboard = DASHBOARD_STATUSES.has(driverStatus);
   const isFullyApproved =
     driverStatus === "active" || driverStatus === "approved";
 
+  // A token the backend rejected is dead weight — drop it (plus any legacy
+  // role/status cookies) so the user lands in a clean signed-out state.
+  // "unavailable" (backend down) deliberately keeps the cookie: we fail closed
+  // for this request but the session survives a transient outage.
+  const hasStaleToken = token !== null && result.status === "anonymous";
+
+  const finish = (response: NextResponse): NextResponse => {
+    if (hasStaleToken) {
+      for (const name of [
+        AUTH_TOKEN_COOKIE,
+        LEGACY_ROLE_COOKIE,
+        LEGACY_DRIVER_STATUS_COOKIE,
+      ]) {
+        response.cookies.set(name, "", { path: "/", maxAge: 0 });
+      }
+    }
+    return response;
+  };
+
+  const redirect = (path: string): NextResponse =>
+    finish(NextResponse.redirect(new URL(path, request.url)));
+
   // Root route — redirect based on role/status
   if (pathname === "/") {
     if (!isAuthenticated) {
-      return NextResponse.redirect(new URL("/login", request.url));
+      return redirect("/login");
     }
     if (role === "admin") {
-      return NextResponse.redirect(new URL("/admin", request.url));
+      return redirect("/admin");
     }
     if (role === "driver") {
       if (driverStatus === "rejected") {
-        return NextResponse.redirect(new URL("/rejected", request.url));
+        return redirect("/rejected");
       }
-      const dest = canAccessDashboard ? "/driver" : "/pending";
-      return NextResponse.redirect(new URL(dest, request.url));
+      return redirect(canAccessDashboard ? "/driver" : "/pending");
     }
-    return NextResponse.redirect(new URL("/login", request.url));
+    return redirect("/login");
   }
 
   // Already logged-in user visiting /login → send to their dashboard
   if (pathname === "/login" && isAuthenticated) {
     if (role === "driver") {
       if (driverStatus === "rejected") {
-        return NextResponse.redirect(new URL("/rejected", request.url));
+        return redirect("/rejected");
       }
-      const dest = canAccessDashboard ? "/driver" : "/pending";
-      return NextResponse.redirect(new URL(dest, request.url));
+      return redirect(canAccessDashboard ? "/driver" : "/pending");
     }
-    const dest = role === "admin" ? "/admin" : "/driver";
-    return NextResponse.redirect(new URL(dest, request.url));
+    return redirect(role === "admin" ? "/admin" : "/driver");
   }
 
   // /rejected — only authenticated rejected drivers
   if (pathname.startsWith("/rejected")) {
     if (!isAuthenticated || role !== "driver") {
-      return NextResponse.redirect(new URL("/login", request.url));
+      return redirect("/login");
     }
     if (driverStatus !== "rejected") {
-      const dest = canAccessDashboard ? "/driver" : "/pending";
-      return NextResponse.redirect(new URL(dest, request.url));
+      return redirect(canAccessDashboard ? "/driver" : "/pending");
     }
   }
 
   // /pending — only authenticated pending drivers who can't access dashboard
   if (pathname.startsWith("/pending")) {
     if (!isAuthenticated || role !== "driver") {
-      return NextResponse.redirect(new URL("/login", request.url));
+      return redirect("/login");
     }
     if (driverStatus === "rejected") {
-      return NextResponse.redirect(new URL("/rejected", request.url));
+      return redirect("/rejected");
     }
     if (canAccessDashboard) {
-      return NextResponse.redirect(new URL("/driver", request.url));
+      return redirect("/driver");
     }
   }
 
   // /admin/* — only "admin" role
   if (pathname.startsWith("/admin")) {
     if (!isAuthenticated) {
-      return NextResponse.redirect(new URL("/login", request.url));
+      return redirect("/login");
     }
     if (role !== "admin") {
-      const dest = role === "driver" ? "/driver" : "/login";
-      return NextResponse.redirect(new URL(dest, request.url));
+      return redirect(role === "driver" ? "/driver" : "/login");
     }
 
     const requiredPermission = getRequiredAdminPermission(pathname);
     if (requiredPermission) {
-      const permissions = await fetchAdminPermissions(token ?? "");
+      const permissions = session.adminPermissions;
       if (!hasAdminPermission(permissions, requiredPermission)) {
-        return NextResponse.redirect(
-          new URL(getAdminFallbackPath(permissions), request.url),
-        );
+        return redirect(getAdminFallbackPath(permissions));
       }
     }
   }
@@ -108,21 +133,20 @@ export async function proxy(request: NextRequest) {
   // /driver/* — only "driver" role
   if (pathname.startsWith("/driver")) {
     if (!isAuthenticated) {
-      return NextResponse.redirect(new URL("/login", request.url));
+      return redirect("/login");
     }
     if (role !== "driver") {
-      const dest = role === "admin" ? "/admin" : "/login";
-      return NextResponse.redirect(new URL(dest, request.url));
+      return redirect(role === "admin" ? "/admin" : "/login");
     }
 
     // Rejected drivers go to /rejected
     if (driverStatus === "rejected") {
-      return NextResponse.redirect(new URL("/rejected", request.url));
+      return redirect("/rejected");
     }
 
     // Drivers without dashboard access go to /pending
     if (!canAccessDashboard) {
-      return NextResponse.redirect(new URL("/pending", request.url));
+      return redirect("/pending");
     }
 
     // Non-fully-approved drivers can only access onboarding and profile
@@ -131,18 +155,28 @@ export async function proxy(request: NextRequest) {
         pathname.startsWith(p),
       );
       if (!isAllowed) {
-        return NextResponse.redirect(
-          new URL("/driver/onboarding", request.url),
-        );
+        return redirect("/driver/onboarding");
       }
     }
   }
 
-  return NextResponse.next();
+  return finish(NextResponse.next());
 }
 
+// Scoped to the routes this proxy actually decides on. Verification now costs a
+// backend round-trip, so it must not run for public pages, assets or anything
+// else that previously fell through to NextResponse.next().
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/",
+    "/login",
+    "/admin",
+    "/admin/:path*",
+    "/driver",
+    "/driver/:path*",
+    "/pending",
+    "/pending/:path*",
+    "/rejected",
+    "/rejected/:path*",
   ],
 };

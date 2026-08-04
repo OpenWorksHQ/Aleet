@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import type { AddressSuggestion } from "@/lib/api/maps";
 import { useDebouncedAddressSuggestions } from "@/lib/hooks/use-debounced-address-suggestions";
 

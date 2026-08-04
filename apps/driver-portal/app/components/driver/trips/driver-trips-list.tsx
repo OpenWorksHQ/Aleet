@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import {
     fetchDriverDashboardTripsClient,
     acceptTripClient,
@@ -14,7 +14,7 @@ import { buildGoogleMapsDirectionsUrl } from "@/lib/google-maps";
 import { TripAddressLink } from "@/app/components/driver/trips/trip-address-link";
 import { payoutBookingClient } from "@/lib/payout-api";
 import { PhoneLink } from "@/app/components/ui/phone-link";
-import { toTelHref } from "@/lib/phone";
+import { toTelHref } from "@aleet/shared";
 
 type TabKey = DriverTripsTab;
 

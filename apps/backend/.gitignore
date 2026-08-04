@@ -3,3 +3,9 @@ node_modules
 .env.local
 uploads
 .claude/settings.local.json
+
+# Runtime / test output — never commit these
+# Written by src/seeders/sacAqdTestSeeder.js at a hardcoded path (BACKUP_PATH)
+.sac-aqd-tier-backup.json
+# Timestamped Google Distance Matrix smoke-test dumps
+distance_matrix_results-*.json

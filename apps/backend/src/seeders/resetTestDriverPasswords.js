@@ -6,13 +6,16 @@
  *   node src/seeders/resetTestDriverPasswords.js email1@x.com email2@x.com
  */
 
-const path = require('path');
-const mongoose = require('mongoose');
+// Loads apps/backend/.env (same file as src/server.js) and exposes the
+// production guard — must be required before anything reads process.env.
+const { assertSeedingAllowed, resolveSeedPassword } = require('./seedGuard');
 
-require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
+const mongoose = require('mongoose');
 
 const User = require('../models/User');
 
+// Local-dev-only fallback (public — it lives in git). Override with
+// SAC_TEST_PASSWORD; see .env.example.
 const DEFAULT_PASSWORD = 'SacTest123!';
 
 const DEFAULT_EMAILS = [
@@ -23,8 +26,11 @@ const DEFAULT_EMAILS = [
 ];
 
 async function main() {
+  // Fail before opening a connection, not after.
+  assertSeedingAllowed('resetTestDriverPasswords');
+
   const emails = process.argv.slice(2).length > 0 ? process.argv.slice(2) : DEFAULT_EMAILS;
-  const password = process.env.SAC_TEST_PASSWORD || DEFAULT_PASSWORD;
+  const password = resolveSeedPassword('SAC_TEST_PASSWORD', DEFAULT_PASSWORD, 'SAC/AQD test drivers');
 
   await mongoose.connect(process.env.MONGODB_URI);
   console.log('✅ MongoDB connected\n');

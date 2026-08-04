@@ -33,7 +33,9 @@ export default async function DriversPage() {
       fetchLicensing(token, { page: 1, limit: 20 }),
     ]);
     const vehicleTypeMap = Object.fromEntries(vehicleTypes.map((vt) => [vt._id, vt.name]));
-    drivers = result.drivers.map((d) => mapApiDriver(d, vehicleTypeMap));
+    // Token is passed explicitly: this is a Server Component, so the client-side
+    // cookie read inside `withUploadToken` is unavailable here.
+    drivers = result.drivers.map((d) => mapApiDriver(d, vehicleTypeMap, token));
     stats = result.stats;
     licensing = licensingData;
   } catch {

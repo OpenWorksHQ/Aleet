@@ -1,3 +1,7 @@
+// Loads apps/backend/.env (same file as src/server.js) and exposes the
+// production guard — must be required before anything reads process.env.
+const { assertSeedingAllowed } = require('./seedGuard');
+
 const Partner = require('../models/Partner');
 const Region = require('../models/Region');
 const VehicleType = require('../models/Vehicle');
@@ -92,6 +96,8 @@ const DEMO_PARTNERS = [
 ];
 
 async function seedPartners() {
+  assertSeedingAllowed('partnerSeeder.seedPartners');
+
   console.log('🤝 Starting partner seeding...');
 
   await repairPartnerSlugFields();

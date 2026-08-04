@@ -1,8 +1,9 @@
 /**
  * CORS for Express + Socket.IO.
  *
- * Allows local dev, configured FRONTEND_URL / DRIVER_PORTAL_URL / ALLOWED_ORIGINS,
- * and all *.vercel.app deployments (preview + production) unless disabled.
+ * Allows local dev and the configured FRONTEND_URL / DRIVER_PORTAL_URL /
+ * ALLOWED_ORIGINS. Wildcard *.vercel.app is opt-in via ALLOW_VERCEL_ORIGINS=true
+ * (see isOriginAllowed) — prefer listing preview URLs in ALLOWED_ORIGINS.
  */
 
 function addOrigin(origins, value) {
@@ -46,7 +47,15 @@ function isOriginAllowed(origin) {
   const allowed = buildAllowedOrigins();
   if (allowed.has(origin)) return true;
 
-  if (process.env.ALLOW_VERCEL_ORIGINS !== 'false' && VERCEL_ORIGIN_RE.test(origin)) {
+  // Wildcard *.vercel.app is OPT-IN. It used to be on by default, which meant
+  // ANY Vercel project on the internet could make credentialed cross-origin
+  // requests to this API on behalf of a logged-in user.
+  //
+  // OPERATORS: do not enable this. List your preview deployment URLs in
+  // ALLOWED_ORIGINS (comma-separated) instead — Vercel exposes the deployment
+  // URL as an env var at build time, so it can be forwarded to the API config.
+  // ALLOW_VERCEL_ORIGINS=true exists only as a short-term escape hatch.
+  if (process.env.ALLOW_VERCEL_ORIGINS === 'true' && VERCEL_ORIGIN_RE.test(origin)) {
     return true;
   }
 

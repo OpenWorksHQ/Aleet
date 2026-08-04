@@ -7,18 +7,13 @@ import { AleetLogo } from "@/app/components/ui/aleet-logo";
 import type { NavItem } from "./admin-nav-config";
 import { AdminNavIcon } from "./admin-nav-icon";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import {
     hasAdminPermission,
     type AdminPermission,
 } from "@/lib/admin-access";
 import { disconnectAdminSocket } from "@/lib/admin-socket";
-
-function clearAuthCookies() {
-    const expired = "path=/; max-age=0; SameSite=Lax";
-    document.cookie = `auth_token=; ${expired}`;
-    document.cookie = `auth_role=; ${expired}`;
-}
+import { clearAuthSession } from "@/lib/auth";
 
 type Props = {
     user: { name: string; role: string; avatar?: string | null };
@@ -93,7 +88,7 @@ export function AdminHeaderClient({ user, navItems, permissions }: Props) {
                         </div>
                         {/* Logout */}
                         <button
-                            onClick={() => { disconnectAdminSocket(); clearAuthCookies(); window.location.href = "/login"; }}
+                            onClick={() => { disconnectAdminSocket(); clearAuthSession(); window.location.href = "/login"; }}
                             aria-label="Sign out"
                             className="ml-1 text-muted hover:text-gold transition-colors"
                         >

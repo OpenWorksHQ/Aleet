@@ -1,7 +1,7 @@
 const express = require('express');
 const http = require('http');
 const dotenv = require('dotenv');
-const path = require('path');
+const helmet = require('helmet');
 const connectDB = require('./config/db'); // 🟢 DB connection
 const initSockets = require('./sockets');
 
@@ -15,8 +15,45 @@ const app = express();
 
 const { errorHandler, notFound } = require('./middleware/errorHandler');
 const { corsMiddleware } = require('./middleware/cors');
+const { requireUploadAuth } = require('./middleware/protectedUploads');
+const { generalLimiter, authLimiter } = require('./middleware/rateLimiters');
+const { uploadsDir } = require('./utils/multer');
+const { startBackgroundJobs } = require('./utils/backgroundJobs');
+const { hasKey: hasSsnEncryptionKey } = require('./utils/ssnCrypto');
 
-// CORS first — required for Vercel → ngrok/local API and browser preflight.
+// Fail the DEPLOY, not the first driver signup. Without SSN_ENCRYPTION_KEY the
+// crypto layer throws in production — but lazily, on the first SSN read/write,
+// which means a broken config surfaces as a failed registration hours later
+// (and an admin driver list that shows "no SSN on file"). Check it at boot so a
+// misconfigured release never accepts traffic.
+// Generate one with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+if (process.env.NODE_ENV === 'production' && !hasSsnEncryptionKey()) {
+  console.error(
+    'FATAL: SSN_ENCRYPTION_KEY is not set (or is malformed). Driver SSNs cannot ' +
+    'be encrypted at rest. Refusing to start.',
+  );
+  process.exit(1);
+}
+
+// Trust the first proxy hop (ngrok / Railway / nginx) so req.ip is the real
+// client address — without this every request looks like it came from the proxy
+// and one client would exhaust the shared rate-limit bucket. Keep this at the
+// exact number of proxies in front of the app: a too-permissive value lets a
+// client spoof X-Forwarded-For and bypass the limiter entirely.
+const trustProxyHops = Number.parseInt(process.env.TRUST_PROXY_HOPS, 10);
+app.set('trust proxy', Number.isFinite(trustProxyHops) && trustProxyHops >= 0 ? trustProxyHops : 1);
+
+// Security headers. crossOriginResourcePolicy is relaxed because the Next.js
+// frontends load /uploads images from this origin, and HSTS is left to the
+// edge proxy that terminates TLS.
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    contentSecurityPolicy: false, // API only serves JSON + files; the frontends set their own CSP
+  }),
+);
+
+// CORS next — required for Vercel → ngrok/local API and browser preflight.
 app.use(corsMiddleware);
 
 app.get('/health', (req, res) => res.status(200).json({ status: 'Aleet Backend is running' }));
@@ -52,12 +89,24 @@ app.post('/checkr/webhooks/checkr', express.raw({ type: '*/*' }), require('./con
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Static files
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Static files — EVERYTHING under uploads/ is PII (driver's license photos,
+// vehicle photos, investor data-room documents), so it is behind an auth gate:
+// any valid JWT for general files, admin only for /uploads/investor/*.
+// See middleware/protectedUploads.js (incl. why ?token= is accepted here).
+// `uploadsDir` honours UPLOAD_DIR so files survive a redeploy.
+app.use('/uploads', requireUploadAuth, express.static(uploadsDir));
+
+// Rate limiting — mounted AFTER the raw-body webhook handlers above (those
+// routes have already matched and responded, so Stripe/Checkr retry bursts are
+// never throttled; the limiters additionally skip any /webhook path).
+app.use('/api', generalLimiter);
 
 // Routes
 app.use('/api/users', userRoutes);
-app.use('/api/auth', authRoutes);
+// Strict limiter on the auth surface: credential stuffing, password-reset spam,
+// and signup/start which sends a billable Twilio SMS (further limited inside
+// authRoutes by smsLimiter).
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/vehicle-types', vehicleTypeRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin/admins', adminManagementRoutes);
@@ -80,16 +129,6 @@ app.use('/api/maps', mapsRoutes);
 app.use(notFound);
 app.use(errorHandler);
 
-// Dispatch escalation sweep — every minute, escalate unanswered stage-1 trip
-// offers (advance bookings) to stage 2 (Pro + Diamond). Same-day offers have a
-// single stage so they aren't touched here.
-const { escalateExpiredOffers } = require('./services/dispatchService');
-setInterval(() => {
-  escalateExpiredOffers().catch((e) => {
-    console.error('Escalation sweep error:', e?.message || e);
-  });
-}, 60 * 1000);
-
 // Start server — wrap in http.createServer so Socket.IO can attach to the
 // same port. AQD presence (driver online/offline) runs over the /drivers
 // namespace; see src/sockets/.
@@ -97,39 +136,10 @@ const PORT = process.env.PORT || 5000;
 const httpServer = http.createServer(app);
 initSockets(httpServer);
 
-// Presence sync — refreshes isOnline for admin UI; does not clear availability intent.
-const { runPresenceSweep } = require('./cron/presenceSweeper');
-setInterval(() => {
-  runPresenceSweep().catch((e) => {
-    console.error('Availability sync error:', e?.message || e);
-  });
-}, 5 * 60 * 1000);
-
-// Membership auto-renewal — charges saved cards for members whose quarterly
-// (or monthly/annually) nextBillingDate has passed. Checked hourly; each
-// member is only actually charged once since nextBillingDate advances after
-// a successful charge.
-const { runMembershipRenewalSweep } = require('./cron/membershipRenewalJob');
-setInterval(() => {
-  runMembershipRenewalSweep().catch((e) => {
-    console.error('Membership renewal sweep error:', e?.message || e);
-  });
-}, 60 * 60 * 1000);
-
-// Auto-cancel past Pending/Confirmed trips that never completed — keeps
-// customer trip history accurate (Active / Completed / Cancelled).
-const { runStaleBookingCancelSweep } = require('./cron/staleBookingCancelJob');
-setInterval(() => {
-  runStaleBookingCancelSweep().catch((e) => {
-    console.error('Stale booking cancel sweep error:', e?.message || e);
-  });
-}, 15 * 60 * 1000);
-// Run once shortly after boot so orphans clear without waiting for first interval.
-setTimeout(() => {
-  runStaleBookingCancelSweep().catch((e) => {
-    console.error('Stale booking cancel sweep (boot) error:', e?.message || e);
-  });
-}, 20 * 1000);
+// Recurring sweeps (dispatch escalation, presence sync, membership renewal,
+// stale booking cancellation). Only ONE process may run these — see
+// utils/backgroundJobs.js for the RUN_CRON_JOBS / NODE_APP_INSTANCE gate.
+startBackgroundJobs();
 
 httpServer.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);

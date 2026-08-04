@@ -53,7 +53,16 @@ exports.listPackages = asyncHandler(async (req, res) => {
 // POST /checkr/drivers/:id/invite
 exports.inviteDriver = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { package: pkg, nodeId, work } = req.body;
+  // FIXME: `req.body.package` (the screening package the admin picked, e.g. from
+  // GET /checkr/packages) is accepted but never reaches Checkr. It was destructured
+  // here and dropped: the call below hardcodes `pkg: 'standard'`, and
+  // checkrService.createInvitation ignores its `pkg` argument entirely and always
+  // sends `defaultPackage` ('basic_plus_criminal'). Every driver is therefore
+  // screened with basic_plus_criminal regardless of what the caller requests.
+  // Not fixed here because the intended package is ambiguous (caller's value vs
+  // 'standard' vs the service default) and Checkr package slugs are account-specific
+  // — picking wrong would order (and bill for) the wrong background check.
+  const { nodeId, work } = req.body;
 
   const user = await User.findById(id);
   if (!user) return res.status(404).json({ success: false, message: 'User not found' });

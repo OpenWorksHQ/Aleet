@@ -1,3 +1,4 @@
+const crypto = require('node:crypto');
 const twilio = require('twilio');
 
 const clean = (value) =>
@@ -36,9 +37,18 @@ const getClient = () => {
 /**
  * Generate a 6-digit OTP code
  */
-const generateOTP = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-};
+/**
+ * Six-digit verification code.
+ *
+ * Uses crypto.randomInt, NOT Math.random. Math.random is a non-cryptographic
+ * PRNG: its output is predictable from prior values, so an attacker who can
+ * observe or request codes could derive someone else's. These codes gate
+ * account signup and phone verification, so they need a CSPRNG.
+ *
+ * randomInt's upper bound is exclusive, giving the full 100000-999999 range
+ * with a uniform distribution (no modulo bias).
+ */
+const generateOTP = () => String(crypto.randomInt(100000, 1000000));
 
 /**
  * Send OTP via SMS using Twilio

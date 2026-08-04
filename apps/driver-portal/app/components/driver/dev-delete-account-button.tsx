@@ -3,21 +3,15 @@
 import { useState } from "react";
 import { Trash2, X } from "lucide-react";
 import { toast } from "sonner";
-import { withNgrokHeaders } from "@/lib/ngrok-headers";
-
-function clearAuthCookies() {
-    const expired = "path=/; max-age=0; SameSite=Lax";
-    document.cookie = `auth_token=; ${expired}`;
-    document.cookie = `auth_role=; ${expired}`;
-    document.cookie = `driver_status=; ${expired}`;
-}
+import { withNgrokHeaders } from "@aleet/shared";
+import { clearAuthSession, getAuthToken } from "@/lib/auth";
 
 export function DevDeleteAccountButton() {
     const [confirm, setConfirm] = useState(false);
     const [loading, setLoading] = useState(false);
 
     async function handleDelete() {
-        const token = document.cookie.match(/auth_token=([^;]+)/)?.[1];
+        const token = getAuthToken();
         if (!token) return toast.error("No auth token found.");
 
         setLoading(true);
@@ -29,7 +23,7 @@ export function DevDeleteAccountButton() {
             const json = await res.json();
             if (!res.ok) throw new Error(json.message ?? "Failed to delete account");
             toast.success("Account deleted.");
-            clearAuthCookies();
+            clearAuthSession();
             window.location.href = "/login";
         } catch (err) {
             toast.error(err instanceof Error ? err.message : "Something went wrong");

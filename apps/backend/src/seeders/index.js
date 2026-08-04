@@ -1,9 +1,12 @@
+// Loads apps/backend/.env (same file as src/server.js) and exposes the
+// production guard — must be required before anything reads process.env.
+const { assertSeedingAllowed, resolveSeedPassword } = require('./seedGuard');
+
 const mongoose = require('mongoose');
 const { seedAdmins, clearAdmins } = require('./adminSeeder');
 const { seedPartners } = require('./partnerSeeder');
 const VehicleType = require('../models/Vehicle');
 const User = require('../models/User');
-require('dotenv').config();
 
 // Sample vehicle types data
 const sampleVehicleTypes = [
@@ -29,13 +32,21 @@ const sampleVehicleTypes = [
   }
 ];
 
-// Sample test users (non-admin)
-const sampleUsers = [
+// Local-dev-only fallbacks. These are public (they live in git), so they must
+// never be used anywhere but a developer's own machine. Override with the
+// matching SEED_*_PASSWORD env vars — see .env.example.
+const DEV_DEFAULT_PASSWORDS = {
+  driver: 'driver123456',
+  customer: 'customer123456',
+};
+
+// Built lazily so the env vars are read at seed time, not at import time.
+const buildSampleUsers = () => [
   {
     name: 'John Driver',
     email: 'driver@swifthaven.com',
     phone: '+1234567893',
-    password: 'driver123456',
+    password: resolveSeedPassword('SEED_DRIVER_PASSWORD', DEV_DEFAULT_PASSWORDS.driver, 'John Driver'),
     role: 'driver',
     driver: {
       tier: 'Pro',
@@ -50,7 +61,7 @@ const sampleUsers = [
     name: 'Jane Customer',
     email: 'customer@swifthaven.com',
     phone: '+1234567894',
-    password: 'customer123456',
+    password: resolveSeedPassword('SEED_CUSTOMER_PASSWORD', DEV_DEFAULT_PASSWORDS.customer, 'Jane Customer'),
     role: 'customer',
     subscriptionStatus: 'subscriber',
     preferences: 'premium'
@@ -74,6 +85,8 @@ const connectDB = async () => {
 
 // Seed vehicle types
 const seedVehicleTypes = async () => {
+  assertSeedingAllowed('index.seedVehicleTypes');
+
   try {
     console.log('🚗 Starting vehicle types seeding...');
 
@@ -106,11 +119,13 @@ const seedVehicleTypes = async () => {
 
 // Seed sample users
 const seedSampleUsers = async (vehicleTypes) => {
+  assertSeedingAllowed('index.seedSampleUsers');
+
   try {
     console.log('👥 Starting sample users seeding...');
 
     const createdUsers = [];
-    for (const userData of sampleUsers) {
+    for (const userData of buildSampleUsers()) {
       const existingUser = await User.findOne({ email: userData.email });
       if (existingUser) {
         console.log(`⚠️  User with email ${userData.email} already exists. Skipping...`);
@@ -124,24 +139,27 @@ const seedSampleUsers = async (vehicleTypes) => {
 
       const user = new User(userData);
       await user.save();
-      createdUsers.push(user);
+      // Keep the plaintext with the doc — `userData` is block-scoped to the loop
+      // above, so referencing it in the summary below threw a ReferenceError
+      // (swallowed by the catch, which is why credentials never printed).
+      createdUsers.push({ doc: user, password: userData.password });
       console.log(`✅ Created user: ${user.name} (${user.email}) - Role: ${user.role}`);
     }
 
     if (createdUsers.length > 0) {
       console.log(`\n🎉 Successfully created ${createdUsers.length} sample user(s)!`);
       console.log('\n📋 Sample User Credentials:');
-      createdUsers.forEach(user => {
+      createdUsers.forEach(({ doc: user, password }) => {
         console.log(`\n👤 ${user.name}`);
         console.log(`   Email: ${user.email}`);
-        console.log(`   Password: ${userData.password}`);
+        console.log(`   Password: ${password}`);
         console.log(`   Role: ${user.role}`);
       });
     } else {
       console.log('ℹ️  No new sample users were created.');
     }
 
-    return createdUsers;
+    return createdUsers.map(({ doc }) => doc);
   } catch (error) {
     console.error('❌ Error seeding sample users:', error.message);
     return [];
@@ -150,6 +168,8 @@ const seedSampleUsers = async (vehicleTypes) => {
 
 // Clear all seeded data
 const clearAllData = async () => {
+  assertSeedingAllowed('index.clearAllData');
+
   try {
     console.log('🗑️  Clearing all seeded data...');
 
@@ -200,6 +220,9 @@ const seedAll = async () => {
 const main = async () => {
   const command = process.argv[2];
 
+  // Fail before opening a connection, not after.
+  assertSeedingAllowed('index');
+
   try {
     await connectDB();
 
@@ -213,10 +236,11 @@ const main = async () => {
       case 'seed:vehicles':
         await seedVehicleTypes();
         break;
-      case 'seed:users':
+      case 'seed:users': {
         const vehicleTypes = await VehicleType.find();
         await seedSampleUsers(vehicleTypes);
         break;
+      }
       case 'seed:partners':
         await seedPartners();
         break;

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import { updateDriverAdmin, type ApiDriver } from "@/lib/drivers-api";
 import type { Driver, DriverStatus, DriverAvailability } from "./driver-types";
 import { OnlineBadge, StatusBadge, TierBadge } from "./driver-badges";

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import { ConfirmModal } from "@/app/components/ui/confirm-modal";
 import {
     approveDriver,
@@ -15,7 +15,8 @@ import {
     updateDriverRegionsAdmin,
 } from "@/lib/drivers-api";
 import { fetchActiveRegions, type Region } from "@/lib/regions-api";
-import { withNgrokHeaders } from "@/lib/ngrok-headers";
+import { withNgrokHeaders } from "@aleet/shared";
+import { withUploadToken } from "@/lib/upload-url";
 import { mapApiDriver, type Driver } from "./driver-types";
 import { StatusBadge, TierBadge } from "./driver-badges";
 import { AdminDriverControls } from "./admin-driver-controls";
@@ -91,7 +92,11 @@ function UploadForHireLicenseModal({
             const d = json.data ?? {};
             toast.success("For-Hire License uploaded successfully!");
             onUploaded({
-                forHireLicenseImage: d.forHireLicenseImage ?? d.driver?.forHireLicenseImage ?? "",
+                // Freshly stored file — /uploads needs the token in the query
+                // string, same as every other upload URL in the view model.
+                forHireLicenseImage: withUploadToken(
+                    d.forHireLicenseImage ?? d.driver?.forHireLicenseImage ?? "",
+                ),
                 hasForHireLicense: d.hasForHireLicense ?? d.driver?.hasForHireLicense ?? true,
             });
             onClose();

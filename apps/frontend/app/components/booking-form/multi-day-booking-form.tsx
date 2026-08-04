@@ -2,8 +2,8 @@
 
 import { Loader2 } from "lucide-react";
 import { DatePicker, TimePicker, Select } from "../ui";
-import { CarIcon, MapPinIcon } from "../ui/icons";
-import { cn } from "@/lib/utils";
+import { CarIcon, MapPinIcon } from "@aleet/ui";
+import { cn } from "@aleet/shared";
 import { isPickupTimeDisabled, isDropoffTimeBeforePickup, getDefaultPickupTime, slotFromTimeStr } from "@/lib/booking-constraints";
 import type { SelectOption } from "../ui/select";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import { approvePartnerApplicationClient } from "@/lib/admin-api";
 import { getCustomerSiteUrl } from "@/lib/site-url";
 import type {

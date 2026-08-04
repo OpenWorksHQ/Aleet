@@ -30,7 +30,7 @@ function BookingSuccessContent() {
       setStatus("error");
       return;
     }
-    getPaymentSessionStatus(sessionId)
+    getPaymentSessionStatus(sessionId, getToken() ?? undefined)
       .then((res) => {
         setBookingId(res.booking?.id ?? null);
         if (res.session.payment_status === "paid" || res.booking?.paymentStatus === "Paid") {

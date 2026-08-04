@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Input } from "../ui";
 import { Loader2, Eye, EyeOff, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import { withNgrokHeaders } from "@/lib/ngrok-headers";
+import { withNgrokHeaders } from "@aleet/shared";
 
 export function ResetPasswordForm() {
     const searchParams = useSearchParams();

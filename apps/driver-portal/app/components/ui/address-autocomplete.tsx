@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useMapsLibrary } from "@vis.gl/react-google-maps";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 
 // New Places API type (available since March 2025)
 type Suggestion = google.maps.places.AutocompleteSuggestion;

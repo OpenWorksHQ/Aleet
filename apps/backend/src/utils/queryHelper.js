@@ -28,16 +28,33 @@ const getSorting = (sortBy = 'createdAt', order = 'desc') => {
   return { [sortBy]: sortOrder, _id: 1 };
 };
 
+/** Longest search string accepted — anything beyond this is a DoS attempt. */
+const MAX_SEARCH_LENGTH = 100;
+
 /**
- * Search helper
- * User text ko poore document me search karne ke liye
+ * Escape every regex metacharacter so user input is matched literally.
+ * Without this, `?search=(a+)+$` compiles into a catastrophically backtracking
+ * pattern (ReDoS) and `?search=.*` matches every document.
+ *
+ * @param {string} value
+ * @returns {string}
+ */
+const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Search helper — builds a case-insensitive "contains" match across `fields`.
+ * Input is escaped and length-capped before it reaches the regex engine.
+ *
  * @param {string} searchText
- * @param {Array<string>} fields - Konse fields me search karni hai
+ * @param {Array<string>} fields - fields to search across
  */
 const getSearchQuery = (searchText, fields) => {
-  if (!searchText) return {};
+  if (!searchText || typeof searchText !== 'string') return {};
 
-  const regex = new RegExp(searchText, "i"); // case-insensitive
+  const trimmed = searchText.trim().slice(0, MAX_SEARCH_LENGTH);
+  if (!trimmed) return {};
+
+  const regex = new RegExp(escapeRegex(trimmed), 'i'); // case-insensitive, literal
   return {
     $or: fields.map(field => ({ [field]: regex }))
   };
@@ -46,5 +63,7 @@ const getSearchQuery = (searchText, fields) => {
 module.exports = {
   getPagination,
   getSorting,
-  getSearchQuery
+  getSearchQuery,
+  escapeRegex,
+  MAX_SEARCH_LENGTH
 };

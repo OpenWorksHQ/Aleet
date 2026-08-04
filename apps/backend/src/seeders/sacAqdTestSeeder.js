@@ -18,21 +18,39 @@
  *   SAC_MIN_DRIVERS=4
  */
 
+// Loads apps/backend/.env (same file as src/server.js) and exposes the
+// production guard — must be required before anything reads process.env.
+const { assertSeedingAllowed, resolveSeedPassword } = require('./seedGuard');
+
 const path = require('path');
 const fs = require('fs');
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
-
-require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
 const User = require('../models/User');
 const Region = require('../models/Region');
 const TierSettings = require('../models/TierSettings');
 const Vehicle = require('../models/Vehicle');
 
+// Runtime scratch file — gitignored, written next to the backend package root.
 const BACKUP_PATH = path.resolve(__dirname, '../../.sac-aqd-tier-backup.json');
 const MIN_DRIVERS = Number(process.env.SAC_MIN_DRIVERS || 4);
-const TEST_PASSWORD = 'SacTest123!';
+
+// Local-dev-only fallback (public — it lives in git). Override with
+// SAC_TEST_PASSWORD; see .env.example.
+const DEV_DEFAULT_TEST_PASSWORD = 'SacTest123!';
+
+let cachedTestPassword = null;
+const getTestPassword = () => {
+  if (cachedTestPassword === null) {
+    // Resolved once so the "using the dev default" warning prints a single time.
+    cachedTestPassword = resolveSeedPassword(
+      'SAC_TEST_PASSWORD',
+      DEV_DEFAULT_TEST_PASSWORD,
+      'SAC/AQD test drivers',
+    );
+  }
+  return cachedTestPassword;
+};
 const TEST_EMAIL_PREFIX = 'sac-pro-';
 const TEST_EMAIL_DOMAIN = '@test.aleet.local';
 
@@ -199,7 +217,9 @@ async function ensureTestDrivers(region, vehicleTypeIds, needed) {
   const created = [];
   if (needed <= 0) return created;
 
-  const hashedPassword = await bcrypt.hash(TEST_PASSWORD, 10);
+  // Plain password — the User pre-save hook bcrypt-hashes it exactly once.
+  // (Pre-hashing here caused a double hash, so the printed password never worked.)
+  const password = getTestPassword();
 
   for (let i = 0; i < needed && i < TEST_DRIVER_TEMPLATES.length; i++) {
     const tpl = TEST_DRIVER_TEMPLATES[i];
@@ -215,7 +235,7 @@ async function ensureTestDrivers(region, vehicleTypeIds, needed) {
       name: tpl.name,
       email: tpl.email,
       phone: tpl.phone,
-      password: hashedPassword,
+      password,
       role: 'driver',
       isPhoneVerified: true,
       active: true,
@@ -247,6 +267,8 @@ async function countAqd(regionId) {
 }
 
 async function seedSacAqd() {
+  assertSeedingAllowed('sacAqdTestSeeder.seedSacAqd');
+
   const region = await resolveRegion();
   const vehicleTypeIds = await getDefaultVehicleTypeIds();
 
@@ -274,7 +296,7 @@ async function seedSacAqd() {
 
   if (created.length > 0 || stillNeeded > 0) {
     console.log(`\n🔑 SAC test driver login (driver portal http://localhost:3002/login):`);
-    console.log(`   Password for all sac-pro-* accounts: ${TEST_PASSWORD}`);
+    console.log(`   Password for all sac-pro-* accounts: ${getTestPassword()}`);
   }
 
   console.log(`\n📊 Current AQD for region: ${aqd}`);
@@ -311,6 +333,12 @@ async function revertSacAqd() {
 
 async function main() {
   const cmd = process.argv[2] || 'seed';
+
+  // Fail before opening a connection, not after. `revert` is deliberately NOT
+  // guarded: it only restores production-safe tier settings and marks the
+  // sac-pro-* test drivers offline, so it must stay usable as the escape hatch
+  // if a seed ever reached a live database.
+  if (cmd !== 'revert') assertSeedingAllowed('sacAqdTestSeeder');
 
   try {
     await connectDB();

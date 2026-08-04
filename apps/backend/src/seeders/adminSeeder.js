@@ -1,15 +1,26 @@
+// Loads apps/backend/.env (same file as src/server.js) and exposes the
+// production guard — must be required before anything reads process.env.
+const { assertSeedingAllowed, resolveSeedPassword } = require('./seedGuard');
+
 const mongoose = require('mongoose');
 const User = require('../models/User');
-const bcrypt = require('bcryptjs');
-require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env.local') });
 
-// Test admin data
-const testAdmins = [
+// Local-dev-only fallbacks. These are public (they live in git), so they must
+// never be used anywhere but a developer's own machine. Override with the
+// matching SEED_*_PASSWORD env vars — see .env.example.
+const DEV_DEFAULT_PASSWORDS = {
+  superAdmin: 'admin123456',
+  bookingManager: 'manager123456',
+  userManager: 'user123456',
+};
+
+// Built lazily so the env vars are read at seed time, not at import time.
+const buildTestAdmins = () => [
   {
     name: 'Super Admin',
     email: 'admin@swifthaven.com',
     phone: '+1234567890',
-    password: 'admin123456',
+    password: resolveSeedPassword('SEED_ADMIN_PASSWORD', DEV_DEFAULT_PASSWORDS.superAdmin, 'Super Admin'),
     role: 'admin',
     admin: {
       permissions: ['super-admin', 'manage-users', 'view-reports', 'manage-bookings']
@@ -20,7 +31,7 @@ const testAdmins = [
     name: 'Booking Manager',
     email: 'booking.manager@swifthaven.com',
     phone: '+1234567891',
-    password: 'manager123456',
+    password: resolveSeedPassword('SEED_BOOKING_MANAGER_PASSWORD', DEV_DEFAULT_PASSWORDS.bookingManager, 'Booking Manager'),
     role: 'admin',
     admin: {
       permissions: ['manage-bookings', 'view-reports']
@@ -30,7 +41,7 @@ const testAdmins = [
     name: 'User Manager',
     email: 'user.manager@swifthaven.com',
     phone: '+1234567892',
-    password: 'user123456',
+    password: resolveSeedPassword('SEED_USER_MANAGER_PASSWORD', DEV_DEFAULT_PASSWORDS.userManager, 'User Manager'),
     role: 'admin',
     admin: {
       permissions: ['manage-users', 'view-reports']
@@ -55,8 +66,12 @@ const connectDB = async () => {
 
 // Seed admin users
 const seedAdmins = async () => {
+  assertSeedingAllowed('adminSeeder.seedAdmins');
+
   try {
     console.log('🚀 Starting admin seeding process...');
+
+    const testAdmins = buildTestAdmins();
 
     // Check if admins already exist
     const existingAdmins = await User.find({ role: 'admin' });
@@ -78,17 +93,19 @@ const seedAdmins = async () => {
       // Create new admin user
       const admin = new User(adminData);
       await admin.save();
-      createdAdmins.push(admin);
+      // Keep the plaintext alongside the doc — indexing back into testAdmins by
+      // position is wrong as soon as one entry is skipped.
+      createdAdmins.push({ doc: admin, password: adminData.password });
       console.log(`✅ Created admin: ${admin.name} (${admin.email})`);
     }
 
     if (createdAdmins.length > 0) {
       console.log(`\n🎉 Successfully created ${createdAdmins.length} admin user(s)!`);
       console.log('\n📋 Admin Credentials:');
-      createdAdmins.forEach((admin, index) => {
+      createdAdmins.forEach(({ doc: admin, password }) => {
         console.log(`\n👤 ${admin.name}`);
         console.log(`   Email: ${admin.email}`);
-        console.log(`   Password: ${testAdmins[index].password}`);
+        console.log(`   Password: ${password}`);
         console.log(`   Permissions: ${admin.admin.permissions.join(', ')}`);
       });
     } else {
@@ -102,6 +119,8 @@ const seedAdmins = async () => {
 
 // Clear all admin users (use with caution)
 const clearAdmins = async () => {
+  assertSeedingAllowed('adminSeeder.clearAdmins');
+
   try {
     console.log('🗑️  Clearing all admin users...');
     const result = await User.deleteMany({ role: 'admin' });
@@ -114,6 +133,9 @@ const clearAdmins = async () => {
 // Main function
 const main = async () => {
   const command = process.argv[2];
+
+  // Fail before opening a connection, not after.
+  assertSeedingAllowed('adminSeeder');
 
   try {
     await connectDB();

@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import { MapPin, Flag, Navigation, Loader2 } from "lucide-react";
-import { EditIcon, PhoneIcon } from "@/app/components/ui/icons";
+import { EditIcon, PhoneIcon } from "@aleet/ui";
 import { getToken } from "@/lib/auth";
-import { toTelHref } from "@/lib/phone";
+import { toTelHref } from "@aleet/shared";
 import {
     fetchActiveTrips,
     fetchCompletedTrips,

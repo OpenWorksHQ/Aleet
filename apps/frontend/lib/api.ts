@@ -1,7 +1,7 @@
-import { withNgrokHeaders } from "@/lib/ngrok-headers";
+import { withNgrokHeaders } from "@aleet/shared";
+import { removeToken } from "@/lib/auth";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
-console.log("API Base URL, process.env.NEXT_PUBLIC_API_URL:", BASE_URL);
 
 export type ApiResponse<T = undefined> = {
   success: boolean;
@@ -53,8 +53,10 @@ export async function apiFetch<T = undefined>(
       !path.startsWith("/auth/") &&
       !path.startsWith("/partners/auth/")
     ) {
-      // Token expired or invalid — clear it and redirect to login
-      document.cookie = "auth_token=; path=/; max-age=0";
+      // Token expired or invalid — clear it and redirect to login.
+      // Goes through the lib/auth.ts helper so the eventual HttpOnly-cookie
+      // migration stays a one-file change (see TODO(security) there).
+      removeToken();
       window.location.href = "/login";
     }
     throw new ApiError(res.status, json.message ?? "Unknown error", json.errors);

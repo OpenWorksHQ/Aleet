@@ -54,7 +54,12 @@ const driverSignupComplete = asyncHandler(async (req, res) => {
   try {
     // Support both JSON and multipart/form-data (body may come from either)
     const body = req.body || {};
-    const { docsToken, hasForHireLicense, authorizeBackgroundCheck } = body;
+    // hasForHireLicense is intentionally NOT read from the body here — the
+    // authoritative value was captured at the documents step and is carried in
+    // the signed docsToken, which AuthService.driverSignupComplete reads. Taking
+    // it from the request body would let a client self-declare the licence (and
+    // so upgrade its own driver tier) at the final step.
+    const { docsToken, authorizeBackgroundCheck } = body;
 
     if (!docsToken) {
       return sendValidationError(res, "docsToken is required");

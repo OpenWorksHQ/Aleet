@@ -7,7 +7,7 @@ import { ChevronDown, LogOut } from "lucide-react";
 import { AUTH_CHANGED_EVENT, getToken, removeToken } from "@/lib/auth";
 import { getProfile } from "@/lib/api/users";
 import type { User } from "@/lib/api/auth";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import { DriverPortalNavLink } from "@/app/components/driver-portal-nav-link";
 import { PartnerAuthNavLink } from "@/app/components/partner/partner-auth-nav-link";
 

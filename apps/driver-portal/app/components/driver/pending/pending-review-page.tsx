@@ -2,26 +2,11 @@
 
 import { useEffect } from "react";
 import { AleetLogo } from "@/app/components/ui/aleet-logo";
-import { withNgrokHeaders } from "@/lib/ngrok-headers";
+import { withNgrokHeaders } from "@aleet/shared";
+import { clearAuthSession, getAuthToken } from "@/lib/auth";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 const POLL_INTERVAL_MS = 15_000;
-
-function getAuthToken(): string | null {
-    return (
-        document.cookie
-            .split("; ")
-            .find((c) => c.startsWith("auth_token="))
-            ?.split("=")[1] ?? null
-    );
-}
-
-function clearAuthCookies() {
-    const expired = "path=/; max-age=0; SameSite=Lax";
-    document.cookie = `auth_token=; ${expired}`;
-    document.cookie = `auth_role=; ${expired}`;
-    document.cookie = `driver_status=; ${expired}`;
-}
 
 const CHECKLIST = [
     { label: "Identity verification", description: "Government-issued ID and personal details" },
@@ -51,11 +36,11 @@ export function PendingReviewPage() {
                 if (!res.ok) return;
                 const json = await res.json();
                 const status: string = json.data?.driver?.status ?? json.driver?.status ?? "";
+                // Navigate only — the proxy re-checks the real status from the
+                // token, so nothing needs to be written to a cookie here.
                 if (status === "rejected") {
-                    document.cookie = `driver_status=rejected; path=/; max-age=604800; SameSite=Lax`;
                     window.location.href = "/rejected";
                 } else if (DASHBOARD_STATUSES.has(status)) {
-                    document.cookie = `driver_status=${status}; path=/; max-age=604800; SameSite=Lax`;
                     window.location.href = "/driver";
                 }
             } catch {
@@ -77,7 +62,7 @@ export function PendingReviewPage() {
                     <span className="text-base font-semibold text-gold">Aleet</span>
                 </div>
                 <button
-                    onClick={() => { clearAuthCookies(); window.location.href = "/login"; }}
+                    onClick={() => { clearAuthSession(); window.location.href = "/login"; }}
                     className="text-xs text-muted transition-colors hover:text-gold"
                 >
                     Sign out

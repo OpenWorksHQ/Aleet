@@ -1,6 +1,6 @@
 import Link, { type LinkProps } from "next/link";
 import type { AnchorHTMLAttributes } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 
 type TextLinkProps = LinkProps &
   Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href">;

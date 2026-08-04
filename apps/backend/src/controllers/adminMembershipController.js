@@ -18,7 +18,6 @@ const MonthlyHours = require('../models/MonthlyHours');
 const TierSettings = require('../models/TierSettings');
 const FounderInvite = require('../models/FounderInvite');
 const Region = require('../models/Region');
-const { getQuarterlyUsedHours } = require('../utils/membershipHours');
 const {
     sendSuccess,
     sendError,

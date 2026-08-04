@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import {
     TIER_LABELS,
     TIER_COLORS,

@@ -5,14 +5,30 @@ const {
   updateVehicleType,
   deleteVehicleType
 } = require('../controllers/vehicleController');
-const authenticateJWT = require('../middleware/authMiddleware');
 const requireAdmin = require('../middleware/requireAdmin');
+const { validate } = require('../middleware/validate');
+const {
+  createVehicleTypeBody,
+  updateVehicleTypeBody,
+  vehicleTypeIdParams,
+  listVehicleTypesQuery,
+} = require('../validators/vehicleTypeValidators');
 
 const router = express.Router();
 
-router.post('/add', requireAdmin, addVehicleType);
-router.get('/', getAllVehicleTypes);
-router.put('/update/:id', requireAdmin, updateVehicleType);
-router.delete('/delete/:id', requireAdmin, deleteVehicleType); // ✅ Delete API
+router.post('/add', requireAdmin, validate({ body: createVehicleTypeBody }), addVehicleType);
+router.get('/', validate({ query: listVehicleTypesQuery }), getAllVehicleTypes);
+router.put(
+  '/update/:id',
+  requireAdmin,
+  validate({ params: vehicleTypeIdParams, body: updateVehicleTypeBody }),
+  updateVehicleType
+);
+router.delete(
+  '/delete/:id',
+  requireAdmin,
+  validate({ params: vehicleTypeIdParams }),
+  deleteVehicleType
+); // ✅ Delete API
 
 module.exports = router;

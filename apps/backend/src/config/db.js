@@ -2,7 +2,12 @@
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 
-dotenv.config({ path: require('path').resolve(__dirname, '../../.env.local') });
+// Must match the file server.js loads. This used to point at `.env.local`,
+// which does not exist in any deployment — connectDB only worked because
+// server.js had already loaded `.env` first (dotenv does not overwrite vars
+// that are already set). Anything importing this module directly got an
+// undefined MONGODB_URI.
+dotenv.config({ path: require('path').resolve(__dirname, '../../.env') });
 
 const connectDB = async () => {
   try {

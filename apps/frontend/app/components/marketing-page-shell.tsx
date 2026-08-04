@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import { AppHeader } from "./app-header";
 import { SiteFooter } from "./site-footer";
 

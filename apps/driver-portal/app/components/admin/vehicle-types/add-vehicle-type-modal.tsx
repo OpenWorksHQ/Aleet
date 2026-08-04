@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import type { VehicleType } from "./vehicle-types";
 import { createVehicleTypeClient, updateVehicleTypeClient } from "@/lib/admin-api";
 

@@ -50,8 +50,16 @@ const errorHandler = (err, req, res, next) => {
     return sendError(res, 400, 'Unexpected file field');
   }
 
-  // Default server error
-  return sendError(res, 500, err.message || 'Internal Server Error');
+  // Default server error.
+  // In production the raw message is withheld: unhandled errors routinely carry
+  // Mongo connection strings, Stripe/Twilio API responses, file paths and stack
+  // fragments. The full error is still logged above for operators.
+  const isProduction = process.env.NODE_ENV === 'production';
+  const message = isProduction
+    ? 'Internal Server Error'
+    : (err.message || 'Internal Server Error');
+
+  return sendError(res, 500, message);
 };
 
 /**

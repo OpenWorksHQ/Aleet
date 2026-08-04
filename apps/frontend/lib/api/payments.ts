@@ -1,5 +1,5 @@
 import { apiFetch, ApiError } from "@/lib/api";
-import { withNgrokHeaders } from "@/lib/ngrok-headers";
+import { withNgrokHeaders } from "@aleet/shared";
 import { getToken } from "@/lib/auth";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
@@ -154,10 +154,19 @@ export async function createCheckoutSession(
   return parseJson<CheckoutSessionResult>(res);
 }
 
-/** Verify checkout session after redirect — top-level response. */
-export async function getPaymentSessionStatus(sessionId: string): Promise<PaymentSessionStatus> {
+/**
+ * Verify checkout session after redirect — top-level response.
+ *
+ * `GET /api/payments/session/:sessionId` is authenticated and checks that the
+ * session belongs to the caller's booking, so the token is required — same
+ * optional-token handling as `createCheckoutSession` above.
+ */
+export async function getPaymentSessionStatus(
+  sessionId: string,
+  token?: string,
+): Promise<PaymentSessionStatus> {
   const res = await fetch(`${BASE_URL}/api/payments/session/${sessionId}`, {
-    headers: withNgrokHeaders({ "Content-Type": "application/json" }),
+    headers: authHeaders(token),
   });
   return parseJson<PaymentSessionStatus>(res);
 }

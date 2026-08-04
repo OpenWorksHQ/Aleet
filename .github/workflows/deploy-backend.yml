@@ -1,7 +1,17 @@
 name: Deploy Backend to EC2
 
 # Requires a self-hosted GitHub Actions runner installed on the EC2 instance.
-# The runner checks out the monorepo, installs backend workspace deps, and restarts PM2.
+# The runner checks out the monorepo, gates on tests, installs backend workspace
+# deps, and restarts PM2.
+#
+# ─── READ THIS BEFORE CHANGING PATHS ──────────────────────────────────────────
+# `actions/checkout` runs `git clean -ffdx` on an existing runner workspace.
+# The `-x` flag deletes ignored files too, and `uploads` is listed in
+# apps/backend/.gitignore. Anything user-uploaded that lives under
+# $GITHUB_WORKSPACE is therefore DESTROYED on every deploy — that is how
+# driver's-license images, vehicle photos and investor documents were being
+# lost. Persistent state MUST live outside $GITHUB_WORKSPACE (see UPLOAD_DIR
+# below). Do not "simplify" it back into the workspace.
 
 on:
   push:
@@ -13,12 +23,36 @@ on:
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch:
+
+# Two overlapping deploys on one self-hosted runner would fight over the same
+# workspace and the same PM2 process. Queue them instead of cancelling, so a
+# half-installed node_modules never reaches production.
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: self-hosted
 
+    env:
+      # Persistent, OUTSIDE the workspace. Override with a repo variable only if
+      # the replacement path is also outside $GITHUB_WORKSPACE.
+      UPLOAD_DIR: ${{ vars.UPLOAD_DIR || '/var/lib/aleet/uploads' }}
+      APP_PORT: ${{ vars.PORT || '5000' }}
+
     steps:
+      # `clean` is left at its default (true) on purpose. Deliberate tradeoff:
+      #   - clean: false would leave deleted-from-git source files behind, so
+      #     stale modules could keep running in production. That is a worse
+      #     failure than the one it prevents.
+      #   - The upload-data fix is UPLOAD_DIR (honoured by both multer and the
+      #     static route), not the checkout flag. `git clean` removes the
+      #     symlink below, never the directory it points at, so persistent
+      #     data is safe either way.
+      # If you ever start storing other state in the workspace, move it out
+      # rather than turning cleaning off.
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -29,10 +63,102 @@ jobs:
           cache: "npm"
           cache-dependency-path: package-lock.json
 
+      # Creates the persistent upload directory (outside the workspace) and
+      # points apps/backend/uploads at it.
+      #
+      # UPLOAD_DIR is the real fix: src/utils/multer.js writes there AND
+      # src/server.js serves `express.static(uploadsDir)` from the same value,
+      # so uploads survive `git clean` on their own.
+      # The symlink is kept as a SAFETY NET, not a requirement: if UPLOAD_DIR is
+      # ever unset or misconfigured, multer falls back to the in-repo
+      # apps/backend/uploads path — which the symlink redirects to the
+      # persistent store, so a config slip degrades instead of losing data.
+      # It also keeps URLs from files uploaded before this change resolving.
+      - name: Prepare persistent upload storage
+        run: |
+          set -euo pipefail
+
+          case "$UPLOAD_DIR" in
+            "$GITHUB_WORKSPACE"*)
+              echo "::error::UPLOAD_DIR ($UPLOAD_DIR) is inside GITHUB_WORKSPACE. It would be deleted by git clean on the next deploy. Point it at a path outside the workspace."
+              exit 1
+              ;;
+          esac
+
+          if [ ! -d "$UPLOAD_DIR" ]; then
+            mkdir -p "$UPLOAD_DIR" 2>/dev/null \
+              || sudo mkdir -p "$UPLOAD_DIR" \
+              || { echo "::error::Cannot create $UPLOAD_DIR. Create it once by hand and chown it to the runner user."; exit 1; }
+          fi
+          if [ ! -w "$UPLOAD_DIR" ]; then
+            sudo chown -R "$(id -u):$(id -g)" "$UPLOAD_DIR" \
+              || { echo "::error::$UPLOAD_DIR is not writable by the runner user ($(id -un))."; exit 1; }
+          fi
+          # Investor data-room subdirectory (see src/utils/multer.js).
+          mkdir -p "$UPLOAD_DIR/investor"
+
+          LINK="$GITHUB_WORKSPACE/apps/backend/uploads"
+          if [ -L "$LINK" ]; then
+            rm -f "$LINK"
+          elif [ -d "$LINK" ]; then
+            # A real directory here means files were written into the workspace.
+            # Rescue them into the persistent store before replacing it.
+            echo "Migrating pre-existing workspace uploads into $UPLOAD_DIR"
+            cp -a "$LINK/." "$UPLOAD_DIR/" || true
+            mv "$LINK" "$LINK.migrated-$(date +%s)"
+          fi
+          ln -s "$UPLOAD_DIR" "$LINK"
+          echo "uploads -> $(readlink "$LINK")"
+
+      # Install WITH devDependencies so the test suite can run. Scoped to the
+      # backend workspace on purpose: a bare `npm ci` would also drag the two
+      # Next.js toolchains onto the API box on every deploy. Pruned back to
+      # production deps further down, before PM2 is restarted.
+      - name: Install dependencies (incl. dev, for tests)
+        run: npm ci --workspace=swift-haven-backend
+
+      # Cheap syntax gate over every backend source file — this is what stops a
+      # typo from reaching production. The entrypoint is checked explicitly.
+      # We deliberately do NOT `require()` server.js: it calls connectDB() and
+      # listen() at module scope, so loading it would hit the production
+      # database and fight the running process for the port.
+      - name: Syntax check backend sources
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/apps/backend"
+          node --check src/server.js
+          find src -name '*.js' -type f -print0 | xargs -0 -n 1 node --check
+          echo "Syntax OK"
+
+      # Runs `node --test src/`. Deliberately BEFORE the .env is generated so a
+      # stray integration test cannot pick up production credentials.
+      - name: Run backend tests
+        env:
+          NODE_ENV: test
+        run: npm test --workspace=swift-haven-backend
+
+      # Back down to production dependencies for the process PM2 actually runs.
+      - name: Install production dependencies
+        run: npm ci --omit=dev --workspace=swift-haven-backend
+
+      # ─── SECRETS ────────────────────────────────────────────────────────────
+      # This file holds every production credential and lives on a self-hosted
+      # runner whose workspace persists between jobs. It MUST NOT be
+      # world-readable or group-readable: it is created under `umask 077` and
+      # chmod 600'd. Never `chmod +r` it, never `cat` it in a step, never copy
+      # it somewhere with looser permissions.
+      # It stays at apps/backend/.env because src/server.js loads dotenv from a
+      # hardcoded `../.env` relative to src/. If that ever becomes configurable,
+      # move this file to the persistent app directory alongside UPLOAD_DIR.
       - name: Generate .env
         run: |
-          cat > $GITHUB_WORKSPACE/apps/backend/.env << 'EOF'
+          set -euo pipefail
+          ENV_FILE="$GITHUB_WORKSPACE/apps/backend/.env"
+          rm -f "$ENV_FILE"
+          ( umask 077 && : > "$ENV_FILE" )
+          cat > "$ENV_FILE" << 'EOF'
           # ─── Server ───────────────────────────────────────────────────
+          NODE_ENV=production
           PORT=${{ vars.PORT }}
           APP_BASE_URL=${{ vars.APP_BASE_URL }}
 
@@ -59,10 +185,39 @@ jobs:
           CHECKR_DASHBOARD_BASE=${{ vars.CHECKR_DASHBOARD_BASE }}
 
           # ─── AWS S3 ───────────────────────────────────────────────────
+          # When AWS_S3_BUCKET is set the backend stores uploads in S3 instead
+          # of on local disk; leave it empty to keep using UPLOAD_DIR.
           AWS_REGION=${{ vars.AWS_REGION }}
           AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_S3_BUCKET=${{ vars.AWS_S3_BUCKET }}
+
+          # ─── Uploads ──────────────────────────────────────────────────
+          # MUST be outside $GITHUB_WORKSPACE — anything inside it is deleted
+          # by `git clean -ffdx` during the next checkout. See the header
+          # comment at the top of this workflow.
+          UPLOAD_DIR=${{ vars.UPLOAD_DIR || '/var/lib/aleet/uploads' }}
+
+          # ─── Background jobs ──────────────────────────────────────────
+          # Gates the in-process setInterval sweeps in src/server.js
+          # (dispatch escalation, presence sync, membership renewal, stale
+          # booking cancel). These must run on EXACTLY ONE instance — if PM2
+          # is ever scaled past one instance here, or a second host is added,
+          # set RUN_CRON_JOBS=false everywhere except that single instance,
+          # or members get charged and bookings get swept once per instance.
+          RUN_CRON_JOBS=${{ vars.RUN_CRON_JOBS || 'true' }}
+
+          # ─── CORS ─────────────────────────────────────────────────────
+          # ALLOW_VERCEL_ORIGINS is opt-IN: leaving it unset/false means only
+          # the origins listed below are accepted. Prefer adding specific
+          # preview URLs to ALLOWED_ORIGINS over re-opening the *.vercel.app
+          # wildcard, which trusts every Vercel account on the internet.
+          # NOTE: src/middleware/cors.js also reads DRIVER_PORTAL_URL, which was
+          # never written here before — the *.vercel.app wildcard was masking it.
+          FRONTEND_URL=${{ vars.FRONTEND_URL }}
+          DRIVER_PORTAL_URL=${{ vars.DRIVER_PORTAL_URL }}
+          ALLOWED_ORIGINS=${{ vars.ALLOWED_ORIGINS }}
+          ALLOW_VERCEL_ORIGINS=${{ vars.ALLOW_VERCEL_ORIGINS || 'false' }}
 
           # ─── Google Maps ──────────────────────────────────────────────
           GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}
@@ -73,13 +228,29 @@ jobs:
           GMAIL_APP_PASSWORD=${{ secrets.GMAIL_APP_PASSWORD }}
           INVESTOR_INBOX_EMAIL=${{ vars.INVESTOR_INBOX_EMAIL }}
           API_URL=${{ vars.API_URL }}
-
-          FRONTEND_URL=${{ vars.FRONTEND_URL }}
-          ALLOWED_ORIGINS=${{ vars.ALLOWED_ORIGINS }}
           EOF
-
-      - name: Install dependencies
-        run: npm ci --omit=dev --workspace=swift-haven-backend
+          chmod 600 "$ENV_FILE"
+          ls -l "$ENV_FILE"
 
       - name: Restart app with PM2
-        run: pm2 restart aleet-backend || pm2 start $GITHUB_WORKSPACE/apps/backend/src/server.js --name aleet-backend
+        run: pm2 restart aleet-backend --update-env || pm2 start $GITHUB_WORKSPACE/apps/backend/src/server.js --name aleet-backend
+
+      # Fails the deploy loudly if the restarted process never becomes healthy,
+      # instead of leaving a green checkmark on a dead API.
+      - name: Health check
+        run: |
+          set -euo pipefail
+          if ! command -v curl >/dev/null 2>&1; then
+            echo "::warning::curl not installed on the runner — skipping health check."
+            exit 0
+          fi
+          for i in $(seq 1 15); do
+            if curl -fsS --max-time 5 "http://127.0.0.1:${APP_PORT}/health" >/dev/null; then
+              echo "Backend healthy on port ${APP_PORT}"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::Backend did not answer /health on port ${APP_PORT} after restart."
+          pm2 logs aleet-backend --lines 50 --nostream || true
+          exit 1

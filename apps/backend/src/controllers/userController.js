@@ -1,4 +1,4 @@
-// controllers/userController.js (snippet: ONLY registerUser shown updated)
+// controllers/userController.js
 
 const asyncHandler = require('express-async-handler');
 const bcrypt = require('bcryptjs');
@@ -18,21 +18,10 @@ const {
   sendForbidden,
 } = require('../utils/responseHelper');
 
-// -------------------- REGISTER (UPDATED) --------------------
-const registerUser = asyncHandler(async (req, res) => {
-  try {
-    const user = await AuthService.registerUser(req.body, req.files);
-
-    return sendSuccess(res, 201, 'User registered successfully', user);
-  } catch (error) {
-    console.error('Registration Error:', error);
-    return sendError(
-      res,
-      error.statusCode || 500,
-      error.message || 'Registration failed'
-    );
-  }
-});
+// NOTE: the one-shot `registerUser` handler that wrapped AuthService.registerUser
+// was removed — it was never exported and no route mounted it. Customer signup goes
+// through the signupStart → signupVerify → signupPasscode → signupComplete flow
+// below; AuthService.registerUser is still used internally by that flow.
 
 const signupStart = asyncHandler(async (req, res) => {
   try {

@@ -224,8 +224,9 @@ function validateBookingInput({
     // Venue access (skipSameDayNotice): waive the normal advance-notice rule
     // so pickup can be immediate (or any later time). expectedPickupBy (~30 min)
     // is set separately at booking create for driver ETA messaging.
+    // NOTE: minBookingHours is deliberately NOT read here — the minimum is a
+    // BILLING rule, not a rejection rule. See calculateBookingPrice() below.
     const noticeHours = Number(settings?.sameDayNoticeHours) || 3;
-    const minHours    = Number(settings?.minBookingHours)    || 3;
 
     // Same-day notice rule (non-members). Partner venue_access bookings skip this.
     if (!isSubscriber && !skipSameDayNotice) {

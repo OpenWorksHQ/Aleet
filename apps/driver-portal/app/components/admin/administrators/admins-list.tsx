@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import { ADMIN_ROLES, PERMISSION_LABELS, PERMISSION_COLORS, getRoleFromPermissions, getInitials } from "./admin-types";
 import type { AdminUser } from "./admin-types";
 import { AddAdminModal } from "./add-admin-modal";

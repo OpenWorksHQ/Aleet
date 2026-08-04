@@ -20,12 +20,15 @@ const addAddOn = async (req, res) => {
       return sendConflict(res, 'Add-on already exists');
     }
 
+    // requireAdmin puts a full Mongoose user doc on req.user (its `id` virtual
+    // resolves to the hex _id); authenticateJWT puts { id, role }. Read both
+    // shapes so this keeps working under either middleware.
     const newAddOn = new AddOn({
       name,
       description,
       type,
       price: type === 'paid' ? price : 0,
-      createdBy: req.user.id
+      createdBy: req.user?._id || req.user?.id || null
     });
 
     await newAddOn.save();

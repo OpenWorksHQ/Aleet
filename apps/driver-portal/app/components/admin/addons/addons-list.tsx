@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import type { Addon, AddonType } from "./addon-types";
 import { deleteAddonClient } from "@/lib/admin-api";
 import { AddAddonModal } from "./add-addon-modal";

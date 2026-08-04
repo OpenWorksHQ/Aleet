@@ -1,6 +1,7 @@
 // Shared driver types used across Driver Management components
 
 import type { ApiDriver } from "@/lib/drivers-api";
+import { withUploadToken } from "@/lib/upload-url";
 
 export type DriverStatus =
   | "draft"
@@ -65,9 +66,18 @@ function normalizeAvatarUrl(...values: Array<string | null | undefined>): string
   return null;
 }
 
+/**
+ * `token` — /uploads is auth-gated, so every URL below is stamped with the
+ * session JWT here, at the point the API payload becomes view data. Doing it
+ * once at this boundary (rather than in each `<Image>`) keeps the server-
+ * rendered markup and the client re-render byte-identical, which matters
+ * because the drivers page is server-rendered. Server Components must pass the
+ * token from `cookies()`; Client Components omit it and the cookie is read.
+ */
 export function mapApiDriver(
   d: ApiDriver,
   vehicleTypeMap: Record<string, string> = {},
+  token?: string | null,
 ): Driver {
   return {
     id: d._id,
@@ -89,14 +99,18 @@ export function mapApiDriver(
         .filter(Boolean)
         .join(", ") || "—",
     avatar: initials(d.name),
-    avatarUrl: normalizeAvatarUrl(
-      d.avatar,
-      d.profileImage,
-      d.user?.avatar,
-      d.user?.profileImage,
-      d.driver.avatar,
-      d.driver.profileImage,
-    ),
+    avatarUrl:
+      withUploadToken(
+        normalizeAvatarUrl(
+          d.avatar,
+          d.profileImage,
+          d.user?.avatar,
+          d.user?.profileImage,
+          d.driver.avatar,
+          d.driver.profileImage,
+        ),
+        token,
+      ) || null,
     backgroundCheck: d.driver.backgroundCheck,
     checkrDashboardUrl: d.driver.checkr?.dashboardUrl ?? null,
     checkrStatus: d.driver.checkr?.status ?? null,
@@ -105,9 +119,10 @@ export function mapApiDriver(
     hasOwnVehicle: d.driver.hasOwnVehicle,
     hasForHireLicense: d.driver.hasForHireLicense,
     vehicleTypes: d.driver.vehicleTypes.map((id) => vehicleTypeMap[id] ?? id),
-    licenseImage: d.driver.licenseImage,
-    vehicleImage: d.driver.vehicleImage,
-    forHireLicenseImage: d.driver.forHireLicenseImage,
+    licenseImage: withUploadToken(d.driver.licenseImage, token) || null,
+    vehicleImage: withUploadToken(d.driver.vehicleImage, token) || null,
+    forHireLicenseImage:
+      withUploadToken(d.driver.forHireLicenseImage, token) || null,
     ssn: d.driver.ssn ?? null,
     revisionNotes: d.driver.revisionNotes ?? null,
     regions: Array.isArray(d.driver.regions) ? d.driver.regions : [],

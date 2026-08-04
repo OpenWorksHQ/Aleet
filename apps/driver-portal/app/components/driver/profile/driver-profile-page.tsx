@@ -9,7 +9,8 @@ import {
     updateMyRegions,
     type Region,
 } from "@/lib/regions-api";
-import { withNgrokHeaders } from "@/lib/ngrok-headers";
+import { withNgrokHeaders } from "@aleet/shared";
+import { withUploadToken } from "@/lib/upload-url";
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
     return <label className="mb-1.5 block text-xs font-medium text-muted">{children}</label>;
@@ -394,9 +395,12 @@ export function DriverProfilePage() {
 
                 <div className="flex flex-col items-center gap-4 rounded-xl border border-border bg-page-bg/40 p-5">
                     <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border border-border bg-card-bg text-2xl font-semibold text-gold">
+                        {/* `avatarPreview` is a local `blob:` URL for a freshly
+                            picked file — it must NOT get an upload token; only
+                            the stored /uploads avatar does. */}
                         {avatarPreview || profileAvatar ? (
                             <Image
-                                src={avatarPreview ?? profileAvatar ?? ""}
+                                src={avatarPreview ?? withUploadToken(profileAvatar)}
                                 alt="Avatar preview"
                                 width={112}
                                 height={112}

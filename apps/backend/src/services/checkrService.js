@@ -10,7 +10,6 @@ const CHECKR_API_KEY = process.env.CHECKR_API_KEY;
 
 if (!CHECKR_API_KEY) {
   // Don't crash app; just warn to help during local dev
-  // eslint-disable-next-line no-console
   console.warn('[Checkr] Missing CHECKR_API_KEY. Set it in your .env for real calls.');
 }
 

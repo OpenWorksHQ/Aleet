@@ -2,20 +2,10 @@
 
 import { useEffect } from "react";
 import { useUserStore } from "@/lib/user-store";
-import { withNgrokHeaders } from "@/lib/ngrok-headers";
+import { withNgrokHeaders } from "@aleet/shared";
+import { getAuthToken } from "@/lib/auth";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
-const COOKIE_OPTS = "path=/; max-age=604800; SameSite=Lax";
-
-function getAuthToken(): string | null {
-    if (typeof document === "undefined") return null;
-    return (
-        document.cookie
-            .split("; ")
-            .find((c) => c.startsWith("auth_token="))
-            ?.split("=")[1] ?? null
-    );
-}
 
 export function DriverStatusSync() {
     const setProfile = useUserStore((s) => s.setProfile);
@@ -50,10 +40,9 @@ export function DriverStatusSync() {
                     data.driver?.profileImage ??
                     null;
 
-                // Keep cookies fresh so middleware has accurate state on next navigation
-                document.cookie = `auth_role=${role}; ${COOKIE_OPTS}`;
-                document.cookie = `driver_status=${driverStatus}; ${COOKIE_OPTS}`;
-
+                // Client-side display state only. Routing/authorization is
+                // derived from the token server-side (see lib/session.ts), so
+                // no role or status is mirrored into cookies here.
                 setProfile({
                     name: data.name ?? "",
                     email: data.email ?? "",

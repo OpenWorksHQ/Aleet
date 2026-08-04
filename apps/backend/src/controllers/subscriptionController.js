@@ -27,7 +27,7 @@ const {
     sendError,
     sendValidationError,
     sendNotFound,
-    sendUnauthorized
+    sendForbidden
 } = require('../utils/responseHelper');
 const { getOrCreateStripeCustomer } = require('./savedCardController');
 
@@ -247,6 +247,15 @@ const processSubscriptionPayment = asyncHandler(async (req, res) => {
         const userId = session.metadata?.userId;
         const plan   = session.metadata?.plan || 'standard';
         if (!userId)  return sendValidationError(res, 'User ID not found in session');
+
+        // The route is authenticated but the handler acts purely on the session
+        // metadata — without this check any logged-in user could pass someone
+        // else's sessionId and activate/mutate that user's membership.
+        const requesterId = String(req.user?.id || '');
+        const isAdmin = req.user?.role === 'admin';
+        if (!isAdmin && String(userId) !== requesterId) {
+            return sendForbidden(res, 'This checkout session belongs to another account');
+        }
 
         const user = await User.findById(userId);
         if (!user) return sendNotFound(res, 'User not found');

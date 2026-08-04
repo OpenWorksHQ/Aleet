@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import type { DriverStatus } from "./driver-types";
 
 const statusMap: Record<DriverStatus, { label: string; cls: string }> = {

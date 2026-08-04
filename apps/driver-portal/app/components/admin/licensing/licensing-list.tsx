@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect, useRef } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import {
     LICENSE_STATUS_LABELS,
     LICENSE_STATUS_COLORS,

@@ -6,7 +6,6 @@ const {
     deletePayoutMethod,
     addBankAccount,
     checkBankAccount,
-    getBankAccountStatus,
     getStripeStatus,
     startStripeOnboarding,
 } = require("../controllers/bankAccountController");

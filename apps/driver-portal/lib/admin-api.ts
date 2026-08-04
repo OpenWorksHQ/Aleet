@@ -1,5 +1,5 @@
 import type { AdminPermission } from "@/lib/admin-access";
-import { withNgrokHeaders } from "@/lib/ngrok-headers";
+import { withNgrokHeaders } from "@aleet/shared";
 import type {
   AdminPartner,
   ApprovePartnerApplicationBody,

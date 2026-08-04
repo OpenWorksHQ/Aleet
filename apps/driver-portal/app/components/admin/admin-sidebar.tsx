@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { AleetLogo } from "@/app/components/ui/aleet-logo";
 import { AdminNavIcon } from "./admin-nav-icon";
 import type { NavItem } from "./admin-nav-config";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import type { ApiSidebarStats } from "@/lib/admin-api";
 import {
     hasAdminPermission,
