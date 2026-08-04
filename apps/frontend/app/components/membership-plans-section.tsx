@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import {
   PUBLIC_MEMBERSHIP_PLANS,
   MEMBERSHIP_SAVINGS,

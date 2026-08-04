@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 import { AuthPageShell } from "../components/auth-page-shell";
 import { toast } from "../components/ui";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import {
   checkUserExists,
   login,

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { toTelHref } from "@/lib/phone";
-import { cn } from "@/lib/utils";
+import { toTelHref } from "@aleet/shared";
+import { cn } from "@aleet/shared";
 
 type PhoneLinkProps = {
   phone: string | null | undefined;

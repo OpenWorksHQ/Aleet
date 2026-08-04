@@ -1,7 +1,7 @@
 "use client";
 
 import type { PartnerUpdateRequest } from "@/lib/partner/types";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 
 const STATUS_STYLES = {
   pending: "border-amber-500/30 bg-amber-500/10 text-amber-800",

@@ -3,7 +3,7 @@
 import { Building2, Tag, X } from "lucide-react";
 import type { PartnerContext } from "@/lib/partner/types";
 import { clearPartnerContext } from "@/lib/partner/attribution";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 
 type PartnerContextBannerProps = {
   partner: PartnerContext;

@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import { Check, Upload } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 
 interface FileUploadAreaProps {
     label: string;

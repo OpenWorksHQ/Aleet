@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { AuthPageShell } from "../../components/auth-page-shell";
 import { Button, Input, toast } from "../../components/ui";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import { forgotPassword, resetPassword } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api";
 import Link from "next/link";

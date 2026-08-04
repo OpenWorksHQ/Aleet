@@ -2,8 +2,8 @@
 
 import { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
-import { Input } from "@/app/components/ui/input";
-import { cn } from "@/lib/utils";
+import { Input } from "@aleet/ui";
+import { cn } from "@aleet/shared";
 import type { Driver, DriverStatus } from "./driver-types";
 import { StatusBadge, TierBadge, OnlineBadge, AvailabilityBadge } from "./driver-badges";
 import { DriverDetailModal } from "./driver-detail-modal";

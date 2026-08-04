@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Input } from "../ui";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { loginWithIdentifier } from "@/lib/auth";
+import { loginWithIdentifier, setAuthToken } from "@/lib/auth";
 
 export default function AuthForm() {
     const [identifier, setIdentifier] = useState("");
@@ -25,11 +25,10 @@ export default function AuthForm() {
 
             const role = user.role?.toLowerCase() ?? "";
             const status = user.driver?.status ?? "";
-            const cookieOpts = "path=/; max-age=604800; SameSite=Lax";
-            document.cookie = `auth_token=${token}; ${cookieOpts}`;
-            document.cookie = `auth_role=${role}; ${cookieOpts}`;
-            document.cookie = `driver_status=${status}; ${cookieOpts}`;
+            setAuthToken(token);
 
+            // Landing path is a UX hint only — the proxy re-derives role and
+            // status from the token server-side on the next request.
             if (role === "driver") {
                 const canAccessDashboard = new Set(["active", "approved", "background_completed", "needs_revision"]).has(status);
                 window.location.href = canAccessDashboard ? "/driver" : "/pending";

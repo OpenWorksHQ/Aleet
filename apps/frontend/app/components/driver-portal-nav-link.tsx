@@ -1,5 +1,5 @@
 import { getDriverPortalLoginUrl } from "@/lib/site-url";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 
 type DriverPortalNavLinkProps = {
   variant?: "become-a-driver" | "menu" | "account-menu";

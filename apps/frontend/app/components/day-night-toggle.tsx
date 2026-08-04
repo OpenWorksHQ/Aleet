@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState } from "react";
 import Image, { StaticImageData } from "next/image";
-import { SunIcon, MoonIcon } from "./ui/icons";
+import { SunIcon, MoonIcon } from "@aleet/ui";
 
 type DayNightMode = "day" | "night";
 

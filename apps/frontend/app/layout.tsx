@@ -77,7 +77,18 @@ export default function RootLayout({
       lang="en"
       className={`${karla.variable} ${playfair.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-aleet-cream text-aleet-text">
+      {/*
+        suppressHydrationWarning: browser extensions (Grammarly, password
+        managers, ad blockers) inject attributes onto <body> before React
+        hydrates — e.g. data-gr-ext-installed — which React reports as a
+        hydration mismatch even though the app rendered correctly.
+        This suppresses ONLY this element's own attribute diff, one level deep;
+        genuine mismatches inside the tree still surface normally.
+      */}
+      <body
+        className="min-h-full flex flex-col bg-aleet-cream text-aleet-text"
+        suppressHydrationWarning
+      >
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}

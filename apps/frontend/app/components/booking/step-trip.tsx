@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { DatePicker, TimePicker, Select } from "@/app/components/ui";
-import { CarIcon, MapPinIcon } from "@/app/components/ui/icons";
+import { CarIcon, MapPinIcon } from "@aleet/ui";
 import type { SelectOption } from "@/app/components/ui/select";
 import { getVehicleTypes, type VehicleType } from "@/lib/api/vehicle-types";
 import { getRegions, type Region } from "@/lib/api/regions";

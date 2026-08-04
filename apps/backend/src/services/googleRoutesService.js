@@ -34,7 +34,7 @@ function buildWaypoint(loc) {
     }
 
     // Plain Place ID (starts with ChIJ, 27+ chars base64url)
-    if (/^ChIJ[A-Za-z0-9_\-]{20,}$/.test(loc)) {
+    if (/^ChIJ[A-Za-z0-9_-]{20,}$/.test(loc)) {
         return { waypoint: { placeId: loc } };
     }
 

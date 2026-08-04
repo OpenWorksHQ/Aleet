@@ -158,11 +158,14 @@ exports.webhook = async (req, res) => {
         }
       }
 
-      // Handle subscription payments — delegate to subscriptionController
+      // Handle subscription payments.
+      // NOTE: delegation to subscriptionController.processSubscriptionPayment was
+      // abandoned — that handler is an asyncHandler expecting req/res, so the
+      // activation logic is replicated inline below. FIXME: this inline copy has
+      // drifted from subscriptionController (it always sets nextBillingDate 90 days
+      // out, ignoring settings.membershipBillingCycle, and never sets
+      // subscriptionDetails.paymentMethodId). Worth extracting a shared helper.
       if (type === 'subscription' && userId) {
-        const { processSubscriptionPayment: processSubFromWebhook } = require('./subscriptionController');
-        // Call internal logic via a mock req/res (processSubscriptionPayment is asyncHandler)
-        // Simpler: replicate the activation logic inline here
         const User         = require('../models/User');
         const TierSettings = require('../models/TierSettings');
         const user = await User.findById(userId);
@@ -248,14 +251,34 @@ exports.webhook = async (req, res) => {
 };
 
 
-// Optional helper to verify a session from success page
-// controllers/payments.controller.js
+// Verify a session from the success page.
+// Requires authentication (see routes/payments.routes.js) AND ownership of the
+// referenced booking — this endpoint both leaks booking price/status and
+// triggers markBookingPaidAndDispatch, so an unauthenticated caller with a
+// guessed/observed Stripe session id could enumerate bookings and force a
+// dispatch.
 exports.getSessionStatus = async (req, res) => {
   try {
     const { sessionId } = req.params;
     const session = await stripe.checkout.sessions.retrieve(sessionId, { expand: ['payment_intent'] });
     const bookingId = session.metadata?.bookingId;
     const booking = bookingId ? await Booking.findById(bookingId) : null;
+
+    // ── Ownership check ──────────────────────────────────────────────────────
+    // Sessions we create always carry metadata.userId; bookings carry .user.
+    // Either must match the caller. Admins may inspect any session.
+    const requesterId = String(req.user?.id || '');
+    const isAdmin = req.user?.role === 'admin';
+    const sessionUserId = session.metadata?.userId ? String(session.metadata.userId) : null;
+    const bookingOwnerId = booking?.user ? String(booking.user) : null;
+
+    const owns =
+      (sessionUserId !== null && sessionUserId === requesterId) ||
+      (bookingOwnerId !== null && bookingOwnerId === requesterId);
+
+    if (!isAdmin && !owns) {
+      return res.status(403).json({ success: false, message: 'Not your session' });
+    }
 
     // 🔧 Reconcile if webhook didn't run yet
     if (session.payment_status === 'paid' && booking && booking.paymentStatus !== 'Paid') {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import { MOBILE_MENU_NAV, type NavLink } from "@/lib/nav-config";
 import { AUTH_CHANGED_EVENT, getToken } from "@/lib/auth";
 import { DriverPortalNavLink } from "@/app/components/driver-portal-nav-link";

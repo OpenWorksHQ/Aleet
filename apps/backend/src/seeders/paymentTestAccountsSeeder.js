@@ -19,10 +19,12 @@
  * ---------------------------------------------------------------------------
  */
 
+// Loads apps/backend/.env (same file as src/server.js) and exposes the
+// production guard — must be required before anything reads process.env.
+const { assertSeedingAllowed, resolveSeedPassword } = require('./seedGuard');
+
 const mongoose = require('mongoose');
 const Stripe = require('stripe');
-
-require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -30,7 +32,22 @@ const User = require('../models/User');
 const MonthlyHours = require('../models/MonthlyHours');
 const TierSettings = require('../models/TierSettings');
 
-const TEST_PASSWORD = 'AleetTest123!';
+// Local-dev-only fallback (public — it lives in git). Override with
+// SEED_TEST_ACCOUNT_PASSWORD; see .env.example.
+const DEV_DEFAULT_TEST_PASSWORD = 'AleetTest123!';
+
+let cachedTestPassword = null;
+const getTestPassword = () => {
+    if (cachedTestPassword === null) {
+        // Resolved once so the "using the dev default" warning prints a single time.
+        cachedTestPassword = resolveSeedPassword(
+            'SEED_TEST_ACCOUNT_PASSWORD',
+            DEV_DEFAULT_TEST_PASSWORD,
+            'payment test accounts'
+        );
+    }
+    return cachedTestPassword;
+};
 
 const ACCOUNTS = [
     {
@@ -87,6 +104,7 @@ async function createStripeCustomerWithSavedCard(account) {
 }
 
 async function seedOne(account, settings) {
+    const TEST_PASSWORD = getTestPassword();
     let user = await User.findOne({ email: account.email });
 
     const isMember = !!account.plan;
@@ -176,6 +194,8 @@ async function seedOne(account, settings) {
 }
 
 async function seed() {
+    assertSeedingAllowed('paymentTestAccountsSeeder.seed');
+
     const settings = await TierSettings.findOne() || await TierSettings.create({});
     const summary = [];
     for (const account of ACCOUNTS) {
@@ -199,6 +219,8 @@ async function seed() {
 }
 
 async function revert() {
+    assertSeedingAllowed('paymentTestAccountsSeeder.revert');
+
     for (const account of ACCOUNTS) {
         const user = await User.findOne({ email: account.email });
         if (!user) {
@@ -222,6 +244,10 @@ async function revert() {
 
 async function main() {
     const command = process.argv[2];
+
+    // Fail before opening a connection, not after.
+    assertSeedingAllowed('paymentTestAccountsSeeder');
+
     await connectDB();
 
     try {

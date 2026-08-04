@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import { ADMIN_ROLES, PERMISSION_LABELS, PERMISSION_COLORS } from "./admin-types";
 import type { AdminRole } from "./admin-types";
 

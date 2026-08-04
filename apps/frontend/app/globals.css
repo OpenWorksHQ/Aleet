@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Shared UI kit lives outside this app, so Tailwind must be told to scan it. */
+@source "../../../packages/ui/src";
+
 :root {
   --aleet-gold: #c5a386;
   --aleet-gold-dark: #a8886e;
@@ -34,6 +37,21 @@
   --color-aleet-card: var(--aleet-card);
   --color-aleet-black: var(--aleet-black);
   --color-aleet-footer: var(--aleet-footer);
+
+  /* ── @aleet/ui contract ────────────────────────────────────────
+     Semantic aliases consumed by the shared UI kit. Each app maps
+     them onto its own palette; the shared components never
+     reference an app-specific token directly. */
+  --color-ui-heading: var(--aleet-text);
+  --color-ui-label: var(--aleet-text-muted);
+  --color-ui-field-border: var(--aleet-border-strong);
+  --color-ui-field-bg: var(--aleet-card);
+  --color-ui-field-text: var(--aleet-text);
+  --color-ui-field-placeholder: var(--aleet-text-subtle);
+  --color-ui-field-focus: var(--aleet-gold);
+  --color-ui-accent: var(--aleet-gold);
+  --color-ui-toast-description: var(--aleet-text-muted);
+
   --font-sans: var(--font-karla);
   --font-serif: var(--font-playfair);
 }

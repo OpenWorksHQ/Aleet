@@ -1,13 +1,7 @@
 "use client";
 
 import { AleetLogo } from "@/app/components/ui/aleet-logo";
-
-function clearAuthCookies() {
-    const expired = "path=/; max-age=0; SameSite=Lax";
-    document.cookie = `auth_token=; ${expired}`;
-    document.cookie = `auth_role=; ${expired}`;
-    document.cookie = `driver_status=; ${expired}`;
-}
+import { clearAuthSession } from "@/lib/auth";
 
 export function RejectedPage() {
     return (
@@ -19,7 +13,7 @@ export function RejectedPage() {
                     <span className="text-base font-semibold text-gold">Aleet</span>
                 </div>
                 <button
-                    onClick={() => { clearAuthCookies(); window.location.href = "/login"; }}
+                    onClick={() => { clearAuthSession(); window.location.href = "/login"; }}
                     className="text-xs text-muted transition-colors hover:text-gold"
                 >
                     Sign out
@@ -82,7 +76,7 @@ export function RejectedPage() {
 
                     {/* Sign out */}
                     <button
-                        onClick={() => { clearAuthCookies(); window.location.href = "/login"; }}
+                        onClick={() => { clearAuthSession(); window.location.href = "/login"; }}
                         className="inline-flex w-full items-center justify-center rounded-xl border border-border px-4 py-3 text-sm font-medium text-muted transition-colors hover:border-border/60 hover:text-text"
                     >
                         Sign out

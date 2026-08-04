@@ -13,6 +13,7 @@ import {
     VehicleType,
 } from "@/lib/signup-api";
 import { validateSSN } from "@/lib/validators/ssn";
+import { setAuthToken } from "@/lib/auth";
 import { Stepper } from "./signup/stepper";
 import { FileUploadArea } from "./signup/file-upload-area";
 import { NativeSelect } from "./signup/native-select";
@@ -129,16 +130,12 @@ export default function SignupForm() {
                 forHireLicenseImage: hasForHireLicense === "yes" ? forHireLicenseImage : null,
             });
 
-            const { token, user } = await signupComplete({
+            const { token } = await signupComplete({
                 docsToken: docsTokenResult,
                 authorizeBackgroundCheck: hasForHireLicense === "no" ? authorized : false,
             });
 
-            const driverStatus = user.driver?.status ?? "pending_review";
-            const cookieOpts = "path=/; max-age=604800; SameSite=Lax";
-            document.cookie = `auth_token=${token}; ${cookieOpts}`;
-            document.cookie = `auth_role=driver; ${cookieOpts}`;
-            document.cookie = `driver_status=${driverStatus}; ${cookieOpts}`;
+            setAuthToken(token);
             window.location.href = "/pending";
         } catch (e) {
             err(e instanceof Error ? e.message : "Account creation failed");
@@ -180,7 +177,7 @@ export default function SignupForm() {
                                         <Input type="email" placeholder="Enter your email" value={email} onChange={(e) => setEmail(e.target.value)} />
                                     </Field>
                                     <Field label="Phone Number" required>
-                                        <PhoneInput value={phone} onChange={setPhone} className="phone-input-wrapper" />
+                                        <PhoneInput value={phone} onChange={setPhone} defaultCountry="US" className="phone-input-wrapper" />
                                     </Field>
                                     <Field label="Password" required>
                                         <div className="relative">

@@ -1,4 +1,4 @@
-import { toTelHref } from "@/lib/phone";
+import { toTelHref } from "@aleet/shared";
 
 /** Public contact details — override phone via NEXT_PUBLIC_CONTACT_PHONE in .env.local */
 const DEFAULT_CONTACT_PHONE = "5714449112";

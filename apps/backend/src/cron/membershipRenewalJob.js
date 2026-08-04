@@ -55,7 +55,9 @@ async function renewOneMember(user, settings) {
         return { userId: user._id.toString(), ok: false, reason: 'no_default_card' };
     }
 
-    const { ratePerHour, monthlyHours, quarterlyCharge } = computeQuarterlyCharge(settings, plan);
+    // quarterlyCharge already embeds the plan rate (ratePerHour × monthlyHours × 3),
+    // so the rate itself is not needed separately here.
+    const { monthlyHours, quarterlyCharge } = computeQuarterlyCharge(settings, plan);
 
     const paymentIntent = await stripe.paymentIntents.create({
         amount:         Math.round(quarterlyCharge * 100),

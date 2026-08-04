@@ -1,4 +1,6 @@
+const mongoose = require('mongoose');
 const { fileUrl } = require('../utils/multer');
+const { maskSSN } = require('../utils/maskSSN');
 const User = require("../models/User");
 
 const normalizePhone = (raw) => {
@@ -146,13 +148,6 @@ const updatePhoneVerification = async (phone, isVerified = true) => {
     { isPhoneVerified: isVerified },
     { new: true }
   );
-};
-
-// Mask SSN: show only last 4 digits
-const maskSSN = (ssn) => {
-  if (!ssn) return null;
-  const digits = String(ssn).replace(/\D/g, '');
-  return `***-**-${digits.slice(-4)}`;
 };
 
 // Format user response — role-aware, no cross-role data leakage

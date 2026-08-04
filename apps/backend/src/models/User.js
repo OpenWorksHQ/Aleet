@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
+const { encryptSSN, decryptSSN } = require("../utils/ssnCrypto");
 
 // Define the User schema
 const userSchema = new mongoose.Schema(
@@ -95,7 +96,45 @@ const userSchema = new mongoose.Schema(
 
       licenseNumber: { type: String, default: null },   // e.g. DL-2024-001
       licenseExpiry: { type: Date, default: null },      // expiry date of driver's license
-      ssn: { type: String, select: false },
+      /**
+       * Encrypted at rest (AES-256-GCM) — see utils/ssnCrypto.js.
+       *
+       * The setter/getter pair makes this transparent: every existing write
+       * path (userService.registerUser, authService driver signup,
+       * userController's `$set: { 'driver.ssn': ... }`) keeps assigning a
+       * plain string, and every read path (maskSSN in adminController /
+       * userService.formatUser) keeps reading one. Only the bytes on disk
+       * change.
+       *
+       * Caveats, both verified against mongoose 8:
+       *   - Setters DO run on findOneAndUpdate/updateOne update payloads, so
+       *     the dotted-path update in userController is covered.
+       *   - Getters do NOT run for `.lean()` queries or on toObject()/toJSON().
+       *     No lean query selects this field today (it is `select: false`, and
+       *     the only two `+driver.ssn` selects — adminController.getAllDrivers
+       *     and userController.getProfile — return hydrated documents). If a
+       *     lean read is ever added, call decryptSSN() on the raw value
+       *     explicitly.
+       *
+       * Legacy plaintext rows decrypt to themselves (passthrough), so nothing
+       * breaks before src/seeders/encryptExistingSsns.js has been run.
+       */
+      ssn: {
+        type: String,
+        select: false,
+        set: encryptSSN,
+        get(value) {
+          try {
+            return decryptSSN(value);
+          } catch (err) {
+            // A property read must not take down an admin listing. Surfacing
+            // null (which masks to null, i.e. "no SSN on file") is safe and
+            // visible; returning the raw envelope would be silent corruption.
+            console.error('[User.driver.ssn] decryption failed:', err.message);
+            return null;
+          }
+        },
+      },
       licenseImage: { type: String, default: null },
       vehicleImage: { type: String, default: null },
       forHireLicenseImage: { type: String, default: null },

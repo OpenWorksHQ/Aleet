@@ -6,9 +6,10 @@ import {
     CheckCircle2, Upload, Check, AlertCircle, CreditCard, ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import { useUserStore } from "@/lib/user-store";
-import { withNgrokHeaders } from "@/lib/ngrok-headers";
+import { withNgrokHeaders } from "@aleet/shared";
+import { withUploadToken } from "@/lib/upload-url";
 
 // ── Progress Overview ─────────────────────────────────────────────
 const ALL_STEPS: { key: string; label: string; icon: React.ReactNode }[] = [
@@ -549,7 +550,7 @@ export function OnboardingForm() {
                         <FilePicker label="License Image"
                             hint="Supported formats: JPEG, PNG"
                             file={licenseImage}
-                            existingUrl={profile?.licenseImage}
+                            existingUrl={withUploadToken(profile?.licenseImage)}
                             onChange={setLicenseImage} />
                     </SectionCard>
 
@@ -560,7 +561,7 @@ export function OnboardingForm() {
                             <FilePicker label="Car Photo"
                                 hint="Supported formats: JPEG, PNG"
                                 file={vehicleImage}
-                                existingUrl={profile?.vehicleImage}
+                                existingUrl={withUploadToken(profile?.vehicleImage)}
                                 onChange={setVehicleImage} />
                         </SectionCard>
                     )}
@@ -611,7 +612,7 @@ export function OnboardingForm() {
                                 <FilePicker label="For-Hire License Image"
                                     hint="Supported formats: JPEG, PNG"
                                     file={forHireLicenseImage}
-                                    existingUrl={profile?.forHireLicenseImage}
+                                    existingUrl={withUploadToken(profile?.forHireLicenseImage)}
                                     onChange={setForHireLicenseImage} />
                             )}
                         </div>

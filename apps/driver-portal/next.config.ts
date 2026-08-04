@@ -5,6 +5,7 @@ const monorepoRoot = path.resolve(process.cwd(), "../..");
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  transpilePackages: ["@aleet/ui", "@aleet/shared"],
   outputFileTracingRoot: monorepoRoot,
 };
 

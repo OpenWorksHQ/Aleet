@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import type { InvestorDocument } from "@/lib/investor-documents-api";
 import { deleteInvestorDocument } from "@/lib/investor-documents-api";
+import { withUploadToken } from "@/lib/upload-url";
 import { ConfirmModal } from "@/app/components/ui/confirm-modal";
-import { toast } from "@/app/components/ui/toast";
+import { toast } from "@aleet/ui";
 import { InvestorDocumentModal } from "./investor-document-modal";
 
 type Props = {
@@ -118,7 +119,7 @@ export function InvestorDocumentsList({ initialDocuments }: Props) {
                   {document.isPublished ? "Yes" : "No"}
                 </span>
                 <a
-                  href={document.fileUrl}
+                  href={withUploadToken(document.fileUrl)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="truncate text-sm text-gold hover:underline"

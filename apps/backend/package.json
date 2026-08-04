@@ -3,9 +3,10 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "start": "nodemon src/server.js",
+    "start": "node src/server.js",
     "dev": "nodemon --no-stdin src/server.js",
-    "test": "node --test \"src/**/*.test.js\"",
+    "test": "node --test src/",
+    "lint": "eslint .",
     "seed": "node src/seeders/index.js seed",
     "seed:admin": "node src/seeders/index.js seed:admin",
     "seed:vehicles": "node src/seeders/index.js seed:vehicles",
@@ -33,15 +34,22 @@
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "express-async-handler": "^1.2.0",
-    "fs": "^0.0.1-security",
+    "express-rate-limit": "^8.4.0",
+    "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.17.2",
     "multer": "^2.0.2",
     "multer-s3": "^3.0.1",
-    "nodemailer": "^8.0.3",
-    "nodemon": "^3.1.10",
+    "nodemailer": "^9.0.4",
     "socket.io": "^4.8.1",
     "stripe": "^18.5.0",
-    "twilio": "^5.10.2"
+    "twilio": "^5.10.2",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "globals": "^16.5.0",
+    "nodemon": "^3.1.10"
   }
 }

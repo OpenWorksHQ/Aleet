@@ -6,7 +6,7 @@ import {
   loadPartnerAuthToken,
   PARTNER_AUTH_CHANGED_EVENT,
 } from "@/lib/partner/auth";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 
 type PartnerAuthNavLinkProps = {
   variant?: "header" | "menu" | "account-menu" | "button";

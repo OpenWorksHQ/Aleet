@@ -1,7 +1,6 @@
 // src/controllers/tierController.js
 
 const asyncHandler = require('express-async-handler');
-const mongoose = require('mongoose');
 const User = require('../models/User');
 const Booking = require('../models/Booking');
 const TierSettings = require('../models/TierSettings');

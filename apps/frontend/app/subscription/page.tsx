@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { DashboardShell } from "../components/dashboard-shell";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import { ApiError } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import {

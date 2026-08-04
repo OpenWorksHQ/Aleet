@@ -28,14 +28,22 @@ const {
 } = require('../utils/responseHelper');
 
 const VALID_ROLES = ['investor', 'operator', 'legal', 'other'];
-const INVESTOR_UPLOAD_DIR = path.join(__dirname, '../../uploads/investor');
+// Resolved from UPLOAD_DIR (see utils/uploadStorage.js) — the old in-repo path
+// was wiped by every deploy.
+const { investorDir: INVESTOR_UPLOAD_DIR } = require('../utils/multer');
 
 // ---------------------------------------------------------------------------
-// Build a full, publicly-accessible URL for a stored investor file.
+// Build a full URL for a stored investor file.
 // Prefers API_URL/APP_URL/APP_BASE_URL env; falls back to the request host so
 // the URL is always absolute regardless of deployment config.
+// NOTE: /uploads/investor/* is admin-gated (middleware/protectedUploads.js), so
+// this URL is only fetchable with an admin JWT (header or ?token=).
 // ---------------------------------------------------------------------------
 function buildFileUrl(req, storedFileName) {
+  if (!storedFileName) return '';
+  // S3-backed uploads store the absolute object URL as the stored name.
+  if (/^https?:\/\//i.test(storedFileName)) return storedFileName;
+
   const envBase = (process.env.API_URL || process.env.APP_URL || process.env.APP_BASE_URL || '')
     .trim()
     .replace(/\/+$/, '');
@@ -78,7 +86,12 @@ function parseBoolean(value, fallback = false) {
 // ---------------------------------------------------------------------------
 function removeStoredFile(storedFileName) {
   if (!storedFileName) return;
-  const filePath = path.join(INVESTOR_UPLOAD_DIR, storedFileName);
+  // S3-backed uploads are absolute URLs — object lifecycle is managed in S3,
+  // there is nothing on local disk to unlink.
+  if (/^https?:\/\//i.test(storedFileName)) return;
+  // Reject anything that would escape the investor directory.
+  const safeName = path.basename(storedFileName);
+  const filePath = path.join(INVESTOR_UPLOAD_DIR, safeName);
   fs.promises.unlink(filePath).catch((err) => {
     if (err.code !== 'ENOENT') {
       console.error('Failed to delete investor file:', storedFileName, err.message);

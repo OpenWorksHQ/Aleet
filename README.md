@@ -15,8 +15,9 @@ Aleet Platform - Customer App, Driver App, Backend, Infrastructure and Documenta
 7. [Driver Portal Setup](#driver-portal-setup)
 8. [Running the Apps](#running-the-apps)
 9. [Important Rules & Conventions](#important-rules--conventions)
-10. [Troubleshooting](#troubleshooting)
-11. [Quick Reference](#quick-reference)
+10. [Deployment & Operations](#deployment--operations)
+11. [Troubleshooting](#troubleshooting)
+12. [Quick Reference](#quick-reference)
 
 ---
 
@@ -353,6 +354,70 @@ Make sure all three are running when doing full-stack integration testing.
 | `apps/frontend`      | `aleet-frontend`        |
 | `apps/driver-portal` | `driver-aleet-frontend` |
 
+
+---
+
+## Deployment & Operations
+
+**Backend only.** `.github/workflows/deploy-backend.yml` deploys `apps/backend` on every push to `main`/`master` that touches the backend, the root `package.json`/`package-lock.json`, or the workflow itself. It runs on a **self-hosted GitHub Actions runner installed on the EC2 box** and restarts the app under **PM2** (process name `aleet-backend`). The frontends are not deployed by this workflow.
+
+### What a deploy does, in order
+
+1. `actions/checkout` — refreshes the working copy (this also runs `git clean -ffdx`, see below).
+2. Creates/validates the persistent upload directory and links `apps/backend/uploads` to it.
+3. `npm ci` at the root — **full** install including dev dependencies.
+4. `node --check` over every file in `apps/backend/src` (syntax gate; the entrypoint is checked explicitly).
+5. `npm test --workspace=swift-haven-backend` (`node --test src/`).
+6. `npm ci --omit=dev --workspace=swift-haven-backend` — prunes back to production dependencies.
+7. Generates `apps/backend/.env` from GitHub Secrets/Variables, `chmod 600`.
+8. `pm2 restart aleet-backend`.
+9. Health check — polls `http://127.0.0.1:$PORT/health` and fails the run if the process never answers.
+
+Steps 3–5 are the quality gate: **if the tests or the syntax check fail, PM2 is never restarted** and the previously running build stays up. The `.env` is written *after* the tests on purpose, so a test can never pick up production credentials.
+
+### Why `UPLOAD_DIR` must live outside the workspace
+
+`actions/checkout` runs `git clean -ffdx` on an existing runner workspace. The `-x` flag deletes **gitignored** files, and `uploads` is listed in `apps/backend/.gitignore`. Any uploaded file stored under `$GITHUB_WORKSPACE` is therefore deleted on the next deploy — this is what was wiping driver's-license images, vehicle photos and investor documents.
+
+The fix is `UPLOAD_DIR`, which points at a path **outside** `$GITHUB_WORKSPACE` (default `/var/lib/aleet/uploads`). The workflow creates it, creates the `investor/` subdirectory used by the data-room uploads, and symlinks `apps/backend/uploads` → `$UPLOAD_DIR` so the `/uploads` static route keeps resolving. `git clean` removes the *symlink*, never the directory it points at.
+
+The workflow refuses to run if `UPLOAD_DIR` resolves inside `$GITHUB_WORKSPACE`. Do not move it back.
+
+One-time setup on the EC2 host (or let the workflow create it, which requires passwordless `sudo`):
+
+```bash
+sudo mkdir -p /var/lib/aleet/uploads/investor
+sudo chown -R <runner-user>:<runner-user> /var/lib/aleet/uploads
+```
+
+If you have a backup of the old `apps/backend/uploads`, copy it into `/var/lib/aleet/uploads` **before** the next deploy — the workflow can only rescue files that still exist in the workspace.
+
+Setting `AWS_S3_BUCKET` switches uploads to S3 and makes `UPLOAD_DIR` irrelevant; leave it empty to keep using local disk.
+
+### Cron sweeps must run on exactly one instance
+
+`apps/backend/src/server.js` starts four in-process `setInterval` sweeps: dispatch offer escalation (1 min), presence sync (5 min), membership auto-renewal (1 hour), and stale-booking cancellation (15 min). Because they run inside the API process, **one process = one copy of every sweep**. `RUN_CRON_JOBS` is the flag that decides whether a process runs them, and the deploy sets it to `true` for this single-instance PM2 deploy.
+
+If you ever scale PM2 past one instance (`pm2 scale`, cluster mode) or add a second host, `RUN_CRON_JOBS` must be `true` on **exactly one** instance and `false` everywhere else. Otherwise the membership renewal sweep charges saved cards once per instance and bookings get swept N times.
+
+### Environment variables the deploy sets
+
+Configure these in **GitHub → Settings → Secrets and variables → Actions**. Repo *variables* are non-sensitive; *secrets* are credentials.
+
+| Variable | Kind | Default if unset | What breaks if it is wrong/unset |
+| -------- | ---- | ---------------- | -------------------------------- |
+| `UPLOAD_DIR` | variable | `/var/lib/aleet/uploads` | Uploads fall back to `apps/backend/uploads` and are deleted by the next deploy's `git clean -ffdx`. |
+| `RUN_CRON_JOBS` | variable | `true` | `false` → no dispatch escalation, no presence sync, no membership renewals, no stale-booking cleanup. `true` on more than one instance → duplicate charges and duplicate sweeps. |
+| `ALLOW_VERCEL_ORIGINS` | variable | `false` | `true` re-opens CORS to **every** `*.vercel.app` origin on the internet. Prefer listing specific preview URLs in `ALLOWED_ORIGINS`. **Before the next deploy:** because this is now opt-in, every browser origin that talks to the API — including Vercel-hosted frontends — must appear in `FRONTEND_URL`, `DRIVER_PORTAL_URL`, `APP_BASE_URL` or `ALLOWED_ORIGINS`, or its requests will be CORS-blocked. |
+| `DRIVER_PORTAL_URL` | variable | empty | Read by `src/middleware/cors.js` but never written by the deploy until now — the `*.vercel.app` wildcard was masking it. Set it to the driver portal's production origin. |
+| `NODE_ENV` | set to `production` by the workflow | — | Without it: the seeder safety guard (`src/seeders/seedGuard.js`) does not recognise the environment as production and will not refuse to seed/clear the live database, and the global error handler (`src/middleware/errorHandler.js`) returns raw error messages to clients instead of `Internal Server Error` — those messages routinely contain connection strings, API responses and file paths. |
+| `AWS_S3_BUCKET` | variable | empty | Empty → local disk storage under `UPLOAD_DIR`. Set → uploads go to S3 (requires `AWS_REGION` + AWS credentials). |
+| `PORT`, `APP_BASE_URL`, `API_URL`, `FRONTEND_URL`, `ALLOWED_ORIGINS`, `CURRENCY`, `TWILIO_PHONE_NUMBER`, `CHECKR_BASE_URL`, `CHECKR_DASHBOARD_BASE`, `AWS_REGION`, `GMAIL_FROM_EMAIL`, `INVESTOR_INBOX_EMAIL` | variables | — | `PORT` unset → the health check polls the wrong port and the deploy fails. Browser origins missing from `FRONTEND_URL`/`ALLOWED_ORIGINS` are rejected by CORS. |
+| `MONGODB_URI`, `JWT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `TWILIO_*`, `CHECKR_API_KEY`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `GOOGLE_MAPS_API_KEY`, `GMAIL_USER`, `GMAIL_APP_PASSWORD` | secrets | — | Credentials. Missing ones crash the app at boot or silently break that integration. |
+
+### The generated `.env` is a secrets file
+
+The workflow writes `apps/backend/.env` on a self-hosted runner whose workspace **persists between jobs**. It is created under `umask 077` and `chmod 600`. Never loosen those permissions, never `cat` it in a workflow step (that leaks it into the build log), and never copy it somewhere world-readable. It stays in the workspace only because `src/server.js` loads dotenv from a hardcoded `../.env`.
 
 ---
 

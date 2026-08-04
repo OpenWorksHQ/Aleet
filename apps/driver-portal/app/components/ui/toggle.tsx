@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 
 interface ToggleProps {
     checked: boolean;

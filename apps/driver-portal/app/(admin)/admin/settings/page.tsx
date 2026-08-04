@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { fetchAdmins, type ApiAdmin } from "@/lib/admin-api";
 import { fetchInvestorDocuments, type InvestorDocument } from "@/lib/investor-documents-api";
 import { SettingsAdminPanel } from "@/app/components/admin/settings/settings-admin-panel";
+import { withUploadToken } from "@/lib/upload-url";
 import {
   fetchAdminPermissions,
   hasAdminPermission,
@@ -37,6 +38,15 @@ export default async function SettingsPage() {
     loadError =
       error instanceof Error ? error.message : "Failed to load settings data";
   }
+
+  // /uploads/investor/* is admin-gated and an `<a href>` cannot send an
+  // Authorization header. Stamp the token here (Server Component — the cookie
+  // must come from `cookies()`) so the server-rendered link matches the one the
+  // client renders.
+  documents = documents.map((doc) => ({
+    ...doc,
+    fileUrl: withUploadToken(doc.fileUrl, token),
+  }));
 
   return (
     <Suspense fallback={<div className="text-sm text-muted">Loading…</div>}>

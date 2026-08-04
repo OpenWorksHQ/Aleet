@@ -85,10 +85,13 @@ const addRegion = async (req, res) => {
             return sendConflict(res, 'Region with this name or code already exists');
         }
 
+        // requireAdmin puts a full Mongoose user doc on req.user (its `id`
+        // virtual resolves to the hex _id); authenticateJWT puts { id, role }.
+        // Read both shapes so this keeps working under either middleware.
         const region = await Region.create({
             name: name.trim(),
             code: code.trim().toUpperCase(),
-            createdBy: req.user.id,
+            createdBy: req.user?._id || req.user?.id || null,
         });
 
         return sendSuccess(res, 201, 'Region added successfully', region);

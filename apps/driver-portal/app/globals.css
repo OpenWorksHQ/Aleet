@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Shared UI kit lives outside this app, so Tailwind must be told to scan it. */
+@source "../../../packages/ui/src";
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ── Light theme (default) ─────────────────────────────────────── */
@@ -35,6 +38,22 @@
   --color-border: var(--border-color);
   --color-muted: var(--muted);
   --color-text: var(--text);
+
+  /* ── @aleet/ui contract ────────────────────────────────────────
+     Semantic aliases consumed by the shared UI kit. Each app maps
+     them onto its own palette; the shared components never
+     reference an app-specific token directly. These resolve through
+     var(--…) so they still follow the .dark theme switch. */
+  --color-ui-heading: var(--text);
+  --color-ui-label: #5a5a5e;
+  --color-ui-field-border: var(--border-color);
+  --color-ui-field-bg: var(--page-bg);
+  --color-ui-field-text: var(--text);
+  --color-ui-field-placeholder: var(--muted);
+  --color-ui-field-focus: color-mix(in oklab, var(--gold) 50%, transparent);
+  --color-ui-accent: #bca066;
+  --color-ui-toast-description: #a3a8a7;
+
   --font-sans: var(--font-karla);
 }
 

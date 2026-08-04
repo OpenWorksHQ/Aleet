@@ -3,7 +3,6 @@ const { toggleDriverStatus, assignDriverToBooking, getEligibleDriversForBooking,
 const { getDriverTierPerformance, getTierSettings, updateTierSettings } = require('../controllers/tierController');
 const { inviteFounder30, listMemberships, adminChargeOverage, updateMemberBalance, createFounder30Link, listFounder30Links, deactivateFounder30Link, cancelMembership } = require('../controllers/adminMembershipController');
 const { getCompanyRevenueReport, getBookingPayoutBreakdown } = require('../controllers/financeController');
-const authenticateJWT = require('../middleware/authMiddleware');
 const requireAdmin = require('../middleware/requireAdmin');
 const { requirePermission } = require('../middleware/requireAdmin');
 const { uploadSingleForHireLicense, handleUploadError } = require('../utils/multer');
@@ -28,8 +27,10 @@ router.delete('/drivers/:id', requireAdmin, requirePermission('manage-users'), d
 router.patch('/drivers/approve', requireAdmin, requirePermission('manage-users'), approveDriver);
 router.patch('/drivers/request-revision', requireAdmin, requirePermission('manage-users'), requestRevision);
 
-// Aleet license upload (authenticated user — driver uploads their own)
-router.post('/drivers/:id/aleet-license', authenticateJWT, uploadSingleForHireLicense, handleUploadError, uploadAleetLicense);
+// Aleet license upload — admin attaches the Aleet-generated for-hire license to
+// a driver. This promotes the driver's tier (and therefore their payout), so it
+// is admin-only; it previously accepted any authenticated user's token.
+router.post('/drivers/:id/aleet-license', requireAdmin, requirePermission('manage-users'), uploadSingleForHireLicense, handleUploadError, uploadAleetLicense);
 
 // Update a driver's service regions
 router.put('/drivers/:id/regions', requireAdmin, requirePermission('manage-users'), updateDriverRegions);

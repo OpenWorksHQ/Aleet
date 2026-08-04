@@ -7,7 +7,7 @@ import {
   type InvestorRole,
 } from "@/lib/api/teams";
 import { ApiError } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 
 const ROLES: { value: InvestorRole; label: string }[] = [
   { value: "investor", label: "Investor" },

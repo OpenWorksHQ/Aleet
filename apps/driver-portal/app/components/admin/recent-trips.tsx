@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import type { DashboardRecentTrip } from "@/lib/admin-api";
 
 type Trip = {

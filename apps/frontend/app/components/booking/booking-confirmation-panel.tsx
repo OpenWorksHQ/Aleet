@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { fetchBookingById, type MyBooking } from "@/lib/api/my-bookings";
 import { getToken } from "@/lib/auth";
-import { toTelHref } from "@/lib/phone";
-import { PhoneIcon } from "@/app/components/ui/icons";
+import { toTelHref } from "@aleet/shared";
+import { PhoneIcon } from "@aleet/ui";
 
 type Props = {
   bookingId: string;

@@ -8,7 +8,8 @@
  *   node src/seeders/generateAdminToken.js admin@swifthaven.com   (specific admin)
  * ---------------------------------------------------------------------------
  */
-require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env.local') });
+// Loads apps/backend/.env (same file as src/server.js).
+require('./seedGuard');
 
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
@@ -33,7 +34,7 @@ const User = require('../models/User');
 
         const secret = process.env.JWT_SECRET;
         if (!secret || secret === 'your_jwt_secret_here') {
-            console.error('\n⚠️  JWT_SECRET is not set properly in .env.local');
+            console.error('\n⚠️  JWT_SECRET is not set properly in apps/backend/.env');
             console.error('   Update JWT_SECRET to a strong random string before production use.\n');
         }
 

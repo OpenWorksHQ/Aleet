@@ -36,7 +36,15 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-full flex flex-col">
+      {/*
+        suppressHydrationWarning: browser extensions (Grammarly, password
+        managers, ad blockers) inject attributes onto <body> before React
+        hydrates — e.g. data-gr-ext-installed — which React reports as a
+        hydration mismatch even though the app rendered correctly.
+        This suppresses ONLY this element's own attribute diff, one level deep;
+        genuine mismatches inside the tree still surface normally.
+      */}
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <ThemeProvider>
           <Toaster
             position="bottom-right"

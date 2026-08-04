@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Input } from "../ui";
 import { Loader2, Mail, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
-import { withNgrokHeaders } from "@/lib/ngrok-headers";
+import { withNgrokHeaders } from "@aleet/shared";
 
 export function ForgotPasswordForm() {
     const [email, setEmail] = useState("");

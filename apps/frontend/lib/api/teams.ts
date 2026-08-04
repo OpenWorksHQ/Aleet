@@ -1,4 +1,4 @@
-import { withNgrokHeaders } from "@/lib/ngrok-headers";
+import { withNgrokHeaders } from "@aleet/shared";
 import { ApiError, type ApiResponse } from "@/lib/api";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";

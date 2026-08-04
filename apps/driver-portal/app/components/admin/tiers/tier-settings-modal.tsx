@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import type { TierSettings, TierPolicyEntry } from "@/lib/admin-api";
 import { fetchTierSettingsClient, updateTierSettingsClient } from "@/lib/admin-api";
 

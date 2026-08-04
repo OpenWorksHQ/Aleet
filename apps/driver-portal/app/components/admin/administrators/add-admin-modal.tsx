@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/app/components/ui/button";
-import { Input } from "@/app/components/ui/input";
+import { Input } from "@aleet/ui";
 import { RolePicker } from "./role-picker";
 import { ADMIN_ROLES } from "./admin-types";
 import type { AdminRole, AdminUser } from "./admin-types";

@@ -9,7 +9,7 @@ import {
   ActiveTripIcon,
   FleetIcon,
   CalendarPlusIcon,
-} from "../components/ui/icons";
+} from "@aleet/ui";
 import { getProfile } from "@/lib/api/users";
 import { getToken } from "@/lib/auth";
 import type { User } from "@/lib/api/auth";

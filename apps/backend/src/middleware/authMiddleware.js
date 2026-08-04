@@ -1,13 +1,19 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
+/**
+ * Bearer header only.
+ *
+ * The `?token=` query fallback was removed: query strings are written to access
+ * logs, proxy logs and browser history, and leak via the Referer header to any
+ * third party the page links out to. The single case that genuinely cannot set
+ * a header — browser <img>/download requests for /uploads — has its own gate in
+ * middleware/protectedUploads.js.
+ */
 function extractToken(req) {
   const header = req.header('Authorization');
   if (header && header.startsWith('Bearer ')) {
     return header.split(' ')[1];
-  }
-  if (typeof req.query.token === 'string' && req.query.token.trim()) {
-    return req.query.token.trim();
   }
   return null;
 }

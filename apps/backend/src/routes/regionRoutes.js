@@ -7,7 +7,15 @@ const {
     updateRegion,
     deleteRegion,
 } = require('../controllers/regionController');
-const authenticateJWT = require('../middleware/authMiddleware');
+const requireAdmin = require('../middleware/requireAdmin');
+const { requirePermission } = require('../middleware/requireAdmin');
+const { validate } = require('../middleware/validate');
+const {
+    createRegionBody,
+    updateRegionBody,
+    regionIdParams,
+    sameDayStatusQuery,
+} = require('../validators/regionValidators');
 
 const router = express.Router();
 
@@ -15,12 +23,36 @@ const router = express.Router();
 router.get('/', getRegions);
 
 // Public — live same-day availability for a region (used by the booking flow)
-router.get('/:id/same-day-status', getSameDayStatus);
+router.get(
+    '/:id/same-day-status',
+    validate({ params: regionIdParams, query: sameDayStatusQuery }),
+    getSameDayStatus
+);
 
-// Admin only
-router.get('/all', authenticateJWT, getAllRegions);
-router.post('/', authenticateJWT, addRegion);
-router.put('/:id', authenticateJWT, updateRegion);
-router.delete('/:id', authenticateJWT, deleteRegion);
+// Admin only — regions drive dispatch eligibility and same-day availability, so
+// writes must be admin-gated (authenticateJWT alone accepted any customer or
+// driver token).
+router.get('/all', requireAdmin, requirePermission('view-reports'), getAllRegions);
+router.post(
+    '/',
+    requireAdmin,
+    requirePermission('manage-users'),
+    validate({ body: createRegionBody }),
+    addRegion
+);
+router.put(
+    '/:id',
+    requireAdmin,
+    requirePermission('manage-users'),
+    validate({ params: regionIdParams, body: updateRegionBody }),
+    updateRegion
+);
+router.delete(
+    '/:id',
+    requireAdmin,
+    requirePermission('manage-users'),
+    validate({ params: regionIdParams }),
+    deleteRegion
+);
 
 module.exports = router;

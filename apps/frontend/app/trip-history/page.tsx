@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { DashboardShell } from "../components/dashboard-shell";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import { cancelMyBooking, fetchMyBookings, type MyBooking } from "@/lib/api/my-bookings";
 import { getToken } from "@/lib/auth";
 import { toast } from "@/app/components/ui";

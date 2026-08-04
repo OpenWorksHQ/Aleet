@@ -3,7 +3,7 @@
 import { Check, Clock, DollarSign, MapPin, Route } from "lucide-react";
 import type { BookingData } from "@/app/components/booking/booking-types";
 import type { BookingPriceResult } from "@/lib/api/bookings";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 
 type VenueAccessSummaryProps = {
   data: BookingData;

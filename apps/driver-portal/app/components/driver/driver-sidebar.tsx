@@ -6,7 +6,7 @@ import { Lock } from "lucide-react";
 import { AleetLogo } from "@/app/components/ui/aleet-logo";
 import { DriverNavIcon } from "./driver-nav-icon";
 import { driverNavItems } from "./driver-nav-config";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import { useUserStore } from "@/lib/user-store";
 
 const FULLY_APPROVED = new Set(["active", "approved"]);

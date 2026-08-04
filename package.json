@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "packages/*"
   ],
   "scripts": {
     "dev": "concurrently -n backend,frontend,driver -c blue,magenta,yellow \"npm run dev --workspace=swift-haven-backend\" \"npm run dev --workspace=aleet-frontend\" \"npm run dev --workspace=driver-aleet-frontend\"",

@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarDays, Clock3 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 
 type BookingMode = "buy-hours" | "multi-day";
 

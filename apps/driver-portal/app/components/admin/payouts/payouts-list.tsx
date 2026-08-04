@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import {
     PAYOUT_STATUS_LABELS,
     PAYOUT_STATUS_COLORS,

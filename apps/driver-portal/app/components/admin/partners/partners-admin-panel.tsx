@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import type { AdminPartnersPage, PartnerApplicationsPage } from "@/lib/admin-api";
 import { fetchPartnerUpdateRequestsClient } from "@/lib/admin-api";
 import { PartnerApplicationsList } from "./partner-applications-list";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import type { Region } from "./region-types";
 import { createRegionClient, updateRegionClient } from "@/lib/admin-api";
 

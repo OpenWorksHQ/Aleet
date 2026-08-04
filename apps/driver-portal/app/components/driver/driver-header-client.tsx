@@ -8,11 +8,13 @@ import { Lock } from "lucide-react";
 import { AleetLogo } from "@/app/components/ui/aleet-logo";
 import { DriverNavIcon } from "./driver-nav-icon";
 import { driverNavItems } from "./driver-nav-config";
-import { cn } from "@/lib/utils";
+import { cn } from "@aleet/shared";
 import { useTheme } from "@/app/components/theme-provider";
 import { useUserStore } from "@/lib/user-store";
 import { disconnectDriverSocket } from "@/lib/socket";
 import { sendPresenceOffline } from "@/lib/availability-api";
+import { clearAuthSession } from "@/lib/auth";
+import { withUploadToken } from "@/lib/upload-url";
 
 const STATUS_LABEL: Record<string, string> = {
     active: "Active",
@@ -83,11 +85,6 @@ const NOTIF_BG: Record<NotifType, string> = {
     warning: "bg-amber-400/10",
 };
 
-function clearAuthCookies() {
-    const expired = "path=/; max-age=0; SameSite=Lax";
-    document.cookie = `auth_token=; ${expired}`;
-    document.cookie = `auth_role=; ${expired}`;
-}
 
 export function DriverHeaderClient() {
     const [mobileOpen, setMobileOpen] = useState(false);
@@ -107,7 +104,8 @@ export function DriverHeaderClient() {
         return `${parts[0]} ${parts[parts.length - 1].charAt(0)}.`;
     })();
     const displayRole = profile?.role ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1) : "Driver";
-    const avatarUrl = profile?.avatar ?? null;
+    // /uploads is auth-gated and `<img>` cannot send an Authorization header.
+    const avatarUrl = withUploadToken(profile?.avatar) || null;
 
     useEffect(() => {
         function handleClick(e: MouseEvent) {
@@ -286,7 +284,7 @@ export function DriverHeaderClient() {
                             onClick={async () => {
                                 await sendPresenceOffline();
                                 disconnectDriverSocket();
-                                clearAuthCookies();
+                                clearAuthSession();
                                 window.location.href = "/login";
                             }}
                             aria-label="Sign out"
